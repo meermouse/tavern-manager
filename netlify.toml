@@ -1,0 +1,26 @@
+# Netlify deployment: static React app + the Hono API as a Netlify Function.
+#
+#   /            → apps/web/dist (static SPA)
+#   /api/*       → netlify/functions/api.ts  (path set in the function's config)
+#   /auth/*      → netlify/functions/api.ts
+#   (scheduled)  → netlify/functions/refresh.ts every 30 minutes
+
+[build]
+  command = "npm run build -w apps/web"
+  publish = "apps/web/dist"
+
+[build.environment]
+  NODE_VERSION = "22"
+
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+  # pg is CommonJS, so ship it as-is rather than bundling it into the ESM function.
+  # PGlite is only used for local dev / tests; production uses Postgres via DATABASE_URL.
+  external_node_modules = ["pg", "@electric-sql/pglite"]
+
+# SPA fallback. Function paths (/api/*, /auth/*) take precedence over redirects.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
