@@ -80,15 +80,20 @@ GET https://{region}.api.blizzard.com/profile/wow/character/{name}-{surname}
 
 ---
 
-## Data model (draft)
+## Data model
 
 ```
 users
   id, battlenet_id, battletag, display_name, created_at
 
+sessions
+  id (sha256 of cookie token), user_id → users, bnet_access_token,
+  bnet_token_expires_at, expires_at
+
 characters
   id, user_id → users, region, name, surname, ruleset,
-  class, race, level, last_synced_at
+  class, race, level, status (ok | pending | error), sync_error,
+  last_synced_at, last_attempt_at
 
 taverns
   id, name, owner_id → users, invite_code, created_at
@@ -106,83 +111,128 @@ tavern_characters
 
 ### Prerequisites
 - Node.js 20+
-- A Blizzard developer account and API client: <https://develop.battle.net/>
+- *(Optional for local dev)* A Blizzard developer account and API client: <https://develop.battle.net/>
   - Add your redirect URI, e.g. `http://localhost:5173/auth/callback`
+- *(Optional for local dev)* Postgres. Without `DATABASE_URL` the API uses an embedded Postgres ([PGlite](https://pglite.dev)) stored in `apps/api/.data/`.
 
-### Install
+### Install & run
 
 ```bash
-git clone <repo-url>
-cd tavern-tracker
 npm install
+npm run dev        # starts the Vite dev server (5173) and the API (8787)
 ```
+
+Then open <http://localhost:5173>.
+
+**Zero-config local mode:** with no Battle.net credentials, the API enables a *dev login* (sign in with any BattleTag) and a *mock Blizzard client* that returns deterministic fake character data. Any character whose name contains "pending" behaves like a low-level character the API doesn't return yet. Open a second browser profile to play as a friend.
 
 ### Environment variables
 
-Create `.env` in the API package (never commit this file):
+Copy `apps/api/.env.example` to `apps/api/.env` (never commit this file):
 
 ```bash
 BNET_CLIENT_ID=your_client_id
 BNET_CLIENT_SECRET=your_client_secret
 BNET_REDIRECT_URI=http://localhost:5173/auth/callback
 BNET_REGION=eu
-DATABASE_URL=postgres://...
+DATABASE_URL=postgres://...          # optional locally; required in production
 SESSION_SECRET=a_long_random_string
 ```
 
-And in the web app (`.env.local`):
+| Variable | Default | Notes |
+|---|---|---|
+| `DEV_LOGIN` | on when no Battle.net creds | Never enabled in production |
+| `BLIZZARD_MOCK` | on when no Battle.net creds | Fake character data |
+| `REFRESH_INTERVAL_MINUTES` | `30` | How stale a character must be before the scheduler refreshes it |
 
-```bash
-VITE_API_URL=http://localhost:8787
-```
-
-### Run locally
-
-```bash
-npm run dev        # starts the Vite dev server and the API
-```
-
-Then open <http://localhost:5173>.
+In the web app, `VITE_API_URL` (see `apps/web/.env.example`) only sets where the Vite dev server proxies `/api` and `/auth`. The browser always talks to the same origin, so cookies stay first-party.
 
 ### Scripts
 
 | Command | Description |
 |---|---|
 | `npm run dev` | Run frontend and API in development |
-| `npm run build` | Production build |
+| `npm run build` | Production build (API → `apps/api/dist`, web → `apps/web/dist`) |
+| `npm start` | Run the built API, which also serves the built web app |
 | `npm run lint` | Lint the codebase |
-| `npm test` | Run tests |
+| `npm run typecheck` | Type-check all packages |
+| `npm test` | Run tests (API against in-memory Postgres; table component in jsdom) |
 
 ---
 
-## Project structure (proposed)
+## Hosting on Netlify
+
+The repo is ready to deploy to Netlify as-is (`netlify.toml`):
+
+| Piece | Netlify feature |
+|---|---|
+| React app | Static site from `apps/web/dist`, with an SPA fallback |
+| API (`/api/*`, `/auth/*`) | One Netlify Function (`netlify/functions/api.ts`) running the same Hono app via `hono/netlify` |
+| Scheduled refresh | Scheduled Function (`netlify/functions/refresh.ts`), every 30 minutes |
+| Database | Postgres: [Netlify DB](https://docs.netlify.com/build/data-and-storage/netlify-db/) (Neon) sets `NETLIFY_DATABASE_URL` automatically, or any Postgres via `DATABASE_URL` |
+
+Because the API is served from the same origin as the site, there's no CORS to configure, and the session cookie is first-party.
+
+**Steps**
+
+1. Create a site from this repo in Netlify (build settings are picked up from `netlify.toml`).
+2. Add a database: either enable Netlify DB, or set `DATABASE_URL` to a Postgres (e.g. Neon or Supabase) connection string. Tables are created automatically on first request.
+3. In your Blizzard API client, add the redirect URI `https://<your-site>.netlify.app/auth/callback`.
+4. Set environment variables (Site configuration → Environment variables), scoped to **Functions**:
+   `BNET_CLIENT_ID`, `BNET_CLIENT_SECRET`, `BNET_REDIRECT_URI`, `BNET_REGION`, `SESSION_SECRET` (16+ random characters).
+5. Deploy.
+
+Deployed functions always run in production mode: Secure cookies, no dev login, no mock data. `netlify dev` keeps the local defaults.
+
+The plain Node server (`npm run build && npm start`) also works for hosts like Fly.io, Render or a VPS. It serves the API and the built web app from one process and runs the refresh on an in-process timer.
+
+---
+
+## How it works
+
+- **Auth:** Battle.net OAuth authorization-code flow (`openid wow.profile`). The CSRF `state` lives in a short-lived signed cookie. Sessions are random tokens in an httpOnly cookie, stored hashed in the `sessions` table (30 days). The user's Battle.net access token is kept on the session so characters can be imported.
+- **Characters:** added manually (first name + surname + region) or imported from `/profile/user/wow`. A character can only be claimed by one user (unique on region + name + surname, case-insensitive). If import fails, the UI falls back to manual entry.
+- **Blizzard client:** client-credentials app token (cached), `GET /profile/wow/character/{name}-{surname}?namespace=profile-forever-{region}`. A 404 marks the character **pending** and it is retried later. Because the Forever API is undocumented, the response parser is deliberately tolerant (`character_class`/`playable_class`, localized names, several ruleset shapes); see `apps/api/src/blizzard/client.ts`.
+- **Refresh & rate limits:** characters are refreshed sequentially, oldest first. The scheduler refreshes anything older than `REFRESH_INTERVAL_MINUTES`. "Refresh levels" on a tavern only refreshes characters older than 5 minutes, and per-character refresh has a 2-minute cooldown.
+
+---
+
+## Project structure
 
 ```
 tavern-tracker/
 ├── apps/
-│   ├── web/            # React + Vite frontend
+│   ├── web/                    # React + Vite frontend
 │   │   └── src/
-│   │       ├── pages/          # Login, Taverns, TavernDetail, MyCharacters
-│   │       ├── components/     # CharacterTable, AddCharacterForm, ...
-│   │       └── api/            # Typed client for our backend
-│   └── api/            # Backend: auth, Blizzard client, sync jobs
-│       └── src/
-│           ├── auth/           # Battle.net OAuth
-│           ├── blizzard/       # Forever API client
-│           └── routes/         # /me, /characters, /taverns
-└── package.json
+│   │       ├── pages/          # Login, Join, Taverns, TavernDetail, MyCharacters
+│   │       ├── components/     # CharacterTable, AddCharacterForm, Layout, ...
+│   │       └── api/            # Typed client + TanStack Query hooks
+│   └── api/                    # Hono backend
+│       ├── src/
+│       │   ├── auth/           # Battle.net OAuth
+│       │   ├── blizzard/       # Forever API client + mock
+│       │   ├── routes/         # /auth, /api/me, /api/characters, /api/taverns, /api/invites
+│       │   ├── schema.ts       # Idempotent Postgres schema
+│       │   ├── sync.ts         # Character sync + stale refresh
+│       │   └── index.ts        # Node server (local / self-hosted)
+│       └── test/
+├── netlify/functions/          # api.ts (HTTP) + refresh.ts (scheduled)
+├── netlify.toml
+└── package.json                # npm workspaces
 ```
 
 ---
 
 ## Roadmap
 
-- [ ] Battle.net OAuth login
-- [ ] Blizzard Forever API client with caching
-- [ ] Add characters (import or manual)
-- [ ] Create / join Taverns via invite code
-- [ ] Sortable character table
-- [ ] Scheduled refresh
+- [x] Battle.net OAuth login
+- [x] Blizzard Forever API client with caching
+- [x] Add characters (import or manual)
+- [x] Create / join Taverns via invite code
+- [x] Sortable character table
+- [x] Scheduled refresh
+- [ ] Verify Forever API response shapes against live data (parser is best-effort until the API is documented)
+- [ ] Ownership check for manually added characters
 - [ ] Roles and dungeon-planning filters
 
 ---
