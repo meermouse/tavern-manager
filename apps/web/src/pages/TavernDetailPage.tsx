@@ -5,6 +5,7 @@ import { api, type TavernDetail } from '../api/client';
 import { keys, useCharacters, useTavern } from '../api/hooks';
 import { AddCharacterForm } from '../components/AddCharacterForm';
 import { CharacterTable } from '../components/CharacterTable';
+import { DungeonTable } from '../components/DungeonTable';
 
 function InvitePanel({ tavern }: { tavern: TavernDetail }) {
   const qc = useQueryClient();
@@ -144,6 +145,7 @@ function MembersPanel({ tavern }: { tavern: TavernDetail }) {
 
 export function TavernDetailPage() {
   const { id = '' } = useParams();
+  const [view, setView] = useState<'characters' | 'dungeons'>('characters');
   const tavern = useTavern(id);
   const qc = useQueryClient();
   const refresh = useMutation({
@@ -175,7 +177,27 @@ export function TavernDetailPage() {
       </div>
       {refresh.error && <p className="error">{refresh.error.message}</p>}
 
-      <CharacterTable characters={t.characters} />
+      <div className="view-tabs" role="group" aria-label="Tavern views">
+        <button
+          className={view === 'characters' ? 'active' : ''}
+          aria-pressed={view === 'characters'}
+          onClick={() => setView('characters')}
+        >
+          Characters
+        </button>
+        <button
+          className={view === 'dungeons' ? 'active' : ''}
+          aria-pressed={view === 'dungeons'}
+          onClick={() => setView('dungeons')}
+        >
+          Dungeons
+        </button>
+      </div>
+      {view === 'characters' ? (
+        <CharacterTable characters={t.characters} />
+      ) : (
+        <DungeonTable characters={t.characters} />
+      )}
 
       <div className="three-col">
         <MyCharactersPanel tavern={t} />

@@ -19,6 +19,7 @@ Players sign in with their Battle.net account, add their characters, and join a 
 ### MVP
 - **Battle.net login.** OAuth 2.0 sign-in; no separate passwords.
 - **Add characters.** Import characters from the signed-in Battle.net account, or add one manually by first name + surname.
+- **Dungeon finder.** Browse the level-60 Classic dungeon list, recommended group sizes and faction access, with Tavern characters shown in every matching level range.
 - **Taverns.** Create a Tavern, invite friends with a shareable invite link/code, and choose which of your characters to add to it.
 - **Character list (primary screen).** A sortable, filterable table of every character in the selected Tavern, with these columns:
 
@@ -35,7 +36,6 @@ Players sign in with their Battle.net account, add their characters, and join a 
 
 ### Ideas for later
 - Role (tank / healer / DPS) per character
-- "Who can run this dungeon?" filter based on level ranges
 - Item level and gear
 - Last-updated timestamp and level-up history
 
