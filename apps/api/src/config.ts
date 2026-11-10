@@ -51,7 +51,7 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     port: Number(env.PORT ?? 8787),
     region: isRegion(region) ? region : 'eu',
     bnet,
-    databaseUrl: env.DATABASE_URL || env.NETLIFY_DATABASE_URL || null,
+    databaseUrl: env.DATABASE_URL || env.NETLIFY_DB_URL || env.NETLIFY_DATABASE_URL || null,
     pgliteDir: env.PGLITE_DIR ?? '.data/pglite',
     sessionSecret: sessionSecret || 'dev-only-insecure-session-secret',
     devLogin: bool(env.DEV_LOGIN, !production && !bnet),
