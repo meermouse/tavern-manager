@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Character } from './api/client';
-import { assignCharactersToDungeons } from './dungeons';
+import { assignCharactersToDungeons, dungeons } from './dungeons';
 
 function character(id: string, level: number | null): Character {
   return {
@@ -17,6 +17,30 @@ function character(id: string, level: number | null): Character {
     lastSyncedAt: null,
   };
 }
+
+describe('dungeon catalog', () => {
+  it('includes all new WoW Forever dungeons and Sunken Temple', () => {
+    const expectedNames = [
+      'Hall of Thanes',
+      'Ruins of Lordaeron',
+      'Excavation Site',
+      'City of Dalaran',
+      'The Drowned City',
+      'Krol’dok Stronghold',
+      'Alcaz Prison',
+      'Blackmaw Hold',
+      'Shaper’s Terrace',
+      'Sunken Temple',
+    ];
+    const catalogNames = new Set(dungeons.map((dungeon) => dungeon.name));
+
+    expect(dungeons).toHaveLength(34);
+    expect(expectedNames.filter((name) => !catalogNames.has(name))).toEqual([]);
+    for (const name of expectedNames.slice(0, 9)) {
+      expect(dungeons.find((dungeon) => dungeon.name === name)).toMatchObject({ players: 5, faction: 'Both' });
+    }
+  });
+});
 
 describe('assignCharactersToDungeons', () => {
   it('includes characters in every inclusive matching level range', () => {

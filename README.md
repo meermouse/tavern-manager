@@ -19,7 +19,7 @@ Players sign in with their Battle.net account, add their characters, and join a 
 ### MVP
 - **Battle.net login.** OAuth 2.0 sign-in; no separate passwords.
 - **Add characters.** Import characters from the signed-in Battle.net account, or add one manually by first name + surname.
-- **Dungeon finder.** Browse the level-60 Classic dungeon list, recommended group sizes and faction access, with Tavern characters shown in every matching level range.
+- **Dungeon finder.** Browse the original level-60 dungeons and nine new WoW Forever dungeons, with recommended group sizes and faction access. Tavern characters appear in every matching level range. New dungeon levels and access notes follow [Blizzard's dungeon announcement](https://news.blizzard.com/en-us/article/24301455/explore-the-new-dungeons-of-world-of-warcraft-forever).
 - **Taverns.** Create a Tavern, invite friends with a shareable invite link/code, and choose which of your characters to add to it.
 - **Character list (primary screen).** A sortable, filterable table of every character in the selected Tavern, with these columns:
 
