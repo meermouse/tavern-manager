@@ -17,6 +17,10 @@ export interface Character {
   class: string | null;
   race: string | null;
   level: number | null;
+  /** Last known zone: from the Blizzard API if it reports one, otherwise set by the player. */
+  zone: string | null;
+  zoneSource: 'api' | 'manual' | null;
+  zoneUpdatedAt: string | null;
   status: CharacterStatus;
   syncError: string | null;
   lastSyncedAt: string | null;
@@ -101,6 +105,8 @@ export const api = {
   importCharacters: () =>
     request<{ found: number; imported: number; skipped: number }>('POST', '/api/characters/import'),
   refreshCharacter: (id: string) => request<Character>('POST', `/api/characters/${id}/refresh`),
+  setCharacterZone: (id: string, zone: string | null) =>
+    request<Character>('PATCH', `/api/characters/${id}`, { zone }),
   deleteCharacter: (id: string) => request<{ ok: true }>('DELETE', `/api/characters/${id}`),
 
   taverns: () => request<TavernSummary[]>('GET', '/api/taverns'),
@@ -115,6 +121,8 @@ export const api = {
     request<{ ok: true }>('PUT', `/api/taverns/${tavernId}/characters/${characterId}`),
   removeFromTavern: (tavernId: string, characterId: string) =>
     request<{ ok: true }>('DELETE', `/api/taverns/${tavernId}/characters/${characterId}`),
+
+  mapCharacters: () => request<TavernCharacter[]>('GET', '/api/map'),
 
   invite: (code: string) => request<InvitePreview>('GET', `/api/invites/${encodeURIComponent(code)}`),
   joinInvite: (code: string) => request<{ tavernId: string }>('POST', `/api/invites/${encodeURIComponent(code)}/join`),

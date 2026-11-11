@@ -2,7 +2,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { api } from '../api/client';
-import { keys, useTaverns } from '../api/hooks';
+import { keys, useMapCharacters, useMe, useTaverns } from '../api/hooks';
+import { WorldMap } from '../components/WorldMap';
 
 /** Accepts either a bare code or a full invite link. */
 export function parseInviteCode(input: string): string {
@@ -13,6 +14,8 @@ export function parseInviteCode(input: string): string {
 
 export function TavernsPage() {
   const taverns = useTaverns();
+  const me = useMe();
+  const mapCharacters = useMapCharacters();
   const qc = useQueryClient();
   const navigate = useNavigate();
   const [name, setName] = useState('');
@@ -47,6 +50,12 @@ export function TavernsPage() {
             </Link>
           ))}
         </div>
+      </section>
+
+      <section>
+        <h2 className="section-title">Map of Azeroth</h2>
+        {mapCharacters.error && <p className="error">{mapCharacters.error.message}</p>}
+        {me.data && <WorldMap characters={mapCharacters.data ?? []} meId={me.data.id} />}
       </section>
 
       <div className="two-col">

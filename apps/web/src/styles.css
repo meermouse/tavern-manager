@@ -165,3 +165,63 @@ td.actions { text-align: right; display: flex; gap: 0.4rem; justify-content: fle
   td[data-label]::before { content: attr(data-label); color: var(--muted); font-size: 0.8rem; }
   td.actions { justify-content: flex-start; }
 }
+
+/* ---- World map ---- */
+.section-title { font-size: 1.5rem; }
+.world-map { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 1rem; align-items: start; }
+.map-frame { position: relative; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; background: #0c1a24; aspect-ratio: 10 / 7; }
+.map-frame svg { display: block; width: 100%; height: 100%; user-select: none; }
+.map-crumbs {
+  position: absolute; top: 0.6rem; left: 0.6rem; z-index: 1; display: flex; gap: 0.4rem; align-items: center;
+  background: rgba(23, 17, 12, 0.85); border: 1px solid var(--border); border-radius: 999px; padding: 0.2rem 0.75rem; font-size: 0.85rem;
+}
+.map-crumbs button.link:disabled { opacity: 1; cursor: default; color: var(--text); }
+.map-crumbs button.link:not(:disabled) { color: var(--accent); }
+.map-zoom-out { position: absolute; top: 0.6rem; right: 0.6rem; z-index: 1; }
+.map-hover {
+  position: absolute; bottom: 0.6rem; left: 0.6rem; z-index: 1; pointer-events: none; font-size: 0.85rem;
+  background: rgba(23, 17, 12, 0.85); border: 1px solid var(--border); border-radius: 6px; padding: 0.15rem 0.6rem;
+}
+.map-shore { fill: none; stroke: #6fa3b5; stroke-opacity: 0.25; stroke-linejoin: round; }
+.map-coast { fill: none; stroke: #2a1d10; stroke-linejoin: round; pointer-events: none; }
+.map-zone { stroke: #2a1d10; stroke-opacity: 0.7; stroke-linejoin: round; cursor: pointer; transition: filter 0.15s, opacity 0.3s; outline: none; }
+.map-zone.hover, .map-zone:focus-visible { filter: brightness(1.3) saturate(1.1); }
+.map-zone.dim { opacity: 0.55; filter: grayscale(0.4) brightness(0.75); }
+.map-zone.dim.hover { filter: brightness(1); opacity: 0.8; }
+.map-continent-label, .map-zone-label, .map-capital-label, .map-sea-label {
+  font-family: Georgia, 'Times New Roman', serif; text-anchor: middle; paint-order: stroke; stroke-linejoin: round; pointer-events: none;
+}
+.map-continent-label { fill: #f4ead8; stroke: #1a120a; stroke-width: 4px; font-weight: 600; letter-spacing: 0.08em; }
+.map-zone-label { fill: #f8efdc; stroke: #1a120a; stroke-width: 0.35em; font-weight: 600; }
+.map-zone-label.new { fill: #ffd27a; }
+.map-capital-label { fill: #f4ead8; stroke: #1a120a; stroke-width: 0.3em; font-style: italic; }
+.map-sea-label { fill: #5c8aa1; font-style: italic; letter-spacing: 0.3em; opacity: 0.6; }
+.map-pin { cursor: pointer; }
+.map-pin circle { stroke: #1a120a; }
+.map-pin.mine circle { stroke: var(--accent); }
+.map-pin text { text-anchor: middle; font-weight: 700; fill: #1a120a; font-family: system-ui, sans-serif; pointer-events: none; }
+.map-pin:hover circle { filter: brightness(1.2); }
+.map-panel h3, .map-locations h3 { font-family: Georgia, serif; font-size: 0.95rem; margin: 0.9rem 0 0.35rem; }
+.map-list { list-style: none; padding: 0; margin: 0; }
+.map-list li { display: flex; justify-content: space-between; gap: 0.5rem; padding: 0.2rem 0; border-bottom: 1px solid rgba(74, 56, 37, 0.5); font-size: 0.9rem; }
+.map-list li:last-child { border-bottom: none; }
+.map-list.zones { max-height: 26rem; overflow-y: auto; padding-right: 0.25rem; }
+.badge.new { color: #ffd27a; border-color: #ffd27a; }
+.faction.alliance { color: #6fa0ec; }
+.faction.horde { color: #e2685a; }
+.faction.contested { color: var(--accent); }
+.faction.sanctuary { color: #8fd18f; }
+.map-legend { display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap; margin-top: 0.75rem; }
+.legend-diamond { display: inline-block; width: 0.6rem; height: 0.6rem; transform: rotate(45deg); border: 1px solid var(--text); }
+.legend-diamond.alliance { background: #4a86e0; }
+.legend-diamond.horde { background: #d04a36; margin-left: 0.5rem; }
+.map-locations { grid-column: 1 / -1; }
+.location-list { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 0.5rem 1.5rem; }
+.location-list label { display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; font-weight: 600; }
+.location-list label > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.location-list select { flex: 0 0 13rem; }
+.nowrap { white-space: nowrap; }
+@media (max-width: 800px) {
+  .world-map { grid-template-columns: 1fr; }
+}
+.map-texture { pointer-events: none; opacity: 0.55; mix-blend-mode: multiply; }

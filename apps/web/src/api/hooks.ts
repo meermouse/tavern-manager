@@ -6,6 +6,7 @@ export const keys = {
   characters: ['characters'] as const,
   taverns: ['taverns'] as const,
   tavern: (id: string) => ['taverns', id] as const,
+  map: ['map'] as const,
   invite: (code: string) => ['invite', code] as const,
 };
 
@@ -34,4 +35,8 @@ export function useTaverns() {
 
 export function useTavern(id: string) {
   return useQuery({ queryKey: keys.tavern(id), queryFn: () => api.tavern(id) });
+}
+
+export function useMapCharacters() {
+  return useQuery({ queryKey: keys.map, queryFn: api.mapCharacters });
 }

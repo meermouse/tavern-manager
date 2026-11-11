@@ -12,6 +12,9 @@ export interface CharacterRow {
   class: string | null;
   race: string | null;
   level: number | null;
+  zone: string | null;
+  zone_source: 'api' | 'manual' | null;
+  zone_updated_at: Date | null;
   status: 'ok' | 'pending' | 'error';
   sync_error: string | null;
   last_synced_at: Date | null;
@@ -36,9 +39,12 @@ export async function syncCharacter(db: Db, blizzard: BlizzardClient, row: Chara
     const [updated] = await db.query<CharacterRow>(
       `update characters set
          name = $2, surname = $3, class = $4, race = $5, level = $6, ruleset = $7,
+         zone = coalesce($8, zone),
+         zone_source = case when $8::text is null then zone_source else 'api' end,
+         zone_updated_at = case when $8::text is null then zone_updated_at else now() end,
          status = 'ok', sync_error = null, last_synced_at = now(), last_attempt_at = now()
        where id = $1 returning *`,
-      [row.id, profile.name, profile.surname, profile.class, profile.race, profile.level, profile.ruleset],
+      [row.id, profile.name, profile.surname, profile.class, profile.race, profile.level, profile.ruleset, profile.zone],
     );
     return updated;
   } catch (err) {

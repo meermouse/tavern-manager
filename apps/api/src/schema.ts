@@ -42,6 +42,10 @@ create table if not exists characters (
 create unique index if not exists characters_identity_idx
   on characters(region, lower(name), lower(surname));
 create index if not exists characters_user_idx on characters(user_id);
+-- Last known zone: from the Blizzard API when it reports one, otherwise set by the player.
+alter table characters add column if not exists zone text;
+alter table characters add column if not exists zone_source text;
+alter table characters add column if not exists zone_updated_at timestamptz;
 
 create table if not exists taverns (
   id uuid primary key default gen_random_uuid(),

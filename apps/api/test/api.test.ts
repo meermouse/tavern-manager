@@ -88,6 +88,53 @@ describe('characters', () => {
   });
 });
 
+describe('character locations', () => {
+  it('lets owners set and clear a zone manually', async () => {
+    const { login } = await setup();
+    const alice = await login('Alice#1234');
+    const bob = await login('Bob#5678');
+    const ch = (await alice.post('/api/characters', { name: 'Judgement', surname: 'Judy' })).body;
+    expect(ch.zone).toEqual(expect.any(String)); // mock API reports a zone
+    expect(ch.zoneSource).toBe('api');
+
+    const set = await alice.patch(`/api/characters/${ch.id}`, { zone: 'Riverglades' });
+    expect(set.body).toMatchObject({ zone: 'Riverglades', zoneSource: 'manual' });
+    expect((await alice.patch(`/api/characters/${ch.id}`, { zone: '' })).status).toBe(400);
+    expect((await bob.patch(`/api/characters/${ch.id}`, { zone: 'Durotar' })).status).toBe(404);
+
+    const cleared = await alice.patch(`/api/characters/${ch.id}`, { zone: null });
+    expect(cleared.body).toMatchObject({ zone: null, zoneSource: null });
+  });
+
+  it('keeps a manual zone when the API reports none', async () => {
+    const { login, db } = await setup();
+    const alice = await login('Alice#1234');
+    const ch = (await alice.post('/api/characters', { name: 'Pendingly', surname: 'Lowbie' })).body;
+    await alice.patch(`/api/characters/${ch.id}`, { zone: 'Zephras Isle' });
+    await db.query(`update characters set last_attempt_at = now() - interval '1 hour'`);
+    const refreshed = (await alice.post(`/api/characters/${ch.id}/refresh`)).body;
+    expect(refreshed.zone).toBe('Zephras Isle');
+  });
+
+  it('maps your characters and your tavern-mates\' characters', async () => {
+    const { login } = await setup();
+    const alice = await login('Alice#1234');
+    const bob = await login('Bob#5678');
+    const carol = await login('Carol#9999');
+    const tavern = (await alice.post('/api/taverns', { name: 'Pony' })).body;
+    await bob.post(`/api/invites/${tavern.inviteCode}/join`);
+    const a = (await alice.post('/api/characters', { name: 'Judgement', surname: 'Judy' })).body;
+    const b = (await bob.post('/api/characters', { name: 'Grimble', surname: 'Thornwick' })).body;
+    await bob.post('/api/characters', { name: 'Hidden', surname: 'Alt' }); // not in the tavern
+    await carol.post('/api/characters', { name: 'Stranger', surname: 'Danger' });
+    await bob.put(`/api/taverns/${tavern.id}/characters/${b.id}`);
+
+    const map = (await alice.get('/api/map')).body;
+    expect(map.map((c: { id: string }) => c.id).sort()).toEqual([a.id, b.id].sort());
+    expect(map.find((c: { id: string }) => c.id === b.id)).toMatchObject({ ownerName: 'Bob', zone: expect.any(String) });
+  });
+});
+
 describe('taverns', () => {
   it('create, invite, join, add characters, and view the table', async () => {
     const { login } = await setup();

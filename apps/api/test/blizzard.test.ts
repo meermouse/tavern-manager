@@ -5,6 +5,7 @@ import {
   normalizeRuleset,
   parseAccountCharacters,
   parseCharacterProfile,
+  parseZone,
 } from '../src/blizzard/client.js';
 import { safeNext } from '../src/routes/auth.js';
 
@@ -21,7 +22,7 @@ describe('parseCharacterProfile', () => {
       },
       { name: 'judgement', surname: 'judy' },
     );
-    expect(p).toEqual({ name: 'Judgement', surname: 'Judy', class: 'Paladin', race: 'Human', level: 42, ruleset: 'Roleplay PvP' });
+    expect(p).toEqual({ name: 'Judgement', surname: 'Judy', class: 'Paladin', race: 'Human', level: 42, ruleset: 'Roleplay PvP', zone: null });
   });
 
   it('handles localized names and missing fields', () => {
@@ -30,6 +31,18 @@ describe('parseCharacterProfile', () => {
       { name: 'judgement', surname: 'judy' },
     );
     expect(p).toMatchObject({ name: 'Judgement', surname: 'judy', class: 'Mage', race: null, level: 7, ruleset: null });
+  });
+});
+
+describe('parseZone', () => {
+  it.each([
+    [{}, null],
+    [{ zone: 'Elwynn Forest' }, 'Elwynn Forest'],
+    [{ zone: { id: 12, name: { en_US: 'Elwynn Forest' } } }, 'Elwynn Forest'],
+    [{ location: { zone: { name: 'Riverglades' } } }, 'Riverglades'],
+    [{ last_location: { area: 'Mount Hyjal' } }, 'Mount Hyjal'],
+  ])('reads %j', (json, zone) => {
+    expect(parseZone(json)).toBe(zone);
   });
 });
 
