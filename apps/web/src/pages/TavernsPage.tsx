@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { api } from '../api/client';
 import { keys, useTaverns } from '../api/hooks';
+import { MapSection } from '../components/MapSection';
 
 /** Accepts either a bare code or a full invite link. */
 export function parseInviteCode(input: string): string {
@@ -48,6 +49,8 @@ export function TavernsPage() {
           ))}
         </div>
       </section>
+
+      <MapSection />
 
       <div className="two-col">
         <section className="card">
