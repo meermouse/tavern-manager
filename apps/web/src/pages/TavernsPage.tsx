@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { api } from '../api/client';
 import { keys, useTaverns } from '../api/hooks';
-import { WorldMap } from '../components/WorldMap';
+import { MapSection } from '../components/MapSection';
 
 /** Accepts either a bare code or a full invite link. */
 export function parseInviteCode(input: string): string {
@@ -50,10 +50,7 @@ export function TavernsPage() {
         </div>
       </section>
 
-      <section>
-        <h2 className="section-title">Map of Azeroth</h2>
-        <WorldMap />
-      </section>
+      <MapSection />
 
       <div className="two-col">
         <section className="card">
