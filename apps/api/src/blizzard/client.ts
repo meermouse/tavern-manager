@@ -9,8 +9,6 @@ export interface CharacterProfile {
   race: string | null;
   level: number | null;
   ruleset: string | null;
-  /** Current/last zone, if the API reports one. The public profile API doesn't today. */
-  zone: string | null;
 }
 
 export interface AccountCharacter {
@@ -91,22 +89,7 @@ export function parseCharacterProfile(json: Json, fallback: { name: string; surn
     race: nameOf(json.race) ?? nameOf(json.playable_race),
     level: Number.isFinite(level) ? level : null,
     ruleset,
-    zone: parseZone(json),
   };
-}
-
-/**
- * Blizzard's profile API doesn't currently expose a character's location. If the Forever
- * endpoint ever does, pick it up from the likeliest shapes so the map lights up automatically.
- */
-export function parseZone(json: Json): string | null {
-  const location = json.location ?? json.last_location ?? json.current_location;
-  if (location && typeof location === 'object') {
-    const loc = location as Json;
-    const zone = nameOf(loc.zone) ?? nameOf(loc.area) ?? nameOf(loc.map) ?? text(loc.name);
-    if (zone) return zone;
-  }
-  return nameOf(json.zone) ?? nameOf(json.current_zone) ?? nameOf(json.last_zone);
 }
 
 export function parseAccountCharacters(json: Json): AccountCharacter[] {

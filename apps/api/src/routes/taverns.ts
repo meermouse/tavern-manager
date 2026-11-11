@@ -172,24 +172,6 @@ export function tavernRoutes({ db, blizzard }: AppDeps) {
     return c.json(await detail(tavern, user.id));
   });
 
-  // ---- World map: your characters plus everyone's in your taverns ----
-
-  app.get('/map', async (c) => {
-    const user = requireUser(c);
-    const rows = await db.query<CharacterRow & { owner_name: string }>(
-      `select c.*, u.display_name as owner_name from characters c
-       join users u on u.id = c.user_id
-       where c.user_id = $1
-          or c.id in (
-            select tc.character_id from tavern_characters tc
-            join tavern_members m on m.tavern_id = tc.tavern_id
-            where m.user_id = $1)
-       order by c.level desc nulls last, c.name`,
-      [user.id],
-    );
-    return c.json(rows.map((r) => ({ ...serializeCharacter(r), ownerId: r.user_id, ownerName: r.owner_name })));
-  });
-
   // ---- Characters in a tavern ----
 
   app.put('/taverns/:id/characters/:characterId', async (c) => {

@@ -185,9 +185,9 @@ td.actions { text-align: right; display: flex; gap: 0.4rem; justify-content: fle
 .map-shore { fill: none; stroke: #6fa3b5; stroke-opacity: 0.25; stroke-linejoin: round; }
 .map-coast { fill: none; stroke: #2a1d10; stroke-linejoin: round; pointer-events: none; }
 .map-zone { stroke: #2a1d10; stroke-opacity: 0.7; stroke-linejoin: round; cursor: pointer; transition: filter 0.15s, opacity 0.3s; outline: none; }
-.map-zone.hover, .map-zone:focus-visible { filter: brightness(1.3) saturate(1.1); }
+.map-zone:hover, .map-zone:focus-visible { filter: brightness(1.3) saturate(1.1); }
 .map-zone.dim { opacity: 0.55; filter: grayscale(0.4) brightness(0.75); }
-.map-zone.dim.hover { filter: brightness(1); opacity: 0.8; }
+.map-zone.dim:hover { filter: brightness(1); opacity: 0.8; }
 .map-continent-label, .map-zone-label, .map-capital-label, .map-sea-label {
   font-family: Georgia, 'Times New Roman', serif; text-anchor: middle; paint-order: stroke; stroke-linejoin: round; pointer-events: none;
 }
@@ -196,12 +196,7 @@ td.actions { text-align: right; display: flex; gap: 0.4rem; justify-content: fle
 .map-zone-label.new { fill: #ffd27a; }
 .map-capital-label { fill: #f4ead8; stroke: #1a120a; stroke-width: 0.3em; font-style: italic; }
 .map-sea-label { fill: #5c8aa1; font-style: italic; letter-spacing: 0.3em; opacity: 0.6; }
-.map-pin { cursor: pointer; }
-.map-pin circle { stroke: #1a120a; }
-.map-pin.mine circle { stroke: var(--accent); }
-.map-pin text { text-anchor: middle; font-weight: 700; fill: #1a120a; font-family: system-ui, sans-serif; pointer-events: none; }
-.map-pin:hover circle { filter: brightness(1.2); }
-.map-panel h3, .map-locations h3 { font-family: Georgia, serif; font-size: 0.95rem; margin: 0.9rem 0 0.35rem; }
+.map-panel h3 { font-family: Georgia, serif; font-size: 0.95rem; margin: 0.9rem 0 0.35rem; }
 .map-list { list-style: none; padding: 0; margin: 0; }
 .map-list li { display: flex; justify-content: space-between; gap: 0.5rem; padding: 0.2rem 0; border-bottom: 1px solid rgba(74, 56, 37, 0.5); font-size: 0.9rem; }
 .map-list li:last-child { border-bottom: none; }
@@ -211,17 +206,32 @@ td.actions { text-align: right; display: flex; gap: 0.4rem; justify-content: fle
 .faction.horde { color: #e2685a; }
 .faction.contested { color: var(--accent); }
 .faction.sanctuary { color: #8fd18f; }
-.map-legend { display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap; margin-top: 0.75rem; }
-.legend-diamond { display: inline-block; width: 0.6rem; height: 0.6rem; transform: rotate(45deg); border: 1px solid var(--text); }
-.legend-diamond.alliance { background: #4a86e0; }
-.legend-diamond.horde { background: #d04a36; margin-left: 0.5rem; }
-.map-locations { grid-column: 1 / -1; }
-.location-list { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 0.5rem 1.5rem; }
-.location-list label { display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; font-weight: 600; }
-.location-list label > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.location-list select { flex: 0 0 13rem; }
-.nowrap { white-space: nowrap; }
 @media (max-width: 800px) {
   .world-map { grid-template-columns: 1fr; }
 }
 .map-texture { pointer-events: none; opacity: 0.55; mix-blend-mode: multiply; }
+.map-panel { display: flex; flex-direction: column; }
+.map-poi { cursor: pointer; outline: none; }
+.map-poi:hover .poi-capital, .map-poi:hover .poi-town, .map-poi:hover .poi-dungeon, .map-poi:focus-visible .poi-dungeon { filter: brightness(1.35); }
+.poi-capital { stroke: #f4ead8; stroke-linejoin: round; }
+.poi-town { stroke: #1a120a; }
+.poi-dungeon path:first-child { fill: #1a120a; stroke: #e0a43c; stroke-linejoin: round; }
+.poi-dungeon-portal { fill: #a678ff; }
+.poi-selected { fill: none; stroke: var(--accent); animation: poi-pulse 1.4s ease-in-out infinite; }
+@keyframes poi-pulse { 50% { stroke-opacity: 0.3; } }
+.map-poi-label { font-family: Georgia, 'Times New Roman', serif; text-anchor: middle; paint-order: stroke; stroke: #1a120a; stroke-width: 0.3em; stroke-linejoin: round; fill: #e9dcc2; font-style: italic; pointer-events: none; }
+.map-poi-label.kind-capital { fill: #fff3d6; font-weight: 700; font-style: normal; }
+.map-poi-label.kind-dungeon { fill: #d9c2ff; }
+.legend-icon { width: 1rem; height: 1rem; flex: none; vertical-align: middle; overflow: visible; }
+.map-legend { margin-top: 1rem; padding-top: 0.5rem; border-top: 1px solid var(--border); }
+.map-legend h3 { margin-top: 0.25rem; }
+.map-legend ul { list-style: none; padding: 0; margin: 0 0 0.5rem; display: grid; gap: 0.3rem; font-size: 0.88rem; }
+.map-legend li, .map-legend label { display: flex; align-items: center; gap: 0.4rem; }
+.map-legend label { cursor: pointer; }
+.poi-link { display: inline-flex; align-items: center; gap: 0.45rem; text-align: left; }
+.map-list li.selected { background: rgba(224, 164, 60, 0.12); border-radius: 4px; }
+.map-list li.dungeon-entry { flex-direction: column; gap: 0.1rem; }
+.dungeon-head { display: flex; justify-content: space-between; gap: 0.5rem; }
+.instance-list { list-style: none; margin: 0; padding: 0 0 0 1.45rem; }
+.instance-list li { display: flex; justify-content: space-between; font-size: 0.82rem; padding: 0.05rem 0; border: none; }
+.poi-note { margin: 0 0 0 1.45rem; }

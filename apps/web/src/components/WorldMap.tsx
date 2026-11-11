@@ -1,46 +1,55 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { api, type TavernCharacter } from '../api/client';
-import { keys } from '../api/hooks';
-import { dungeons } from '../dungeons';
+import { dungeons as DUNGEONS } from '../dungeons';
 import {
   BIOME_COLOURS,
   CONTINENTS,
   LANDMASS_SHAPES,
+  POIS,
   WORLD,
   ZONE_SHAPES,
   ZONES,
   continentBox,
-  findZone,
   levelRange,
   type ContinentId,
+  type Poi,
+  type PoiFaction,
   type ZoneShape,
 } from '../map/azeroth';
 import { fitAspect, lerpBox, pad, polygonPath, smoothPath, type Box } from '../map/geometry';
 
 const ASPECT = WORLD.w / WORLD.h;
-const CLASS_KEYS = ['warrior', 'paladin', 'hunter', 'rogue', 'priest', 'shaman', 'mage', 'warlock', 'druid'];
 
 type View =
   | { level: 'world' }
   | { level: 'continent'; continent: ContinentId }
   | { level: 'zone'; zoneId: string };
 
-function continentName(id: ContinentId) {
-  return CONTINENTS.find((c) => c.id === id)!.name;
+interface Layers {
+  towns: boolean;
+  dungeons: boolean;
 }
+
+const FACTION_COLOURS: Record<PoiFaction, string> = {
+  Alliance: '#4a86e0',
+  Horde: '#d04a36',
+  Neutral: '#e0b84a',
+};
+
+const zoneById = (id: string) => ZONE_SHAPES.find((z) => z.id === id)!;
+const continentName = (id: ContinentId) => CONTINENTS.find((c) => c.id === id)!.name;
+const dungeonInfo = (name: string) => DUNGEONS.find((d) => d.name === name);
 
 function targetBox(view: View): Box {
   if (view.level === 'world') return WORLD;
   if (view.level === 'continent') return fitAspect(pad(continentBox(view.continent), 22), ASPECT);
-  const zone = ZONE_SHAPES.find((z) => z.id === view.zoneId)!;
+  const zone = zoneById(view.zoneId);
   const size = Math.max(zone.landBox.w, zone.landBox.h, 120);
   return fitAspect(pad(zone.landBox, size * 0.8), ASPECT);
 }
 
 function parent(view: View): View {
   if (view.level === 'zone') {
-    const zone = ZONES.find((z) => z.id === view.zoneId)!;
+    const zone = zoneById(view.zoneId);
     // Zephras Isle is a one-zone "continent": skip straight back out to the world.
     return zone.continent === 'zephras' ? { level: 'world' } : { level: 'continent', continent: zone.continent };
   }
@@ -74,53 +83,95 @@ function useAnimatedBox(target: Box): Box {
   return box;
 }
 
-function classColour(cls: string | null) {
-  const key = cls?.toLowerCase().replace(/\s+/g, '') ?? '';
-  return CLASS_KEYS.includes(key) ? `var(--class-${key})` : 'var(--muted)';
+function dungeonLevels(poi: Poi): string | null {
+  const levels = (poi.dungeons ?? []).map(dungeonInfo).filter((d) => d != null);
+  if (!levels.length) return null;
+  return `${Math.min(...levels.map((d) => d.minLevel))}–${Math.max(...levels.map((d) => d.maxLevel))}`;
 }
 
-function describe(c: TavernCharacter) {
-  return `${c.name} ${c.surname} — ${c.level != null ? `level ${c.level}` : 'pending'}${c.class ? ` ${c.class}` : ''} (${c.ownerName})`;
+function poiSummary(poi: Poi): string {
+  if (poi.kind === 'dungeon') {
+    const levels = dungeonLevels(poi);
+    return levels ? `Dungeon · ${levels}` : 'Dungeon';
+  }
+  return `${poi.faction ?? ''}${poi.kind === 'capital' ? ' capital' : ' town'}`.trim();
 }
 
-export function WorldMap({ characters, meId }: { characters: TavernCharacter[]; meId: string }) {
+/** Map icons, centred on (x, y) with half-size `r`. Shared by the map and the legend. */
+function PoiIcon({ kind, faction, x, y, r }: { kind: Poi['kind']; faction?: PoiFaction; x: number; y: number; r: number }) {
+  if (kind === 'capital') {
+    // A little castle: walls with three merlons.
+    const d =
+      [
+        [-1, 1], [-1, -0.55], [-0.6, -0.55], [-0.6, -1], [-0.2, -1], [-0.2, -0.55],
+        [0.2, -0.55], [0.2, -1], [0.6, -1], [0.6, -0.55], [1, -0.55], [1, 1],
+      ]
+        .map(([dx, dy], i) => `${i ? 'L' : 'M'}${x + dx * r},${y + dy * r}`)
+        .join('') + 'Z';
+    return <path d={d} fill={FACTION_COLOURS[faction ?? 'Neutral']} className="poi-capital" strokeWidth={r * 0.22} />;
+  }
+  if (kind === 'town') {
+    return <circle cx={x} cy={y} r={r} fill={FACTION_COLOURS[faction ?? 'Neutral']} className="poi-town" strokeWidth={r * 0.35} />;
+  }
+  // Dungeon: an archway with a glowing portal.
+  const arch = (k: number) =>
+    `M${x - r * k},${y + r * k}L${x - r * k},${y - r * k * 0.15}A${r * k},${r * k} 0 0 1 ${x + r * k},${y - r * k * 0.15}L${x + r * k},${y + r * k}Z`;
+  return (
+    <g className="poi-dungeon">
+      <path d={arch(1)} strokeWidth={r * 0.22} />
+      <path d={arch(0.55)} className="poi-dungeon-portal" />
+    </g>
+  );
+}
+
+function LegendIcon({ kind, faction }: { kind: Poi['kind']; faction?: PoiFaction }) {
+  return (
+    <svg viewBox="-10 -10 20 20" className="legend-icon" aria-hidden>
+      <PoiIcon kind={kind} faction={faction} x={0} y={0} r={kind === 'town' ? 5 : 8} />
+    </svg>
+  );
+}
+
+export function WorldMap() {
   const [view, setView] = useState<View>({ level: 'world' });
-  const [hover, setHover] = useState<string | null>(null);
+  const [hover, setHover] = useState<{ title: string; detail: string } | null>(null);
+  const [selectedPoi, setSelectedPoi] = useState<string | null>(null);
+  const [layers, setLayers] = useState<Layers>({ towns: true, dungeons: true });
   const target = useMemo(() => targetBox(view), [view]);
   const box = useAnimatedBox(target);
   const s = box.w / WORLD.w; // world units per "screen unit" at full-map scale
 
-  const byZone = useMemo(() => {
-    const map = new Map<string, TavernCharacter[]>();
-    const unknown: TavernCharacter[] = [];
-    for (const c of characters) {
-      const zone = findZone(c.zone);
-      if (!zone) {
-        unknown.push(c);
-        continue;
-      }
-      map.set(zone.id, [...(map.get(zone.id) ?? []), c]);
-    }
-    return { map, unknown };
-  }, [characters]);
-
-  const zoomOut = () => setView((v) => parent(v));
-  const open = (zone: ZoneShape) => {
-    if (view.level === 'world' && zone.continent !== 'zephras') setView({ level: 'continent', continent: zone.continent });
-    else setView({ level: 'zone', zoneId: zone.id });
+  const go = (next: View) => {
+    setView(next);
+    setSelectedPoi(null);
+  };
+  const zoomOut = () => go(parent(view));
+  const openZone = (zone: ZoneShape) => {
+    if (view.level === 'world' && zone.continent !== 'zephras') go({ level: 'continent', continent: zone.continent });
+    else go({ level: 'zone', zoneId: zone.id });
+  };
+  const openPoi = (poi: Poi) => {
+    setView({ level: 'zone', zoneId: poi.zoneId });
+    setSelectedPoi(poi.id);
   };
 
-  const selectedZone = view.level === 'zone' ? ZONE_SHAPES.find((z) => z.id === view.zoneId)! : null;
-  const activeContinent =
-    view.level === 'continent' ? view.continent : selectedZone ? selectedZone.continent : null;
-  const showZoneLabels = view.level !== 'world';
-  const hovered = hover ? ZONE_SHAPES.find((z) => z.id === hover) : null;
+  const selectedZone = view.level === 'zone' ? zoneById(view.zoneId) : null;
+  const activeContinent = view.level === 'continent' ? view.continent : selectedZone ? selectedZone.continent : null;
+  const zoomedIn = view.level !== 'world';
+
+  const visiblePois = POIS.filter((p) => {
+    if (!zoomedIn) return p.kind === 'capital';
+    if (zoneById(p.zoneId).continent !== activeContinent) return false;
+    return p.kind === 'town' ? layers.towns : layers.dungeons;
+  });
+  const poiLabelled = (p: Poi) =>
+    view.level === 'zone' ? zoneById(p.zoneId).continent === activeContinent : view.level === 'continent' && p.kind === 'capital';
 
   return (
     <div className="world-map">
       <div className="map-frame">
         <nav className="map-crumbs" aria-label="Map location">
-          <button className="link" onClick={() => setView({ level: 'world' })} disabled={view.level === 'world'}>
+          <button className="link" onClick={() => go({ level: 'world' })} disabled={view.level === 'world'}>
             Azeroth
           </button>
           {activeContinent && activeContinent !== 'zephras' && (
@@ -128,7 +179,7 @@ export function WorldMap({ characters, meId }: { characters: TavernCharacter[]; 
               <span aria-hidden>›</span>
               <button
                 className="link"
-                onClick={() => setView({ level: 'continent', continent: activeContinent })}
+                onClick={() => go({ level: 'continent', continent: activeContinent })}
                 disabled={view.level === 'continent'}
               >
                 {continentName(activeContinent)}
@@ -142,21 +193,22 @@ export function WorldMap({ characters, meId }: { characters: TavernCharacter[]; 
             </>
           )}
         </nav>
-        {view.level !== 'world' && (
+        {zoomedIn && (
           <button className="map-zoom-out small" onClick={zoomOut} title="Zoom out (right-click)">
             − Zoom out
           </button>
         )}
-        {hovered && (
+        {hover && (
           <div className="map-hover" aria-hidden>
-            <strong>{hovered.name}</strong> <span className="muted">· {levelRange(hovered)}</span>
+            <strong>{hover.title}</strong>
+            {hover.detail && <span className="muted"> · {hover.detail}</span>}
           </div>
         )}
 
         <svg
           viewBox={`${box.x} ${box.y} ${box.w} ${box.h}`}
           role="img"
-          aria-label="Map of Azeroth showing where characters are"
+          aria-label="Map of Azeroth"
           onContextMenu={(e) => {
             e.preventDefault();
             zoomOut();
@@ -188,7 +240,7 @@ export function WorldMap({ characters, meId }: { characters: TavernCharacter[]; 
 
           <rect x={-1000} y={-1000} width={3000} height={2700} fill="url(#sea)" />
           <rect x={-1000} y={-1000} width={3000} height={2700} fill="url(#waves)" />
-          {view.level === 'world' && <text x={510} y={380} className="map-sea-label" fontSize={14}>The Great Sea</text>}
+          {!zoomedIn && <text x={510} y={380} className="map-sea-label" fontSize={14}>The Great Sea</text>}
           <ellipse cx={520} cy={104} rx={85} ry={50} fill="url(#cloud)" />
 
           {LANDMASS_SHAPES.map((l) => (
@@ -204,18 +256,16 @@ export function WorldMap({ characters, meId }: { characters: TavernCharacter[]; 
                     key={zone.id}
                     d={polygonPath(zone.fill)}
                     fill={BIOME_COLOURS[zone.biome]}
-                    className={`map-zone${dim ? ' dim' : ''}${hover === zone.id ? ' hover' : ''}`}
+                    className={`map-zone${dim ? ' dim' : ''}`}
                     strokeWidth={1.1 * s}
                     role="button"
                     tabIndex={0}
                     aria-label={`${zone.name}, levels ${levelRange(zone)}`}
-                    onClick={() => open(zone)}
-                    onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), open(zone))}
-                    onMouseEnter={() => setHover(zone.id)}
-                    onMouseLeave={() => setHover((h) => (h === zone.id ? null : h))}
-                  >
-                    <title>{`${zone.name} (${levelRange(zone)})`}</title>
-                  </path>
+                    onClick={() => openZone(zone)}
+                    onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), openZone(zone))}
+                    onMouseEnter={() => setHover({ title: zone.name, detail: levelRange(zone) })}
+                    onMouseLeave={() => setHover(null)}
+                  />
                 );
               })}
               <rect x={l.box.x - 10} y={l.box.y - 10} width={l.box.w + 20} height={l.box.h + 20} filter="url(#paper)" className="map-texture" />
@@ -226,32 +276,14 @@ export function WorldMap({ characters, meId }: { characters: TavernCharacter[]; 
             <path key={`coast-${l.id}`} d={smoothPath(l.outline)} className="map-coast" strokeWidth={1.6 * s} />
           ))}
 
-          {ZONES.filter((z) => z.capital).map((z) => {
-            const { at, name, faction } = z.capital!;
-            const r = 4.5 * s;
-            return (
-              <g key={name} className="map-capital" pointerEvents="none">
-                <path
-                  d={`M${at[0]},${at[1] - r}L${at[0] + r},${at[1]}L${at[0]},${at[1] + r}L${at[0] - r},${at[1]}Z`}
-                  fill={faction === 'Alliance' ? '#4a86e0' : '#d04a36'}
-                  stroke="#f4ead8"
-                  strokeWidth={1 * s}
-                />
-                {showZoneLabels && (
-                  <text x={at[0]} y={at[1] - r - 2 * s} fontSize={8 * s} className="map-capital-label">{name}</text>
-                )}
-              </g>
-            );
-          })}
-
-          {!showZoneLabels &&
+          {!zoomedIn &&
             CONTINENTS.map((c) => (
               <text key={c.id} x={c.label[0]} y={c.label[1]} className="map-continent-label" fontSize={c.id === 'zephras' ? 12 : 20}>
                 {c.name}
               </text>
             ))}
 
-          {showZoneLabels &&
+          {zoomedIn &&
             ZONE_SHAPES.filter((z) => z.continent === activeContinent).map((z) => (
               <text
                 key={z.id}
@@ -259,37 +291,39 @@ export function WorldMap({ characters, meId }: { characters: TavernCharacter[]; 
                 y={z.seed[1]}
                 fontSize={(selectedZone?.id === z.id ? 14 : 10) * s}
                 className={`map-zone-label${z.isNew ? ' new' : ''}`}
-                pointerEvents="none"
               >
                 {z.name}
               </text>
             ))}
 
-          {ZONE_SHAPES.map((zone) => {
-            const here = byZone.map.get(zone.id);
-            if (!here) return null;
-            const r = (view.level === 'world' ? 9 : 7) * s;
-            const perRow = 5;
-            const top = zone.seed[1] + (showZoneLabels ? 9 * s : -r);
+          {visiblePois.map((poi) => {
+            const r = (poi.kind === 'capital' ? 6 : poi.kind === 'dungeon' ? 5.5 : 3) * s * (zoomedIn ? 1 : 0.8);
+            const [x, y] = poi.at;
             return (
-              <g key={zone.id} className="map-pins">
-                {here.map((c, i) => {
-                  const row = Math.floor(i / perRow);
-                  const inRow = Math.min(perRow, here.length - row * perRow);
-                  const x = zone.seed[0] + ((i % perRow) - (inRow - 1) / 2) * r * 2.3;
-                  const y = top + r + row * r * 2.3;
-                  return (
-                    <g
-                      key={c.id}
-                      className={`map-pin${c.ownerId === meId ? ' mine' : ''}`}
-                      onClick={() => setView({ level: 'zone', zoneId: zone.id })}
-                    >
-                      <title>{describe(c)}</title>
-                      <circle cx={x} cy={y} r={r} fill={classColour(c.class)} strokeWidth={1.4 * s} />
-                      <text x={x} y={y} fontSize={r * 1.15} dy="0.36em">{c.name.charAt(0)}</text>
-                    </g>
-                  );
-                })}
+              <g
+                key={poi.id}
+                className={`map-poi kind-${poi.kind}`}
+                role="button"
+                tabIndex={zoomedIn ? 0 : -1}
+                aria-label={`${poi.name}, ${poiSummary(poi)}`}
+                onClick={() => openPoi(poi)}
+                onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), openPoi(poi))}
+                onMouseEnter={() => setHover({ title: poi.name, detail: poiSummary(poi) })}
+                onMouseLeave={() => setHover(null)}
+              >
+                {selectedPoi === poi.id && <circle cx={x} cy={y} r={r * 2.2} className="poi-selected" strokeWidth={1.5 * s} />}
+                <circle cx={x} cy={y} r={r * 1.8} fill="transparent" />
+                <PoiIcon kind={poi.kind} faction={poi.faction} x={x} y={y} r={r} />
+                {poiLabelled(poi) && (
+                  <text
+                    x={x}
+                    y={y - r - 2.5 * s}
+                    fontSize={(poi.kind === 'capital' ? 8.5 : 6.5) * s}
+                    className={`map-poi-label kind-${poi.kind}`}
+                  >
+                    {poi.name}
+                  </text>
+                )}
               </g>
             );
           })}
@@ -298,51 +332,46 @@ export function WorldMap({ characters, meId }: { characters: TavernCharacter[]; 
 
       <aside className="map-panel card">
         {view.level === 'world' && (
-          <WorldPanel byZone={byZone.map} onContinent={(id) => (id === 'zephras' ? setView({ level: 'zone', zoneId: 'zephras-isle' }) : setView({ level: 'continent', continent: id }))} />
+          <WorldPanel
+            onContinent={(id) =>
+              id === 'zephras' ? go({ level: 'zone', zoneId: 'zephras-isle' }) : go({ level: 'continent', continent: id })
+            }
+          />
         )}
-        {view.level === 'continent' && (
-          <ContinentPanel continent={view.continent} byZone={byZone.map} onZone={(id) => setView({ level: 'zone', zoneId: id })} />
-        )}
-        {selectedZone && <ZonePanel zone={selectedZone} here={byZone.map.get(selectedZone.id) ?? []} />}
+        {view.level === 'continent' && <ContinentPanel continent={view.continent} onZone={(id) => go({ level: 'zone', zoneId: id })} />}
+        {selectedZone && <ZonePanel zone={selectedZone} selectedPoi={selectedPoi} onPoi={openPoi} />}
+        <Legend layers={layers} onChange={setLayers} />
       </aside>
-
-      <CharacterLocations characters={characters} unknown={byZone.unknown} meId={meId} />
     </div>
   );
 }
 
-function WorldPanel({ byZone, onContinent }: { byZone: Map<string, TavernCharacter[]>; onContinent: (id: ContinentId) => void }) {
+function WorldPanel({ onContinent }: { onContinent: (id: ContinentId) => void }) {
   return (
     <>
       <h2>Azeroth</h2>
-      <p className="muted small-text">Click a continent to zoom in, then a zone. Right-click or Esc to zoom out.</p>
+      <p className="muted small-text">Click a continent to zoom in, then a zone. Right-click or Esc zooms out.</p>
       <ul className="map-list">
         {CONTINENTS.map((c) => {
-          const count = ZONES.filter((z) => z.continent === c.id).reduce((n, z) => n + (byZone.get(z.id)?.length ?? 0), 0);
+          const zoneIds = new Set(ZONES.filter((z) => z.continent === c.id).map((z) => z.id));
+          const dungeonCount = POIS.filter((p) => p.kind === 'dungeon' && zoneIds.has(p.zoneId)).length;
           return (
             <li key={c.id}>
-              <button className="link" onClick={() => onContinent(c.id)}>{c.name}</button>
-              <span className="muted small-text">{count ? `${count} here` : ''}</span>
+              <button className="link nowrap" onClick={() => onContinent(c.id)}>{c.name}</button>
+              <span className="muted small-text nowrap">
+                {zoneIds.size} zone{zoneIds.size === 1 ? '' : 's'}
+                {dungeonCount ? ` · ${dungeonCount}` : ''}
+                {dungeonCount > 0 && <LegendIcon kind="dungeon" />}
+              </span>
             </li>
           );
         })}
       </ul>
-      <p className="muted small-text map-legend">
-        <span className="legend-diamond alliance" /> Alliance capital <span className="legend-diamond horde" /> Horde capital
-      </p>
     </>
   );
 }
 
-function ContinentPanel({
-  continent,
-  byZone,
-  onZone,
-}: {
-  continent: ContinentId;
-  byZone: Map<string, TavernCharacter[]>;
-  onZone: (id: string) => void;
-}) {
+function ContinentPanel({ continent, onZone }: { continent: ContinentId; onZone: (id: string) => void }) {
   const zones = ZONES.filter((z) => z.continent === continent).sort(
     (a, b) => (a.minLevel ?? 99) - (b.minLevel ?? 99) || a.name.localeCompare(b.name),
   );
@@ -356,10 +385,7 @@ function ContinentPanel({
               {z.name}
               {z.isNew && <span className="badge new">New</span>}
             </button>
-            <span className="muted small-text">
-              {levelRange(z)}
-              {byZone.get(z.id)?.length ? ` · ${byZone.get(z.id)!.length} here` : ''}
-            </span>
+            <span className="muted small-text nowrap">{levelRange(z)}</span>
           </li>
         ))}
       </ul>
@@ -367,8 +393,10 @@ function ContinentPanel({
   );
 }
 
-function ZonePanel({ zone, here }: { zone: ZoneShape; here: TavernCharacter[] }) {
-  const zoneDungeons = (zone.dungeons ?? []).map((name) => dungeons.find((d) => d.name === name)!).filter(Boolean);
+function ZonePanel({ zone, selectedPoi, onPoi }: { zone: ZoneShape; selectedPoi: string | null; onPoi: (poi: Poi) => void }) {
+  const here = POIS.filter((p) => p.zoneId === zone.id);
+  const places = here.filter((p) => p.kind !== 'dungeon');
+  const entrances = here.filter((p) => p.kind === 'dungeon');
   return (
     <>
       <h2>
@@ -379,111 +407,91 @@ function ZonePanel({ zone, here }: { zone: ZoneShape; here: TavernCharacter[] })
         <span className="muted">Levels</span> {levelRange(zone)} ·{' '}
         <span className={`faction ${zone.faction.toLowerCase()}`}>{zone.faction}</span>
       </p>
-      {zone.capital && <p className="small-text muted">Capital: {zone.capital.name}</p>}
       {zone.note && <p className="small-text muted">{zone.note}</p>}
-      {zoneDungeons.length > 0 && (
+
+      {places.length > 0 && (
         <>
-          <h3>Dungeons</h3>
+          <h3>Cities &amp; towns</h3>
           <ul className="map-list">
-            {zoneDungeons.map((d) => (
-              <li key={d.name}>
-                {d.name} <span className="muted small-text">{d.minLevel}–{d.maxLevel}</span>
+            {places.map((p) => (
+              <li key={p.id} className={selectedPoi === p.id ? 'selected' : ''}>
+                <button className="link poi-link" onClick={() => onPoi(p)}>
+                  <LegendIcon kind={p.kind} faction={p.faction} />
+                  {p.name}
+                </button>
+                <span className={`small-text faction ${(p.faction ?? 'Neutral').toLowerCase()}`}>{p.faction}</span>
               </li>
             ))}
           </ul>
         </>
       )}
-      <h3>Characters here</h3>
-      {here.length === 0 ? (
-        <p className="muted small-text">Nobody from your taverns.</p>
-      ) : (
-        <ul className="map-list">
-          {here.map((c) => (
-            <li key={c.id}>
-              <span style={{ color: classColour(c.class), fontWeight: 600 }} title={c.class ?? undefined}>
-                {c.name} {c.surname}
-              </span>
-              <span className="muted small-text nowrap">
-                {c.level != null ? `Lvl ${c.level}` : 'pending'} · {c.ownerName}
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
-    </>
-  );
-}
 
-const ZONE_OPTIONS = CONTINENTS.map((c) => ({
-  continent: c.name,
-  zones: ZONES.filter((z) => z.continent === c.id).map((z) => z.name).sort(),
-}));
-
-function CharacterLocations({
-  characters,
-  unknown,
-  meId,
-}: {
-  characters: TavernCharacter[];
-  unknown: TavernCharacter[];
-  meId: string;
-}) {
-  const qc = useQueryClient();
-  const mine = characters.filter((c) => c.ownerId === meId);
-  const setZone = useMutation({
-    mutationFn: ({ id, zone }: { id: string; zone: string | null }) => api.setCharacterZone(id, zone),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: keys.map });
-      qc.invalidateQueries({ queryKey: keys.characters });
-      qc.invalidateQueries({ queryKey: keys.taverns });
-    },
-  });
-
-  if (!mine.length && !unknown.length) return null;
-  return (
-    <section className="map-locations">
-      {mine.length > 0 && (
-        <div>
-          <h3>Where are your characters?</h3>
-          <p className="muted small-text">
-            Blizzard’s API doesn’t share a character’s location, so set it here. If the API ever reports one, it’ll update automatically.
-          </p>
-          <ul className="location-list">
-            {mine.map((c) => {
-              const known = findZone(c.zone);
-              const value = known?.name ?? c.zone ?? '';
+      {entrances.length > 0 && (
+        <>
+          <h3>Dungeons</h3>
+          <ul className="map-list">
+            {entrances.map((p) => {
+              const wings = p.dungeons ?? [];
+              const multiple = wings.length > 1;
               return (
-                <li key={c.id}>
-                  <label>
-                    <span style={{ color: classColour(c.class) }}>{c.name} {c.surname}</span>
-                    <select
-                      value={value}
-                      disabled={setZone.isPending && setZone.variables?.id === c.id}
-                      onChange={(e) => setZone.mutate({ id: c.id, zone: e.target.value || null })}
-                    >
-                      <option value="">Unknown</option>
-                      {c.zone && !known && <option value={c.zone}>{c.zone}</option>}
-                      {ZONE_OPTIONS.map((g) => (
-                        <optgroup key={g.continent} label={g.continent}>
-                          {g.zones.map((z) => (
-                            <option key={z} value={z}>{z}</option>
-                          ))}
-                        </optgroup>
-                      ))}
-                    </select>
-                  </label>
+                <li key={p.id} className={`dungeon-entry${selectedPoi === p.id ? ' selected' : ''}`}>
+                  <div className="dungeon-head">
+                    <button className="link poi-link" onClick={() => onPoi(p)}>
+                      <LegendIcon kind="dungeon" />
+                      {p.name}
+                    </button>
+                    {!multiple && <span className="muted small-text nowrap">{dungeonLevels(p)}</span>}
+                  </div>
+                  {multiple && (
+                    <ul className="instance-list">
+                      {wings.map((name) => {
+                        const d = dungeonInfo(name);
+                        return (
+                          <li key={name}>
+                            {name.replace(`${p.name}: `, '')}
+                            <span className="muted small-text">{d ? `${d.minLevel}–${d.maxLevel}` : ''}</span>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                  {p.note && <p className="muted small-text poi-note">{p.note}</p>}
                 </li>
               );
             })}
           </ul>
-          {setZone.error && <p className="error">{setZone.error.message}</p>}
-        </div>
+        </>
       )}
-      {unknown.length > 0 && (
-        <p className="muted small-text">
-          Location unknown: {unknown.map((c) => `${c.name} ${c.surname}`).join(', ')}
-        </p>
-      )}
-    </section>
+      {!here.length && <p className="muted small-text">No cities or dungeons marked here yet.</p>}
+    </>
+  );
+}
+
+function Legend({ layers, onChange }: { layers: Layers; onChange: (l: Layers) => void }) {
+  return (
+    <div className="map-legend">
+      <h3>Legend</h3>
+      <ul>
+        <li><LegendIcon kind="capital" faction="Alliance" /> Alliance capital</li>
+        <li><LegendIcon kind="capital" faction="Horde" /> Horde capital</li>
+        <li>
+          <label>
+            <input type="checkbox" checked={layers.towns} onChange={(e) => onChange({ ...layers, towns: e.target.checked })} />
+            <LegendIcon kind="town" faction="Alliance" />
+            <LegendIcon kind="town" faction="Horde" />
+            <LegendIcon kind="town" faction="Neutral" />
+            Towns
+          </label>
+        </li>
+        <li>
+          <label>
+            <input type="checkbox" checked={layers.dungeons} onChange={(e) => onChange({ ...layers, dungeons: e.target.checked })} />
+            <LegendIcon kind="dungeon" />
+            Dungeon entrances
+          </label>
+        </li>
+      </ul>
+      <p className="muted small-text">Towns and dungeons appear once you zoom in.</p>
+    </div>
   );
 }

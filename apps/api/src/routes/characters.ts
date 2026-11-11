@@ -106,26 +106,6 @@ export function characterRoutes({ db, config, blizzard }: AppDeps) {
     return c.json(serializeCharacter(synced));
   });
 
-  // Blizzard's API doesn't report where a character is, so players can set it themselves.
-  app.patch('/:id', async (c) => {
-    const user = requireUser(c);
-    const row = await ownedCharacter(user.id, uuidParam(c, 'id'));
-    const body = await jsonBody(c);
-    if (!('zone' in body)) badRequest('Nothing to update');
-    const zone = typeof body.zone === 'string' ? body.zone.trim() : body.zone;
-    if (zone !== null && (typeof zone !== 'string' || zone.length < 1 || zone.length > 64)) {
-      badRequest('Zone must be 1–64 characters, or null to clear it');
-    }
-    const [updated] = await db.query<CharacterRow>(
-      `update characters set zone = $2::text,
-         zone_source = case when $2::text is null then null else 'manual' end,
-         zone_updated_at = case when $2::text is null then null else now() end
-       where id = $1 returning *`,
-      [row.id, zone],
-    );
-    return c.json(serializeCharacter(updated));
-  });
-
   app.delete('/:id', async (c) => {
     const user = requireUser(c);
     const row = await ownedCharacter(user.id, uuidParam(c, 'id'));

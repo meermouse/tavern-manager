@@ -20,7 +20,7 @@ Players sign in with their Battle.net account, add their characters, and join a 
 - **Battle.net login.** OAuth 2.0 sign-in; no separate passwords.
 - **Add characters.** Import characters from the signed-in Battle.net account, or add one manually by first name + surname.
 - **Dungeon finder.** Browse the original level-60 dungeons and nine new WoW Forever dungeons, with recommended group sizes and faction access. Tavern characters appear in every matching level range. New dungeon levels and access notes follow [Blizzard's dungeon announcement](https://news.blizzard.com/en-us/article/24301455/explore-the-new-dungeons-of-world-of-warcraft-forever).
-- **Map of Azeroth.** An original, stylised map on the home page covering the classic continents plus the new WoW Forever zones (Zephras Isle, Riverglades, Shen'dralas, Mount Hyjal). Click a continent, then a zone, to zoom in like the in-game map; right-click or Esc zooms out. Each character from your taverns appears as a class-coloured pin in their zone. Blizzard's profile API doesn't expose a character's location, so players set it themselves; if the API ever reports a zone, sync picks it up automatically.
+- **Map of Azeroth.** An original, stylised map on the home page covering the classic continents plus the new WoW Forever zones (Zephras Isle, Riverglades, Shen'dralas, Mount Hyjal). Click a continent, then a zone, to zoom in like the in-game map; right-click or Esc zooms out. Capitals, towns and dungeon entrances (including the new Forever dungeons where their location is known) are marked, with level ranges for every zone and dungeon. Positions are approximate.
 - **Taverns.** Create a Tavern, invite friends with a shareable invite link/code, and choose which of your characters to add to it.
 - **Character list (primary screen).** A sortable, filterable table of every character in the selected Tavern, with these columns:
 
@@ -93,8 +93,7 @@ sessions
 
 characters
   id, user_id → users, region, name, surname, ruleset,
-  class, race, level, zone, zone_source (api | manual), zone_updated_at,
-  status (ok | pending | error), sync_error,
+  class, race, level, status (ok | pending | error), sync_error,
   last_synced_at, last_attempt_at
 
 taverns

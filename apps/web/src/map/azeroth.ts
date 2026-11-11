@@ -50,11 +50,6 @@ export interface Zone {
   biome: Biome;
   isNew?: boolean;
   note?: string;
-  /** Names match `dungeons.ts`. */
-  dungeons?: string[];
-  capital?: { name: string; at: Point; faction: 'Alliance' | 'Horde' };
-  /** Other names the Blizzard API or players might use for somewhere in this zone. */
-  aliases?: string[];
 }
 
 interface Landmass {
@@ -108,71 +103,58 @@ const EK = 'eastern-kingdoms';
 
 export const ZONES: Zone[] = [
   // ---- Kalimdor ----
-  { id: 'teldrassil', name: 'Teldrassil', continent: K, landmass: 'teldrassil', seed: [127, 92], minLevel: 1, maxLevel: 10, faction: 'Alliance', biome: 'forest',
-    capital: { name: 'Darnassus', at: [116, 80], faction: 'Alliance' }, aliases: ['Darnassus', 'Rut\'theran Village'] },
-  { id: 'darkshore', name: 'Darkshore', continent: K, landmass: K, seed: [180, 165], minLevel: 10, maxLevel: 20, faction: 'Alliance', biome: 'darkforest', aliases: ['Auberdine'] },
-  { id: 'moonglade', name: 'Moonglade', continent: K, landmass: K, seed: [262, 72], weight: -700, minLevel: null, maxLevel: null, faction: 'Sanctuary', biome: 'grass', aliases: ['Nighthaven'] },
+  { id: 'teldrassil', name: 'Teldrassil', continent: K, landmass: 'teldrassil', seed: [127, 92], minLevel: 1, maxLevel: 10, faction: 'Alliance', biome: 'forest' },
+  { id: 'darkshore', name: 'Darkshore', continent: K, landmass: K, seed: [180, 165], minLevel: 10, maxLevel: 20, faction: 'Alliance', biome: 'darkforest' },
+  { id: 'moonglade', name: 'Moonglade', continent: K, landmass: K, seed: [262, 72], weight: -700, minLevel: null, maxLevel: null, faction: 'Sanctuary', biome: 'grass' },
   { id: 'felwood', name: 'Felwood', continent: K, landmass: K, seed: [240, 135], minLevel: 48, maxLevel: 55, faction: 'Contested', biome: 'corrupted' },
-  { id: 'winterspring', name: 'Winterspring', continent: K, landmass: K, seed: [350, 92], weight: 400, minLevel: 53, maxLevel: 60, faction: 'Contested', biome: 'snow', aliases: ['Everlook'] },
+  { id: 'winterspring', name: 'Winterspring', continent: K, landmass: K, seed: [350, 92], weight: 400, minLevel: 53, maxLevel: 60, faction: 'Contested', biome: 'snow' },
   { id: 'mount-hyjal', name: 'Mount Hyjal', continent: K, landmass: K, seed: [322, 168], minLevel: 60, maxLevel: 60, faction: 'Contested', biome: 'forest', isNew: true,
-    note: 'New in WoW Forever: the level-60 endgame zone, recovering after Archimonde’s defeat.', aliases: ['Hyjal'] },
+    note: 'New in WoW Forever: the level-60 endgame zone, recovering after Archimonde’s defeat.' },
   { id: 'azshara', name: 'Azshara', continent: K, landmass: K, seed: [392, 222], minLevel: 45, maxLevel: 55, faction: 'Contested', biome: 'ruins' },
-  { id: 'ashenvale', name: 'Ashenvale', continent: K, landmass: K, seed: [245, 232], weight: 300, minLevel: 18, maxLevel: 30, faction: 'Contested', biome: 'forest',
-    dungeons: ['Blackfathom Deeps'], aliases: ['Astranaar', 'Splintertree Post'] },
-  { id: 'stonetalon', name: 'Stonetalon Mountains', continent: K, landmass: K, seed: [158, 282], minLevel: 15, maxLevel: 27, faction: 'Contested', biome: 'mountain', aliases: ['Stonetalon'] },
-  { id: 'durotar', name: 'Durotar', continent: K, landmass: K, seed: [388, 318], minLevel: 1, maxLevel: 10, faction: 'Horde', biome: 'savanna',
-    dungeons: ['Ragefire Chasm'], capital: { name: 'Orgrimmar', at: [384, 288], faction: 'Horde' }, aliases: ['Orgrimmar', 'Razor Hill', 'Sen\'jin Village'] },
-  { id: 'barrens', name: 'The Barrens', continent: K, landmass: K, seed: [305, 372], weight: 1800, minLevel: 10, maxLevel: 25, faction: 'Horde', biome: 'savanna',
-    dungeons: ['Wailing Caverns', 'Razorfen Kraul', 'Razorfen Downs'], aliases: ['Barrens', 'Crossroads', 'Ratchet'] },
-  { id: 'desolace', name: 'Desolace', continent: K, landmass: K, seed: [112, 392], minLevel: 30, maxLevel: 40, faction: 'Contested', biome: 'mountain', dungeons: ['Maraudon'] },
+  { id: 'ashenvale', name: 'Ashenvale', continent: K, landmass: K, seed: [245, 232], weight: 300, minLevel: 18, maxLevel: 30, faction: 'Contested', biome: 'forest' },
+  { id: 'stonetalon', name: 'Stonetalon Mountains', continent: K, landmass: K, seed: [158, 282], minLevel: 15, maxLevel: 27, faction: 'Contested', biome: 'mountain' },
+  { id: 'durotar', name: 'Durotar', continent: K, landmass: K, seed: [388, 318], minLevel: 1, maxLevel: 10, faction: 'Horde', biome: 'savanna' },
+  { id: 'barrens', name: 'The Barrens', continent: K, landmass: K, seed: [305, 372], weight: 1800, minLevel: 10, maxLevel: 25, faction: 'Horde', biome: 'savanna' },
+  { id: 'desolace', name: 'Desolace', continent: K, landmass: K, seed: [112, 392], minLevel: 30, maxLevel: 40, faction: 'Contested', biome: 'mountain', },
   { id: 'shendralas', name: 'Shen\'dralas', continent: K, landmass: K, seed: [180, 408], weight: -200, minLevel: 40, maxLevel: 50, faction: 'Contested', biome: 'ruins', isNew: true,
     note: 'New in WoW Forever, between Mulgore and Desolace via the Valley of Bones. Blizzard hasn’t confirmed its level range; 40–50 is the community estimate.' },
-  { id: 'mulgore', name: 'Mulgore', continent: K, landmass: K, seed: [240, 452], minLevel: 1, maxLevel: 10, faction: 'Horde', biome: 'grass',
-    capital: { name: 'Thunder Bluff', at: [232, 434], faction: 'Horde' }, aliases: ['Thunder Bluff', 'Bloodhoof Village'] },
-  { id: 'dustwallow', name: 'Dustwallow Marsh', continent: K, landmass: K, seed: [372, 474], minLevel: 35, maxLevel: 45, faction: 'Contested', biome: 'swamp', aliases: ['Theramore', 'Theramore Isle', 'Brackenwall Village'] },
-  { id: 'feralas', name: 'Feralas', continent: K, landmass: K, seed: [136, 522], weight: 300, minLevel: 40, maxLevel: 50, faction: 'Contested', biome: 'jungle',
-    dungeons: ['Dire Maul: East', 'Dire Maul: West', 'Dire Maul: North'] },
+  { id: 'mulgore', name: 'Mulgore', continent: K, landmass: K, seed: [240, 452], minLevel: 1, maxLevel: 10, faction: 'Horde', biome: 'grass' },
+  { id: 'dustwallow', name: 'Dustwallow Marsh', continent: K, landmass: K, seed: [372, 474], minLevel: 35, maxLevel: 45, faction: 'Contested', biome: 'swamp' },
+  { id: 'feralas', name: 'Feralas', continent: K, landmass: K, seed: [136, 522], weight: 300, minLevel: 40, maxLevel: 50, faction: 'Contested', biome: 'jungle', },
   { id: 'thousand-needles', name: 'Thousand Needles', continent: K, landmass: K, seed: [282, 548], minLevel: 25, maxLevel: 35, faction: 'Contested', biome: 'desert' },
-  { id: 'ungoro', name: 'Un\'Goro Crater', continent: K, landmass: K, seed: [222, 620], minLevel: 48, maxLevel: 55, faction: 'Contested', biome: 'crater', aliases: ['Un\'Goro'] },
+  { id: 'ungoro', name: 'Un\'Goro Crater', continent: K, landmass: K, seed: [222, 620], minLevel: 48, maxLevel: 55, faction: 'Contested', biome: 'crater' },
   { id: 'silithus', name: 'Silithus', continent: K, landmass: K, seed: [124, 628], minLevel: 55, maxLevel: 60, faction: 'Contested', biome: 'desert' },
-  { id: 'tanaris', name: 'Tanaris', continent: K, landmass: K, seed: [330, 628], weight: 400, minLevel: 40, maxLevel: 50, faction: 'Contested', biome: 'desert',
-    dungeons: ['Zul\'Farrak'], aliases: ['Gadgetzan'] },
+  { id: 'tanaris', name: 'Tanaris', continent: K, landmass: K, seed: [330, 628], weight: 400, minLevel: 40, maxLevel: 50, faction: 'Contested', biome: 'desert' },
 
   // ---- Eastern Kingdoms ----
-  { id: 'tirisfal', name: 'Tirisfal Glades', continent: EK, landmass: EK, seed: [668, 104], minLevel: 1, maxLevel: 10, faction: 'Horde', biome: 'plague',
-    dungeons: ['Scarlet Monastery: Graveyard', 'Scarlet Monastery: Library', 'Scarlet Monastery: Armory', 'Scarlet Monastery: Cathedral', 'Ruins of Lordaeron'],
-    capital: { name: 'Undercity', at: [690, 128], faction: 'Horde' }, aliases: ['Undercity', 'Brill', 'Tirisfal'] },
-  { id: 'western-plaguelands', name: 'Western Plaguelands', continent: EK, landmass: EK, seed: [752, 110], minLevel: 51, maxLevel: 58, faction: 'Contested', biome: 'plague', dungeons: ['Scholomance'] },
-  { id: 'eastern-plaguelands', name: 'Eastern Plaguelands', continent: EK, landmass: EK, seed: [848, 104], weight: 300, minLevel: 53, maxLevel: 60, faction: 'Contested', biome: 'plague', dungeons: ['Stratholme'] },
-  { id: 'silverpine', name: 'Silverpine Forest', continent: EK, landmass: EK, seed: [636, 192], minLevel: 10, maxLevel: 20, faction: 'Horde', biome: 'darkforest', aliases: ['Silverpine', 'The Sepulcher'] },
-  { id: 'alterac', name: 'Alterac Mountains', continent: EK, landmass: EK, seed: [738, 168], weight: -300, minLevel: 30, maxLevel: 40, faction: 'Contested', biome: 'snow', dungeons: ['City of Dalaran'], aliases: ['Dalaran'] },
-  { id: 'hillsbrad', name: 'Hillsbrad Foothills', continent: EK, landmass: EK, seed: [712, 226], minLevel: 20, maxLevel: 30, faction: 'Contested', biome: 'grass', aliases: ['Hillsbrad', 'Southshore', 'Tarren Mill'] },
-  { id: 'hinterlands', name: 'The Hinterlands', continent: EK, landmass: EK, seed: [858, 188], minLevel: 40, maxLevel: 50, faction: 'Contested', biome: 'forest', aliases: ['Hinterlands'] },
-  { id: 'arathi', name: 'Arathi Highlands', continent: EK, landmass: EK, seed: [796, 258], minLevel: 30, maxLevel: 40, faction: 'Contested', biome: 'highland', aliases: ['Arathi'] },
-  { id: 'wetlands', name: 'Wetlands', continent: EK, landmass: EK, seed: [770, 326], minLevel: 20, maxLevel: 30, faction: 'Contested', biome: 'swamp', dungeons: ['Excavation Site'], aliases: ['Menethil Harbor'] },
-  { id: 'dun-morogh', name: 'Dun Morogh', continent: EK, landmass: EK, seed: [712, 398], minLevel: 1, maxLevel: 10, faction: 'Alliance', biome: 'snow',
-    dungeons: ['Gnomeregan'], capital: { name: 'Ironforge', at: [726, 384], faction: 'Alliance' }, aliases: ['Ironforge', 'Kharanos'] },
-  { id: 'loch-modan', name: 'Loch Modan', continent: EK, landmass: EK, seed: [806, 386], minLevel: 10, maxLevel: 20, faction: 'Alliance', biome: 'highland', aliases: ['Thelsamar'] },
+  { id: 'tirisfal', name: 'Tirisfal Glades', continent: EK, landmass: EK, seed: [668, 104], minLevel: 1, maxLevel: 10, faction: 'Horde', biome: 'plague' },
+  { id: 'western-plaguelands', name: 'Western Plaguelands', continent: EK, landmass: EK, seed: [752, 110], minLevel: 51, maxLevel: 58, faction: 'Contested', biome: 'plague', },
+  { id: 'eastern-plaguelands', name: 'Eastern Plaguelands', continent: EK, landmass: EK, seed: [848, 104], weight: 300, minLevel: 53, maxLevel: 60, faction: 'Contested', biome: 'plague', },
+  { id: 'silverpine', name: 'Silverpine Forest', continent: EK, landmass: EK, seed: [636, 192], minLevel: 10, maxLevel: 20, faction: 'Horde', biome: 'darkforest' },
+  { id: 'alterac', name: 'Alterac Mountains', continent: EK, landmass: EK, seed: [738, 168], weight: -300, minLevel: 30, maxLevel: 40, faction: 'Contested', biome: 'snow' },
+  { id: 'hillsbrad', name: 'Hillsbrad Foothills', continent: EK, landmass: EK, seed: [712, 226], minLevel: 20, maxLevel: 30, faction: 'Contested', biome: 'grass' },
+  { id: 'hinterlands', name: 'The Hinterlands', continent: EK, landmass: EK, seed: [858, 188], minLevel: 40, maxLevel: 50, faction: 'Contested', biome: 'forest' },
+  { id: 'arathi', name: 'Arathi Highlands', continent: EK, landmass: EK, seed: [796, 258], minLevel: 30, maxLevel: 40, faction: 'Contested', biome: 'highland' },
+  { id: 'wetlands', name: 'Wetlands', continent: EK, landmass: EK, seed: [770, 326], minLevel: 20, maxLevel: 30, faction: 'Contested', biome: 'swamp' },
+  { id: 'dun-morogh', name: 'Dun Morogh', continent: EK, landmass: EK, seed: [712, 398], minLevel: 1, maxLevel: 10, faction: 'Alliance', biome: 'snow' },
+  { id: 'loch-modan', name: 'Loch Modan', continent: EK, landmass: EK, seed: [806, 386], minLevel: 10, maxLevel: 20, faction: 'Alliance', biome: 'highland' },
   { id: 'searing-gorge', name: 'Searing Gorge', continent: EK, landmass: EK, seed: [728, 452], minLevel: 43, maxLevel: 50, faction: 'Contested', biome: 'volcanic' },
-  { id: 'badlands', name: 'Badlands', continent: EK, landmass: EK, seed: [810, 442], minLevel: 35, maxLevel: 45, faction: 'Contested', biome: 'desert', dungeons: ['Uldaman'] },
-  { id: 'burning-steppes', name: 'Burning Steppes', continent: EK, landmass: EK, seed: [758, 500], minLevel: 50, maxLevel: 58, faction: 'Contested', biome: 'volcanic',
-    dungeons: ['Blackrock Depths', 'Lower Blackrock Spire', 'Upper Blackrock Spire'], aliases: ['Blackrock Mountain'] },
+  { id: 'badlands', name: 'Badlands', continent: EK, landmass: EK, seed: [810, 442], minLevel: 35, maxLevel: 45, faction: 'Contested', biome: 'desert', },
+  { id: 'burning-steppes', name: 'Burning Steppes', continent: EK, landmass: EK, seed: [758, 500], minLevel: 50, maxLevel: 58, faction: 'Contested', biome: 'volcanic' },
   { id: 'riverglades', name: 'Riverglades', continent: EK, landmass: EK, seed: [870, 494], weight: 300, minLevel: 35, maxLevel: 45, faction: 'Contested', biome: 'river', isNew: true,
     note: 'New in WoW Forever: an east-coast frontier between the Burning Steppes, Redridge, the Swamp of Sorrows and the Badlands.' },
-  { id: 'elwynn', name: 'Elwynn Forest', continent: EK, landmass: EK, seed: [700, 548], minLevel: 1, maxLevel: 10, faction: 'Alliance', biome: 'grass',
-    dungeons: ['The Stockade'], capital: { name: 'Stormwind', at: [676, 532], faction: 'Alliance' }, aliases: ['Stormwind', 'Stormwind City', 'Goldshire', 'Elwynn'] },
-  { id: 'redridge', name: 'Redridge Mountains', continent: EK, landmass: EK, seed: [806, 548], minLevel: 15, maxLevel: 25, faction: 'Contested', biome: 'highland', aliases: ['Redridge', 'Lakeshire'] },
-  { id: 'westfall', name: 'Westfall', continent: EK, landmass: EK, seed: [638, 596], minLevel: 10, maxLevel: 20, faction: 'Alliance', biome: 'savanna', dungeons: ['The Deadmines'], aliases: ['Sentinel Hill', 'Moonbrook'] },
-  { id: 'duskwood', name: 'Duskwood', continent: EK, landmass: EK, seed: [722, 604], weight: -200, minLevel: 18, maxLevel: 30, faction: 'Contested', biome: 'darkforest', aliases: ['Darkshire'] },
-  { id: 'deadwind', name: 'Deadwind Pass', continent: EK, landmass: EK, seed: [784, 606], weight: -400, minLevel: 55, maxLevel: 60, faction: 'Contested', biome: 'mountain', aliases: ['Karazhan'] },
-  { id: 'swamp-of-sorrows', name: 'Swamp of Sorrows', continent: EK, landmass: EK, seed: [856, 590], minLevel: 35, maxLevel: 45, faction: 'Contested', biome: 'swamp', dungeons: ['Sunken Temple'], aliases: ['Stonard'] },
-  { id: 'blasted-lands', name: 'Blasted Lands', continent: EK, landmass: EK, seed: [846, 660], minLevel: 45, maxLevel: 55, faction: 'Contested', biome: 'volcanic', aliases: ['Dark Portal'] },
-  { id: 'stranglethorn', name: 'Stranglethorn Vale', continent: EK, landmass: EK, seed: [690, 670], weight: 900, minLevel: 30, maxLevel: 45, faction: 'Contested', biome: 'jungle',
-    aliases: ['Stranglethorn', 'Booty Bay', 'Grom\'gol Base Camp'] },
+  { id: 'elwynn', name: 'Elwynn Forest', continent: EK, landmass: EK, seed: [700, 548], minLevel: 1, maxLevel: 10, faction: 'Alliance', biome: 'grass' },
+  { id: 'redridge', name: 'Redridge Mountains', continent: EK, landmass: EK, seed: [806, 548], minLevel: 15, maxLevel: 25, faction: 'Contested', biome: 'highland' },
+  { id: 'westfall', name: 'Westfall', continent: EK, landmass: EK, seed: [638, 596], minLevel: 10, maxLevel: 20, faction: 'Alliance', biome: 'savanna' },
+  { id: 'duskwood', name: 'Duskwood', continent: EK, landmass: EK, seed: [722, 604], weight: -200, minLevel: 18, maxLevel: 30, faction: 'Contested', biome: 'darkforest' },
+  { id: 'deadwind', name: 'Deadwind Pass', continent: EK, landmass: EK, seed: [784, 606], weight: -400, minLevel: 55, maxLevel: 60, faction: 'Contested', biome: 'mountain' },
+  { id: 'swamp-of-sorrows', name: 'Swamp of Sorrows', continent: EK, landmass: EK, seed: [856, 590], minLevel: 35, maxLevel: 45, faction: 'Contested', biome: 'swamp' },
+  { id: 'blasted-lands', name: 'Blasted Lands', continent: EK, landmass: EK, seed: [846, 660], minLevel: 45, maxLevel: 55, faction: 'Contested', biome: 'volcanic' },
+  { id: 'stranglethorn', name: 'Stranglethorn Vale', continent: EK, landmass: EK, seed: [690, 670], weight: 900, minLevel: 30, maxLevel: 45, faction: 'Contested', biome: 'jungle' },
 
   // ---- Zephras Isle ----
   { id: 'zephras-isle', name: 'Zephras Isle', continent: 'zephras', landmass: 'zephras', seed: [520, 100], minLevel: 1, maxLevel: 12, faction: 'Contested', biome: 'sky', isNew: true,
-    note: 'New in WoW Forever: the Skyborne starting island, floating in Skywall, the Elemental Plane of Air. Open to both factions.', aliases: ['Zephras', 'Skywall'] },
+    note: 'New in WoW Forever: the Skyborne starting island, floating in Skywall, the Elemental Plane of Air. Open to both factions.' },
 ];
 
 export interface ZoneShape extends Zone {
@@ -211,20 +193,134 @@ export function seedInsideOwnZone(zone: ZoneShape): boolean {
   return pointInPolygon(zone.seed, zone.land);
 }
 
-const normalise = (s: string) => s.toLowerCase().replace(/^the\s+/, '').replace(/[^a-z]/g, '');
-
-const LOOKUP = new Map<string, Zone>();
-for (const zone of ZONES) {
-  for (const name of [zone.name, zone.id, ...(zone.aliases ?? [])]) LOOKUP.set(normalise(name), zone);
-}
-
-/** Match a free-text zone (from the API or a player) to a map zone, tolerating cities, case and "The". */
-export function findZone(name: string | null | undefined): Zone | null {
-  if (!name) return null;
-  return LOOKUP.get(normalise(name)) ?? null;
-}
-
 export function levelRange(zone: Zone): string {
   if (zone.minLevel == null || zone.maxLevel == null) return 'All levels';
   return zone.minLevel === zone.maxLevel ? `${zone.minLevel}` : `${zone.minLevel}–${zone.maxLevel}`;
 }
+
+export type PoiKind = 'capital' | 'town' | 'dungeon';
+export type PoiFaction = 'Alliance' | 'Horde' | 'Neutral';
+
+export interface Poi {
+  id: string;
+  name: string;
+  kind: PoiKind;
+  zoneId: string;
+  at: Point;
+  faction?: PoiFaction;
+  /** Dungeon entrances: the instance(s) behind this entrance, named as in `dungeons.ts`. */
+  dungeons?: string[];
+  /** Entrance lies just off the coast (underwater or on an island). */
+  offshore?: boolean;
+  note?: string;
+}
+
+const A: PoiFaction = 'Alliance';
+const H: PoiFaction = 'Horde';
+const N: PoiFaction = 'Neutral';
+
+function capital(name: string, zoneId: string, at: Point, faction: PoiFaction): Poi {
+  return { id: slug(name), name, kind: 'capital', zoneId, at, faction };
+}
+function town(name: string, zoneId: string, at: Point, faction: PoiFaction): Poi {
+  return { id: slug(name), name, kind: 'town', zoneId, at, faction };
+}
+function dungeon(name: string, zoneId: string, at: Point, instances: string[] = [name], extra: Partial<Poi> = {}): Poi {
+  return { id: slug(name), name, kind: 'dungeon', zoneId, at, dungeons: instances, ...extra };
+}
+function slug(name: string) {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+}
+
+/**
+ * Cities, towns and dungeon entrances. Positions are approximate, chosen to sit in the right part
+ * of each zone on this stylised map. Shaper's Terrace is left off until its location is confirmed.
+ */
+export const POIS: Poi[] = [
+  // Capitals
+  capital('Darnassus', 'teldrassil', [114, 76], A),
+  capital('Orgrimmar', 'durotar', [390, 288], H),
+  capital('Thunder Bluff', 'mulgore', [226, 434], H),
+  capital('Stormwind City', 'elwynn', [676, 528], A),
+  capital('Ironforge', 'dun-morogh', [722, 380], A),
+  capital('Undercity', 'tirisfal', [682, 132], H),
+
+  // Kalimdor towns
+  town('Auberdine', 'darkshore', [164, 192], A),
+  town('Nighthaven', 'moonglade', [250, 92], N),
+  town('Everlook', 'winterspring', [374, 118], N),
+  town('Astranaar', 'ashenvale', [226, 252], A),
+  town('Splintertree Post', 'ashenvale', [286, 248], H),
+  town('Sun Rock Retreat', 'stonetalon', [150, 304], H),
+  town('Razor Hill', 'durotar', [394, 346], H),
+  town('The Crossroads', 'barrens', [300, 346], H),
+  town('Ratchet', 'barrens', [362, 384], N),
+  town('Camp Taurajo', 'barrens', [310, 410], H),
+  town('Bloodhoof Village', 'mulgore', [252, 476], H),
+  town('Nijel\'s Point', 'desolace', [124, 350], A),
+  town('Shadowprey Village', 'desolace', [90, 418], H),
+  town('Theramore Isle', 'dustwallow', [388, 492], A),
+  town('Brackenwall Village', 'dustwallow', [348, 446], H),
+  town('Feathermoon Stronghold', 'feralas', [88, 516], A),
+  town('Camp Mojache', 'feralas', [178, 512], H),
+  town('Freewind Post', 'thousand-needles', [262, 528], H),
+  town('Marshal\'s Refuge', 'ungoro', [226, 598], N),
+  town('Cenarion Hold', 'silithus', [120, 604], N),
+  town('Gadgetzan', 'tanaris', [338, 602], N),
+
+  // Eastern Kingdoms towns
+  town('Brill', 'tirisfal', [652, 128], H),
+  town('Chillwind Camp', 'western-plaguelands', [742, 140], A),
+  town('Light\'s Hope Chapel', 'eastern-plaguelands', [892, 120], N),
+  town('The Sepulcher', 'silverpine', [628, 212], H),
+  town('Southshore', 'hillsbrad', [700, 254], A),
+  town('Tarren Mill', 'hillsbrad', [728, 214], H),
+  town('Aerie Peak', 'hinterlands', [822, 172], A),
+  town('Revantusk Village', 'hinterlands', [882, 206], H),
+  town('Refuge Pointe', 'arathi', [790, 282], A),
+  town('Hammerfall', 'arathi', [840, 248], H),
+  town('Menethil Harbor', 'wetlands', [730, 334], A),
+  town('Kharanos', 'dun-morogh', [694, 410], A),
+  town('Thelsamar', 'loch-modan', [790, 398], A),
+  town('Thorium Point', 'searing-gorge', [708, 440], N),
+  town('Kargath', 'badlands', [790, 428], H),
+  town('Morgan\'s Vigil', 'burning-steppes', [780, 512], A),
+  town('Goldshire', 'elwynn', [706, 566], A),
+  town('Lakeshire', 'redridge', [790, 562], A),
+  town('Sentinel Hill', 'westfall', [640, 612], A),
+  town('Darkshire', 'duskwood', [736, 622], A),
+  town('Stonard', 'swamp-of-sorrows', [870, 606], H),
+  town('Nethergarde Keep', 'blasted-lands', [866, 640], A),
+  town('Grom\'gol Base Camp', 'stranglethorn', [662, 650], H),
+  town('Booty Bay', 'stranglethorn', [674, 682], N),
+
+  // Dungeon entrances — Kalimdor
+  dungeon('Ragefire Chasm', 'durotar', [372, 302], undefined, { note: 'Inside Orgrimmar.' }),
+  dungeon('Wailing Caverns', 'barrens', [262, 378]),
+  dungeon('Razorfen Kraul', 'barrens', [278, 420]),
+  dungeon('Razorfen Downs', 'barrens', [306, 444]),
+  dungeon('Blackfathom Deeps', 'ashenvale', [198, 218]),
+  dungeon('Maraudon', 'desolace', [100, 446]),
+  dungeon('Dire Maul', 'feralas', [148, 546], ['Dire Maul: East', 'Dire Maul: West', 'Dire Maul: North']),
+  dungeon('Zul\'Farrak', 'tanaris', [312, 602]),
+  dungeon('Alcaz Prison', 'dustwallow', [428, 506], undefined, { offshore: true, note: 'On Alcaz Island, off the Dustwallow coast.' }),
+  dungeon('Blackmaw Hold', 'azshara', [398, 186]),
+
+  // Dungeon entrances — Eastern Kingdoms
+  dungeon('Scarlet Monastery', 'tirisfal', [704, 78], ['Scarlet Monastery: Graveyard', 'Scarlet Monastery: Library', 'Scarlet Monastery: Armory', 'Scarlet Monastery: Cathedral']),
+  dungeon('Ruins of Lordaeron', 'tirisfal', [690, 146]),
+  dungeon('Shadowfang Keep', 'silverpine', [650, 168]),
+  dungeon('City of Dalaran', 'alterac', [718, 178]),
+  dungeon('Scholomance', 'western-plaguelands', [762, 128]),
+  dungeon('Stratholme', 'eastern-plaguelands', [830, 70]),
+  dungeon('Gnomeregan', 'dun-morogh', [680, 384]),
+  dungeon('Hall of Thanes', 'dun-morogh', [744, 386], undefined, { note: 'Beneath Ironforge.' }),
+  dungeon('Excavation Site', 'wetlands', [792, 348]),
+  dungeon('Uldaman', 'badlands', [836, 424]),
+  dungeon('Blackrock Mountain', 'burning-steppes', [742, 478], ['Blackrock Depths', 'Lower Blackrock Spire', 'Upper Blackrock Spire'], { note: 'Straddles the Searing Gorge and the Burning Steppes.' }),
+  dungeon('Krol’dok Stronghold', 'riverglades', [884, 470]),
+  dungeon('The Stockade', 'elwynn', [662, 540], undefined, { note: 'Inside Stormwind City.' }),
+  dungeon('The Deadmines', 'westfall', [628, 620]),
+  dungeon('Sunken Temple', 'swamp-of-sorrows', [876, 572]),
+  dungeon('The Drowned City', 'stranglethorn', [620, 664], undefined, { offshore: true, note: 'Underwater, off the coast west of Grom\'gol.' }),
+];
