@@ -9,6 +9,25 @@ export interface CharacterProfile {
   race: string | null;
   level: number | null;
   ruleset: string | null;
+  /** When the character last logged in (data only updates on logout). `null` if the API doesn't say. */
+  lastLoginAt: Date | null;
+}
+
+/** Blizzard item quality types, upper-case, e.g. `RARE`, `EPIC`. */
+export type ItemQuality = string;
+
+export interface EquippedItem {
+  id: number;
+  name: string;
+  quality: ItemQuality;
+  slot: string | null;
+  itemLevel: number | null;
+}
+
+export interface CompletedAchievement {
+  id: number;
+  name: string;
+  completedAt: Date | null;
 }
 
 export interface AccountCharacter {
@@ -21,6 +40,10 @@ export interface BlizzardClient {
   getCharacter(region: Region, name: string, surname: string): Promise<CharacterProfile | null>;
   /** Characters on the signed-in user's account. Needs a user token with the `wow.profile` scope. */
   getAccountCharacters(region: Region, userAccessToken: string): Promise<AccountCharacter[]>;
+  /** Equipped items, or `null` when the endpoint isn't available for this character. Optional: best-effort. */
+  getEquipment?(region: Region, name: string, surname: string): Promise<EquippedItem[] | null>;
+  /** Completed achievements, or `null` when the endpoint isn't available. Optional: best-effort. */
+  getAchievements?(region: Region, name: string, surname: string): Promise<CompletedAchievement[] | null>;
 }
 
 export class BlizzardError extends Error {
@@ -89,7 +112,56 @@ export function parseCharacterProfile(json: Json, fallback: { name: string; surn
     race: nameOf(json.race) ?? nameOf(json.playable_race),
     level: Number.isFinite(level) ? level : null,
     ruleset,
+    lastLoginAt: timestamp(json.last_login_timestamp),
   };
+}
+
+function timestamp(value: unknown): Date | null {
+  const n = typeof value === 'number' ? value : typeof value === 'string' ? Date.parse(value) : NaN;
+  return Number.isFinite(n) && n > 0 ? new Date(n) : null;
+}
+
+function int(value: unknown): number | null {
+  const n = typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : NaN;
+  return Number.isInteger(n) ? n : null;
+}
+
+/** `{ quality: { type: 'EPIC', name: 'Epic' } }`, `{ quality: 'EPIC' }` or `{ quality: 'Epic' }` → `EPIC`. */
+function qualityOf(value: unknown): ItemQuality | null {
+  const raw = value && typeof value === 'object' ? (text((value as Json).type) ?? nameOf(value)) : text(value);
+  return raw ? raw.toUpperCase().replace(/[^A-Z]/g, '') : null;
+}
+
+export function parseEquipment(json: Json): EquippedItem[] {
+  const items = Array.isArray(json.equipped_items) ? (json.equipped_items as Json[]) : [];
+  const out: EquippedItem[] = [];
+  for (const it of items) {
+    const ref = it.item && typeof it.item === 'object' ? (it.item as Json) : {};
+    const id = int(ref.id) ?? int(it.id);
+    const name = text(it.name) ?? text(ref.name);
+    const quality = qualityOf(it.quality);
+    if (id == null || !name || !quality) continue;
+    const slot = it.slot && typeof it.slot === 'object' ? nameOf(it.slot) ?? text((it.slot as Json).type) : text(it.slot);
+    const level = it.level && typeof it.level === 'object' ? int((it.level as Json).value) : int(it.level);
+    out.push({ id, name, quality, slot, itemLevel: level });
+  }
+  return out;
+}
+
+export function parseAchievements(json: Json): CompletedAchievement[] {
+  const list = Array.isArray(json.achievements) ? (json.achievements as Json[]) : [];
+  const out: CompletedAchievement[] = [];
+  for (const a of list) {
+    const ref = a.achievement && typeof a.achievement === 'object' ? (a.achievement as Json) : {};
+    const id = int(ref.id) ?? int(a.id);
+    const name = text(ref.name) ?? text(a.name);
+    const completedAt = timestamp(a.completed_timestamp);
+    const criteria = a.criteria && typeof a.criteria === 'object' ? (a.criteria as Json) : null;
+    // Entries without a completion time are in-progress criteria, unless explicitly marked complete.
+    if (id == null || !name || (!completedAt && criteria?.is_completed !== true)) continue;
+    out.push({ id, name, completedAt });
+  }
+  return out;
 }
 
 export function parseAccountCharacters(json: Json): AccountCharacter[] {
@@ -136,19 +208,35 @@ export function createBlizzardClient(
     return fetchImpl(url, { headers: { Authorization: `Bearer ${token}` } });
   }
 
+  /** GET a character resource with the app token. `null` on 404. */
+  async function getProfile(region: Region, name: string, surname: string, resource = ''): Promise<Json | null> {
+    const url =
+      `https://${region}.api.blizzard.com/profile/wow/character/${characterSlug(name, surname)}${resource}` +
+      `?namespace=profile-forever-${region}&locale=en_US`;
+    let res = await get(url, await getAppToken());
+    if (res.status === 401) {
+      appToken = null;
+      res = await get(url, await getAppToken());
+    }
+    if (res.status === 404) return null;
+    if (!res.ok) throw new BlizzardError(`Blizzard API error (${res.status})`, res.status);
+    return (await res.json()) as Json;
+  }
+
   return {
     async getCharacter(region, name, surname) {
-      const url =
-        `https://${region}.api.blizzard.com/profile/wow/character/${characterSlug(name, surname)}` +
-        `?namespace=profile-forever-${region}&locale=en_US`;
-      let res = await get(url, await getAppToken());
-      if (res.status === 401) {
-        appToken = null;
-        res = await get(url, await getAppToken());
-      }
-      if (res.status === 404) return null;
-      if (!res.ok) throw new BlizzardError(`Blizzard API error (${res.status})`, res.status);
-      return parseCharacterProfile((await res.json()) as Json, { name, surname });
+      const json = await getProfile(region, name, surname);
+      return json && parseCharacterProfile(json, { name, surname });
+    },
+
+    async getEquipment(region, name, surname) {
+      const json = await getProfile(region, name, surname, '/equipment');
+      return json && parseEquipment(json);
+    },
+
+    async getAchievements(region, name, surname) {
+      const json = await getProfile(region, name, surname, '/achievements');
+      return json && parseAchievements(json);
     },
 
     async getAccountCharacters(region, userAccessToken) {

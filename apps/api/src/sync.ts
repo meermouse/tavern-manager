@@ -1,6 +1,7 @@
 import type { BlizzardClient } from './blizzard/client.js';
 import type { Region } from './config.js';
 import type { Db } from './db.js';
+import { detectProgress } from './feed.js';
 
 export interface CharacterRow {
   id: string;
@@ -16,6 +17,9 @@ export interface CharacterRow {
   sync_error: string | null;
   last_synced_at: Date | null;
   last_attempt_at: Date | null;
+  last_login_at: Date | null;
+  gear_baseline_at: Date | null;
+  achievements_baseline_at: Date | null;
   created_at: Date;
 }
 
@@ -33,14 +37,35 @@ export async function syncCharacter(db: Db, blizzard: BlizzardClient, row: Chara
       );
       return updated;
     }
-    const [updated] = await db.query<CharacterRow>(
-      `update characters set
+    // Read the previous level under a row lock in the same statement, so overlapping syncs
+    // can't both see the old level and post the same level-up twice. (Joining `old` via FROM makes it
+    // run before the update; a subquery in RETURNING would run after and find the row already changed.)
+    const [updated] = await db.query<CharacterRow & { prev_level: number | null; prev_login: Date | null }>(
+      `with old as (select level, last_login_at from characters where id = $1 for update)
+       update characters set
          name = $2, surname = $3, class = $4, race = $5, level = $6, ruleset = $7,
+         last_login_at = coalesce($8, characters.last_login_at),
          status = 'ok', sync_error = null, last_synced_at = now(), last_attempt_at = now()
-       where id = $1 returning *`,
-      [row.id, profile.name, profile.surname, profile.class, profile.race, profile.level, profile.ruleset],
+       from old where characters.id = $1
+       returning characters.*, old.level as prev_level, old.last_login_at as prev_login`,
+      [
+        row.id,
+        profile.name,
+        profile.surname,
+        profile.class,
+        profile.race,
+        profile.level,
+        profile.ruleset,
+        profile.lastLoginAt,
+      ],
     );
-    return updated;
+    const { prev_level, prev_login, ...synced } = updated;
+    try {
+      await detectProgress(db, blizzard, { level: prev_level, last_login_at: prev_login }, synced);
+    } catch (err) {
+      console.error('Feed detection failed', err);
+    }
+    return synced;
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     const [updated] = await db.query<CharacterRow>(

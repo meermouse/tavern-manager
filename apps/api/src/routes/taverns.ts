@@ -2,6 +2,7 @@ import { randomInt } from 'node:crypto';
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { badRequest, jsonBody, requireUser, uuidParam, type AppDeps, type AppEnv } from '../context.js';
+import { eventVisibleInTavern, recordEvent, setCheer, tavernFeed } from '../feed.js';
 import { serializeCharacter } from '../serialize.js';
 import { refreshStale, type CharacterRow } from '../sync.js';
 
@@ -115,6 +116,7 @@ export function tavernRoutes({ db, blizzard }: AppDeps) {
        select * from t`,
       [name, user.id, generateInviteCode()],
     );
+    await recordEvent(db, { kind: 'tavern_founded', tavernId: tavern.id, userId: user.id, data: { tavernName: name } });
     return c.json(await detail(tavern, user.id), 201);
   });
 
@@ -123,6 +125,27 @@ export function tavernRoutes({ db, blizzard }: AppDeps) {
     const tavern = await membership(uuidParam(c, 'id'), user.id);
     return c.json(await detail(tavern, user.id));
   });
+
+  app.get('/taverns/:id/feed', async (c) => {
+    const user = requireUser(c);
+    const tavern = await membership(uuidParam(c, 'id'), user.id);
+    const before = c.req.query('before');
+    if (before !== undefined && !/^\d{1,18}$/.test(before)) badRequest('Invalid cursor');
+    const limit = Math.min(50, Math.max(1, Number(c.req.query('limit')) || 30));
+    return c.json(await tavernFeed(db, tavern.id, user.id, { before, limit }));
+  });
+
+  for (const method of ['put', 'delete'] as const) {
+    app[method]('/taverns/:id/feed/:eventId/cheers', async (c) => {
+      const user = requireUser(c);
+      const tavern = await membership(uuidParam(c, 'id'), user.id);
+      const eventId = c.req.param('eventId');
+      if (!/^\d{1,18}$/.test(eventId) || !(await eventVisibleInTavern(db, tavern.id, eventId))) {
+        throw new HTTPException(404, { message: 'Post not found' });
+      }
+      return c.json(await setCheer(db, tavern.id, eventId, user.id, method === 'put'));
+    });
+  }
 
   app.patch('/taverns/:id', async (c) => {
     const user = requireUser(c);
@@ -161,6 +184,7 @@ export function tavernRoutes({ db, blizzard }: AppDeps) {
          and character_id in (select id from characters where user_id = $2)`,
       [tavern.id, user.id],
     );
+    await db.query('delete from feed_reactions where tavern_id = $1 and user_id = $2', [tavern.id, user.id]);
     await db.query('delete from tavern_members where tavern_id = $1 and user_id = $2', [tavern.id, user.id]);
     return c.json({ ok: true });
   });
@@ -180,10 +204,12 @@ export function tavernRoutes({ db, blizzard }: AppDeps) {
     const characterId = uuidParam(c, 'characterId');
     const [owned] = await db.query('select id from characters where id = $1 and user_id = $2', [characterId, user.id]);
     if (!owned) throw new HTTPException(404, { message: 'Character not found' });
-    await db.query(
-      'insert into tavern_characters (tavern_id, character_id) values ($1, $2) on conflict do nothing',
+    const [added] = await db.query(
+      `insert into tavern_characters (tavern_id, character_id) values ($1, $2)
+       on conflict do nothing returning character_id`,
       [tavern.id, characterId],
     );
+    if (added) await recordEvent(db, { kind: 'character_joined', tavernId: tavern.id, characterId, userId: user.id });
     return c.json({ ok: true });
   });
 
@@ -223,10 +249,11 @@ export function tavernRoutes({ db, blizzard }: AppDeps) {
     const code = c.req.param('code').toUpperCase();
     const [tavern] = await db.query<TavernRow>('select * from taverns where invite_code = $1', [code]);
     if (!tavern) throw new HTTPException(404, { message: 'That invite code is not valid' });
-    await db.query('insert into tavern_members (tavern_id, user_id) values ($1, $2) on conflict do nothing', [
-      tavern.id,
-      user.id,
-    ]);
+    const [joined] = await db.query(
+      'insert into tavern_members (tavern_id, user_id) values ($1, $2) on conflict do nothing returning user_id',
+      [tavern.id, user.id],
+    );
+    if (joined) await recordEvent(db, { kind: 'member_joined', tavernId: tavern.id, userId: user.id });
     return c.json({ tavernId: tavern.id });
   });
 

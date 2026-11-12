@@ -21,6 +21,11 @@
   --class-warlock: #a28be0;
   --class-druid: #ff7c0a;
 
+  /* Item quality colours (rare is lightened a touch for contrast on the dark background). */
+  --q-rare: #2f8fff;
+  --q-epic: #b65cff;
+  --q-legendary: #ff8000;
+
   color-scheme: dark;
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   line-height: 1.5;
@@ -147,6 +152,57 @@ td.actions { text-align: right; display: flex; gap: 0.4rem; justify-content: fle
 .class-mage { color: var(--class-mage); }
 .class-warlock { color: var(--class-warlock); }
 .class-druid { color: var(--class-druid); }
+
+/* ---- Activity feed ---- */
+.feed { display: flex; flex-direction: column; gap: 0.75rem; align-items: center; }
+.feed-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.75rem; width: 100%; max-width: 680px; }
+.feed-post { display: flex; gap: 0.85rem; align-items: flex-start; padding: 0.85rem 1rem; }
+.feed-avatar {
+  flex: none; width: 2.6rem; height: 2.6rem; border-radius: 50%; display: grid; place-items: center;
+  font-family: Georgia, serif; font-weight: 700; font-size: 1.15rem;
+  background: var(--bg-input); color: var(--accent); border: 2px solid var(--border);
+}
+.feed-avatar[class*='class-bg-'] { color: var(--avatar); border-color: var(--avatar); background: color-mix(in srgb, var(--avatar) 14%, var(--bg-input)); }
+.class-bg-warrior { --avatar: var(--class-warrior); }
+.class-bg-paladin { --avatar: var(--class-paladin); }
+.class-bg-hunter { --avatar: var(--class-hunter); }
+.class-bg-rogue { --avatar: var(--class-rogue); }
+.class-bg-priest { --avatar: var(--class-priest); }
+.class-bg-shaman { --avatar: var(--class-shaman); }
+.class-bg-mage { --avatar: var(--class-mage); }
+.class-bg-warlock { --avatar: var(--class-warlock); }
+.class-bg-druid { --avatar: var(--class-druid); }
+.feed-body { flex: 1; min-width: 0; }
+.feed-meta { display: flex; gap: 0.5rem; }
+.feed-meta > * + *::before { content: '·'; margin-right: 0.5rem; }
+.feed-headline { margin: 0.1rem 0 0; overflow-wrap: anywhere; }
+.feed-icon { margin-right: 0.15rem; }
+.feed-items { list-style: none; margin: 0.45rem 0 0; padding: 0.45rem 0.7rem; background: var(--bg-input); border-radius: 8px; display: grid; gap: 0.2rem; }
+.feed-items li { display: flex; flex-wrap: wrap; gap: 0 0.6rem; align-items: baseline; }
+.feed-post.milestone { border-color: var(--accent); background: linear-gradient(135deg, rgba(224, 164, 60, 0.12), var(--bg-raised) 60%); }
+.feed-post.milestone .feed-headline { font-size: 1.08rem; }
+.feed-post.max { box-shadow: 0 0 0 1px var(--accent), 0 0 18px rgba(224, 164, 60, 0.25); }
+.feed-post.loot-epic { border-left: 3px solid var(--q-epic); }
+.feed-post.loot-legendary { border-left: 3px solid var(--q-legendary); }
+.feed-post.loot-rare { border-left: 3px solid var(--q-rare); }
+.feed-actions { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; margin-top: 0.55rem; }
+button.cheer { display: inline-flex; align-items: center; gap: 0.35rem; border-radius: 999px; padding: 0.15rem 0.7rem; }
+button.cheer.cheered { border-color: var(--accent); background: rgba(224, 164, 60, 0.16); color: var(--accent); }
+button.cheer.cheered span[aria-hidden] { display: inline-block; animation: cheer-clink 0.35s ease-out; }
+.cheer-count { font-variant-numeric: tabular-nums; font-weight: 700; }
+.cheer-names { overflow-wrap: anywhere; }
+@keyframes cheer-clink { 40% { transform: rotate(-18deg) scale(1.25); } }
+@media (prefers-reduced-motion: reduce) { button.cheer.cheered span[aria-hidden] { animation: none; } }
+.feed-empty { max-width: 680px; width: 100%; margin: 0 auto; text-align: center; }
+.quality { font-weight: 600; }
+.q-poor { color: #9d9d9d; }
+.q-common { color: var(--text); }
+.q-uncommon { color: #1eff00; }
+.q-rare { color: var(--q-rare); }
+.q-epic { color: var(--q-epic); }
+.q-legendary, .q-artifact { color: var(--q-legendary); }
+.achievement-name { color: #ffd27a; font-weight: 600; }
+.achievement-name::before { content: '★ '; }
 
 .invite { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
 .invite-code { font-size: 1.2rem; letter-spacing: 0.15em; background: var(--bg-input); padding: 0.25rem 0.6rem; border-radius: 6px; }
