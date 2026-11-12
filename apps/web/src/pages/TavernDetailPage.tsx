@@ -1,10 +1,11 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { api, type TavernCharacter, type TavernDetail } from '../api/client';
 import { keys, useCharacters, useMe, useTavern } from '../api/hooks';
 import { AddCharacterForm } from '../components/AddCharacterForm';
 import { CharacterAvatar } from '../components/CharacterAvatar';
+import { CharacterDirectory, CharacterLink } from '../components/CharacterLink';
 import { CharacterDetails } from '../components/CharacterDetails';
 import { CharacterTable } from '../components/CharacterTable';
 import { DungeonTable } from '../components/DungeonTable';
@@ -92,8 +93,10 @@ function MyCharactersPanel({ tavern }: { tavern: TavernDetail }) {
                   toggle.mutate({ id: c.id, add });
                 }}
               />
-              <CharacterAvatar character={c} size="xs" />
-              {c.name} {c.surname}
+              <CharacterLink character={c} focusable={false}>
+                <CharacterAvatar character={c} size="xs" />
+                {c.name} {c.surname}
+              </CharacterLink>
               <span className="muted small-text">{c.level != null ? ` · ${c.level}` : ' · pending'}</span>
             </label>
           </li>
@@ -178,6 +181,11 @@ export function TavernDetailPage() {
   const tavern = useTavern(id);
   const me = useMe();
   const qc = useQueryClient();
+  // Lets hover cards anywhere on the page (e.g. in feed posts) show the roster's full character details.
+  const directory = useMemo(
+    () => new Map((tavern.data?.characters ?? []).map((c) => [c.id, c])),
+    [tavern.data?.characters],
+  );
   const refresh = useMutation({
     mutationFn: () => api.refreshTavern(id),
     onSuccess: (t) => {
@@ -198,34 +206,36 @@ export function TavernDetailPage() {
   const t = tavern.data;
 
   return (
-    <div className="stack">
-      <div className="page-head">
-        <div>
-          <Link to="/" className="muted small-text">← Taverns</Link>
-          <h1>{t.name}</h1>
-        </div>
-        <button onClick={() => refresh.mutate()} disabled={refresh.isPending}>
-          {refresh.isPending ? 'Refreshing…' : 'Refresh levels'}
-        </button>
-      </div>
-      {refresh.error && <p className="error">{refresh.error.message}</p>}
-
-      <div className="view-tabs" role="group" aria-label="Tavern views">
-        {VIEWS.map(([key, label]) => (
-          <button key={key} className={view === key ? 'active' : ''} aria-pressed={view === key} onClick={() => setView(key)}>
-            {label}
+    <CharacterDirectory.Provider value={directory}>
+      <div className="stack">
+        <div className="page-head">
+          <div>
+            <Link to="/" className="muted small-text">← Taverns</Link>
+            <h1>{t.name}</h1>
+          </div>
+          <button onClick={() => refresh.mutate()} disabled={refresh.isPending}>
+            {refresh.isPending ? 'Refreshing…' : 'Refresh levels'}
           </button>
-        ))}
-      </div>
-      {view === 'feed' && <TavernFeed tavernId={t.id} viewerName={me.data?.displayName} />}
-      {view === 'characters' && <CharacterRoster tavern={t} />}
-      {view === 'dungeons' && <DungeonTable characters={t.characters} />}
+        </div>
+        {refresh.error && <p className="error">{refresh.error.message}</p>}
 
-      <div className="three-col">
-        <MyCharactersPanel tavern={t} />
-        <InvitePanel tavern={t} />
-        <MembersPanel tavern={t} />
+        <div className="view-tabs" role="group" aria-label="Tavern views">
+          {VIEWS.map(([key, label]) => (
+            <button key={key} className={view === key ? 'active' : ''} aria-pressed={view === key} onClick={() => setView(key)}>
+              {label}
+            </button>
+          ))}
+        </div>
+        {view === 'feed' && <TavernFeed tavernId={t.id} viewerName={me.data?.displayName} />}
+        {view === 'characters' && <CharacterRoster tavern={t} />}
+        {view === 'dungeons' && <DungeonTable characters={t.characters} />}
+
+        <div className="three-col">
+          <MyCharactersPanel tavern={t} />
+          <InvitePanel tavern={t} />
+          <MembersPanel tavern={t} />
+        </div>
       </div>
-    </div>
+    </CharacterDirectory.Provider>
   );
 }

@@ -12,13 +12,44 @@ function hash(s: string): number {
 
 // Gear unlocks as the (drifting) mock level rises, so local dev produces loot posts over time.
 const MOCK_GEAR = [
-  { id: 900001, name: 'Frayed Tavern Apron', quality: 'COMMON', slot: 'Chest', minLevel: 1 },
-  { id: 900002, name: 'Bracers of the Bar Brawl', quality: 'UNCOMMON', slot: 'Wrists', minLevel: 12 },
-  { id: 900003, name: 'Stoutheart Pauldrons', quality: 'RARE', slot: 'Shoulders', minLevel: 22 },
-  { id: 900004, name: 'Ring of Last Orders', quality: 'RARE', slot: 'Finger', minLevel: 34 },
-  { id: 900005, name: 'Cloak of the Long Night', quality: 'RARE', slot: 'Back', minLevel: 46 },
-  { id: 900006, name: 'Hearthfire Greatblade', quality: 'EPIC', slot: 'Main Hand', minLevel: 52 },
-  { id: 900007, name: 'Crown of the Innkeeper', quality: 'EPIC', slot: 'Head', minLevel: 58 },
+  {
+    id: 900001, name: 'Frayed Tavern Apron', quality: 'COMMON', slot: 'Chest', minLevel: 1,
+    itemType: 'Cloth', armor: '8 Armor', durability: 'Durability 40 / 40',
+    description: 'Smells faintly of spilled ale.',
+  },
+  {
+    id: 900002, name: 'Bracers of the Bar Brawl', quality: 'UNCOMMON', slot: 'Wrists', minLevel: 12,
+    itemType: 'Leather', binding: 'Binds when equipped', armor: '31 Armor', stats: ['+3 Strength', '+2 Stamina'],
+    durability: 'Durability 30 / 30', requirement: 'Requires Level 12',
+  },
+  {
+    id: 900003, name: 'Stoutheart Pauldrons', quality: 'RARE', slot: 'Shoulders', minLevel: 22,
+    itemType: 'Mail', binding: 'Binds when picked up', armor: '182 Armor', stats: ['+8 Stamina', '+6 Strength'],
+    durability: 'Durability 70 / 70', requirement: 'Requires Level 22',
+  },
+  {
+    id: 900004, name: 'Ring of Last Orders', quality: 'RARE', slot: 'Finger', minLevel: 34,
+    binding: 'Binds when picked up', unique: 'Unique', stats: ['+7 Agility', '+5 Stamina'],
+    effects: ['Equip: Improves your chance to get a critical strike by 1%.'], requirement: 'Requires Level 34',
+  },
+  {
+    id: 900005, name: 'Cloak of the Long Night', quality: 'RARE', slot: 'Back', minLevel: 46,
+    itemType: 'Cloth', binding: 'Binds when equipped', armor: '42 Armor', stats: ['+9 Intellect', '+8 Spirit'],
+    requirement: 'Requires Level 46', description: 'Woven after closing time.',
+  },
+  {
+    id: 900006, name: 'Hearthfire Greatblade', quality: 'EPIC', slot: 'Main Hand', minLevel: 52,
+    itemType: 'Two-Handed Sword', binding: 'Binds when picked up',
+    weapon: ['118 - 178 Damage', 'Speed 3.40', '(43.5 damage per second)'], stats: ['+19 Strength', '+15 Stamina'],
+    effects: ['Chance on hit: Sets the target ablaze for 120 Fire damage over 6 sec.'],
+    durability: 'Durability 120 / 120', requirement: 'Requires Level 52',
+  },
+  {
+    id: 900007, name: 'Crown of the Innkeeper', quality: 'EPIC', slot: 'Head', minLevel: 58,
+    itemType: 'Plate', binding: 'Binds when picked up', armor: '641 Armor', stats: ['+24 Stamina', '+16 Strength'],
+    effects: ['Equip: Restores 6 health per 5 sec.'], set: "The Innkeeper's Regalia (1/5)",
+    durability: 'Durability 100 / 100', requirement: 'Requires Level 58', description: 'Last orders, please.',
+  },
 ];
 
 const HORDE = new Set(['Orc', 'Undead', 'Tauren', 'Troll']);

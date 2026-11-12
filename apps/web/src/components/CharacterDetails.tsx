@@ -3,6 +3,7 @@ import type { FeedItem, TavernCharacter } from '../api/client';
 import { useCharacterDetails } from '../api/hooks';
 import { CharacterLevel } from './CharacterLevel';
 import { ClassName, classKey } from './ClassName';
+import { ItemLink } from './ItemLink';
 import { FeedPost, timeAgo } from './TavernFeed';
 
 // Paper-doll order; anything we don't recognise goes last.
@@ -64,7 +65,7 @@ function Gear({ items, syncedAt }: { items: FeedItem[] | null | undefined; synce
         {sortGear(items).map((i) => (
           <li key={`${i.slot}-${i.id}`}>
             <span className="muted gear-slot">{i.slot ?? '—'}</span>
-            <span className={`quality q-${i.quality.toLowerCase()}`}>{i.name}</span>
+            <ItemLink item={i} brackets={false} />
             {i.itemLevel != null && <span className="muted small-text gear-ilvl">{i.itemLevel}</span>}
           </li>
         ))}

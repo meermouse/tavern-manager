@@ -3,21 +3,14 @@ import type { ReactNode } from 'react';
 import { api, type Cheers, type FeedEvent, type FeedPage } from '../api/client';
 import { keys, useTavernFeed } from '../api/hooks';
 import { CharacterAvatar } from './CharacterAvatar';
+import { CharacterLink } from './CharacterLink';
+import { ItemLink } from './ItemLink';
+import { timeAgo } from '../time';
 import { ClassName, classKey } from './ClassName';
 
 const MAX_LEVEL = 60;
 
-export function timeAgo(iso: string, now: number = Date.now()): string {
-  const seconds = Math.max(0, Math.round((now - new Date(iso).getTime()) / 1000));
-  if (seconds < 45) return 'just now';
-  const minutes = Math.round(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.round(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.round(hours / 24);
-  if (days < 7) return `${days}d ago`;
-  return new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
-}
+export { timeAgo } from '../time';
 
 /** Every 10th level, and max level, deserve a bigger post. */
 export function isMilestone(from: number, to: number): boolean {
@@ -33,7 +26,13 @@ function qualityLabel(q: string) {
 }
 
 function Avatar({ event }: { event: FeedEvent }) {
-  if (event.character) return <CharacterAvatar character={event.character} size="md" className="feed-avatar" />;
+  if (event.character) {
+    return (
+      <CharacterLink character={event.character} focusable={false}>
+        <CharacterAvatar character={event.character} size="md" className="feed-avatar" />
+      </CharacterLink>
+    );
+  }
   const letter = (event.user?.displayName ?? '?').charAt(0).toUpperCase();
   return (
     <div className="feed-avatar" aria-hidden="true">
@@ -46,9 +45,11 @@ function CharName({ event }: { event: FeedEvent }) {
   const c = event.character;
   if (!c) return <strong>Someone</strong>;
   return (
-    <strong className={classKey(c.class) ? `class-${classKey(c.class)}` : undefined}>
-      {c.name} {c.surname}
-    </strong>
+    <CharacterLink character={c}>
+      <strong className={classKey(c.class) ? `class-${classKey(c.class)}` : undefined}>
+        {c.name} {c.surname}
+      </strong>
+    </CharacterLink>
   );
 }
 
@@ -131,7 +132,7 @@ function Details({ event }: { event: FeedEvent }) {
       <ul className="feed-items">
         {event.data.items.map((i) => (
           <li key={i.id}>
-            <span className={`quality q-${i.quality.toLowerCase()}`}>[{i.name}]</span>
+            <ItemLink item={i} />
             <span className="muted small-text">
               {[qualityLabel(i.quality), i.slot, i.itemLevel != null ? `item level ${i.itemLevel}` : null]
                 .filter(Boolean)

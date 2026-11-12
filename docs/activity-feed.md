@@ -44,6 +44,9 @@ overlapping syncs (scheduled refresh and a manual refresh) can't post the same l
 - Characters only update when they **log out**, so posts lag live play the same way levels do. Posts are timestamped
   when we *detect* the change, not when it happened in game.
 
+Hovering a character's name or portrait in a post shows their profile card, and hovering an item shows its tooltip.
+Loot posts save the whole item (stats, effects and so on), so the tooltip still works after the item is replaced.
+
 ## Cheers 🍺
 
 Every post has a **Cheers** button. It toggles your cheer and shows the count, with "Cheers from Alice, Bob" next to
