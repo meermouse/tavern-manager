@@ -59,9 +59,8 @@ async function detectLoot(db: Db, row: CharacterRow, items: EquippedItem[]): Pro
     await recordEvent(db, {
       kind: 'loot',
       characterId: row.id,
-      data: {
-        items: fresh.map((i) => ({ id: i.id, name: i.name, quality: i.quality, slot: i.slot, itemLevel: i.itemLevel })),
-      },
+      // The whole item, so the post's tooltip still works after it's swapped out.
+      data: { items: fresh },
     });
   }
 }

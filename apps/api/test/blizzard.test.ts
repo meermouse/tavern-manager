@@ -110,6 +110,61 @@ describe('parseEquipment', () => {
   });
 });
 
+describe('parseEquipment tooltip details', () => {
+  it('reads display strings for the item tooltip', () => {
+    const [sword] = parseEquipment({
+      equipped_items: [
+        {
+          item: { id: 19019 },
+          slot: { type: 'MAIN_HAND', name: 'Main Hand' },
+          quality: { type: 'LEGENDARY', name: 'Legendary' },
+          name: 'Thunderfury, Blessed Blade of the Windseeker',
+          item_class: { name: 'Weapon' },
+          item_subclass: { name: 'Sword' },
+          binding: { type: 'ON_ACQUIRE', name: 'Binds when picked up' },
+          unique_equipped: 'Unique',
+          weapon: {
+            damage: { display_string: '44 - 115 Damage' },
+            attack_speed: { display_string: 'Speed 1.90' },
+            dps: { display_string: '(41.8 damage per second)' },
+          },
+          stats: [
+            { type: { name: 'Agility' }, value: 5, display: { display_string: '+5 Agility' } },
+            { type: { name: 'Stamina' }, value: 8, display: { display_string: '+8 Stamina' } },
+            { type: { name: 'Hidden' }, value: 1, is_negated: true, display: { display_string: 'nope' } },
+          ],
+          enchantments: [{ display_string: 'Enchanted: Crusader' }],
+          spells: [
+            { spell: { name: 'Thunderfury' }, description: 'Chance on hit: Blasts your enemy with lightning.' },
+            { spell: { name: 'Fire Resistance' }, description: '+5 Fire Resistance.' },
+          ],
+          requirements: { level: { value: 60, display_string: 'Requires Level 60' } },
+          level: { value: 80, display_string: 'Item Level 80' },
+          durability: { value: 125, display_string: 'Durability 125 / 125' },
+          description: 'The windseeker blade.',
+        },
+      ],
+    });
+    expect(sword).toEqual({
+      id: 19019,
+      name: 'Thunderfury, Blessed Blade of the Windseeker',
+      quality: 'LEGENDARY',
+      slot: 'Main Hand',
+      itemLevel: 80,
+      itemType: 'Sword',
+      binding: 'Binds when picked up',
+      unique: 'Unique',
+      weapon: ['44 - 115 Damage', 'Speed 1.90', '(41.8 damage per second)'],
+      stats: ['+5 Agility', '+8 Stamina'],
+      enchantments: ['Enchanted: Crusader'],
+      effects: ['Chance on hit: Blasts your enemy with lightning.', 'Equip: +5 Fire Resistance.'],
+      requirement: 'Requires Level 60',
+      durability: 'Durability 125 / 125',
+      description: 'The windseeker blade.',
+    });
+  });
+});
+
 describe('parseAchievements', () => {
   it('keeps completed achievements only', () => {
     const list = parseAchievements({

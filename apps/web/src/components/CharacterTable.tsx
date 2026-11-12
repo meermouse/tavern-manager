@@ -12,6 +12,7 @@ import {
 import { useMemo, useState } from 'react';
 import type { TavernCharacter } from '../api/client';
 import { CharacterAvatar } from './CharacterAvatar';
+import { CharacterLink } from './CharacterLink';
 import { CharacterLevel } from './CharacterLevel';
 import { ClassName } from './ClassName';
 
@@ -53,6 +54,7 @@ export function CharacterTable({
   const [sorting, setSorting] = useState<SortingState>([{ id: 'level', desc: true }]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [search, setSearch] = useState('');
+  const selectable = !!onSelect;
 
   const columns = useMemo(
     () => [
@@ -60,10 +62,13 @@ export function CharacterTable({
         id: 'name',
         header: 'Character',
         cell: (info) => (
-          <span className="char-cell">
-            <CharacterAvatar character={info.row.original} size="xs" />
-            <strong>{info.getValue()}</strong>
-          </span>
+          // Selectable rows are already a tab stop, so the name needn't be one too.
+          <CharacterLink character={info.row.original} focusable={!selectable}>
+            <span className="char-cell">
+              <CharacterAvatar character={info.row.original} size="xs" />
+              <strong>{info.getValue()}</strong>
+            </span>
+          </CharacterLink>
         ),
       }),
       col.accessor('ruleset', {
@@ -89,7 +94,7 @@ export function CharacterTable({
         cell: (info) => <CharacterLevel character={info.row.original} />,
       }),
     ],
-    [],
+    [selectable],
   );
 
   const table = useReactTable({

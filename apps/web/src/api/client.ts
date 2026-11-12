@@ -79,6 +79,19 @@ export interface FeedItem {
   quality: string;
   slot: string | null;
   itemLevel: number | null;
+  // Tooltip details (optional: older items and posts only have the basics).
+  itemType?: string | null;
+  binding?: string | null;
+  unique?: string | null;
+  armor?: string | null;
+  weapon?: string[] | null;
+  stats?: string[] | null;
+  enchantments?: string[] | null;
+  effects?: string[] | null;
+  requirement?: string | null;
+  durability?: string | null;
+  set?: string | null;
+  description?: string | null;
 }
 
 export interface FeedAchievement {

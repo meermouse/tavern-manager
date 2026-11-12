@@ -42,6 +42,31 @@ export interface EquippedItem {
   quality: ItemQuality;
   slot: string | null;
   itemLevel: number | null;
+  // Tooltip details. Optional: older saved items and posts don't have them, and the API may omit any of them.
+  /** e.g. "Leather", "Two-Handed Sword". */
+  itemType?: string | null;
+  /** e.g. "Binds when picked up". */
+  binding?: string | null;
+  /** e.g. "Unique". */
+  unique?: string | null;
+  /** e.g. "52 Armor". */
+  armor?: string | null;
+  /** e.g. ["12 - 23 Damage", "Speed 2.60", "(6.7 damage per second)"]. */
+  weapon?: string[] | null;
+  /** e.g. ["+5 Agility", "+3 Stamina"]. */
+  stats?: string[] | null;
+  /** Enchants, e.g. ["Enchanted: +3 Agility"]. */
+  enchantments?: string[] | null;
+  /** Equip / use / chance-on-hit effects, e.g. ["Equip: Improves your chance to hit by 1%."]. */
+  effects?: string[] | null;
+  /** e.g. "Requires Level 30". */
+  requirement?: string | null;
+  /** e.g. "Durability 50 / 50". */
+  durability?: string | null;
+  /** e.g. "Battlegear of Might (2/8)". */
+  set?: string | null;
+  /** Flavour text. */
+  description?: string | null;
 }
 
 export interface CompletedAchievement {
@@ -199,6 +224,48 @@ function qualityOf(value: unknown): ItemQuality | null {
   return raw ? raw.toUpperCase().replace(/[^A-Z]/g, '') : null;
 }
 
+/** `{ display_string: '...' }` or `{ display: { display_string: '...' } }` → the string. */
+function display(value: unknown): string | null {
+  if (!value || typeof value !== 'object') return text(value);
+  const obj = value as Json;
+  return text(obj.display_string) ?? (obj.display && typeof obj.display === 'object' ? text((obj.display as Json).display_string) : null);
+}
+
+function strings(list: unknown, pick: (v: Json) => string | null): string[] | null {
+  if (!Array.isArray(list)) return null;
+  const out = (list as Json[]).filter((v) => v && typeof v === 'object').map(pick).filter((v): v is string => !!v);
+  return out.length ? out : null;
+}
+
+const EFFECT_PREFIX = /^(Equip|Use|Chance on hit):/i;
+
+function parseItemDetails(it: Json): Partial<EquippedItem> {
+  const weapon = it.weapon && typeof it.weapon === 'object' ? (it.weapon as Json) : null;
+  const requirements = it.requirements && typeof it.requirements === 'object' ? (it.requirements as Json) : null;
+  const set = it.set && typeof it.set === 'object' ? (it.set as Json) : null;
+  const weaponLines = weapon
+    ? [display(weapon.damage), display(weapon.attack_speed), display(weapon.dps)].filter((v): v is string => !!v)
+    : [];
+  return {
+    itemType: nameOf(it.item_subclass) ?? nameOf(it.item_class),
+    binding: nameOf(it.binding),
+    unique: display(it.unique_equipped) ?? (it.is_unique_equipped === true ? 'Unique-Equipped' : null),
+    armor: display(it.armor),
+    weapon: weaponLines.length ? weaponLines : null,
+    stats: strings(it.stats, (s) => (s.is_negated === true ? null : display(s))),
+    enchantments: strings(it.enchantments, (e) => display(e)),
+    effects: strings(it.spells, (sp) => {
+      const desc = text(sp.description);
+      if (!desc) return null;
+      return EFFECT_PREFIX.test(desc) ? desc : `Equip: ${desc}`;
+    }),
+    requirement: requirements ? display(requirements.level) : null,
+    durability: display(it.durability),
+    set: set ? display(set) ?? nameOf(set.item_set) : null,
+    description: text(it.description),
+  };
+}
+
 export function parseEquipment(json: Json): EquippedItem[] {
   const items = Array.isArray(json.equipped_items) ? (json.equipped_items as Json[]) : [];
   const out: EquippedItem[] = [];
@@ -210,7 +277,8 @@ export function parseEquipment(json: Json): EquippedItem[] {
     if (id == null || !name || !quality) continue;
     const slot = it.slot && typeof it.slot === 'object' ? nameOf(it.slot) ?? text((it.slot as Json).type) : text(it.slot);
     const level = it.level && typeof it.level === 'object' ? int((it.level as Json).value) : int(it.level);
-    out.push({ id, name, quality, slot, itemLevel: level });
+    const details = Object.fromEntries(Object.entries(parseItemDetails(it)).filter(([, v]) => v != null));
+    out.push({ id, name, quality, slot, itemLevel: level, ...details });
   }
   return out;
 }
