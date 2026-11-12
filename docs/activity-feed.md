@@ -44,6 +44,13 @@ overlapping syncs (scheduled refresh and a manual refresh) can't post the same l
 - Characters only update when they **log out**, so posts lag live play the same way levels do. Posts are timestamped
   when we *detect* the change, not when it happened in game.
 
+## Cheers 🍺
+
+Every post has a **Cheers** button. It toggles your cheer and shows the count, with "Cheers from Alice, Bob" next to
+it. Cheers are **scoped per Tavern**: the same character post shown in two Taverns has separate cheers in each, so
+nobody sees names from a Tavern they're not in. Leaving a Tavern removes your cheers there. The button updates
+instantly (optimistically) and rolls back if the request fails.
+
 ## Data model
 
 ```
@@ -59,6 +66,9 @@ character_achievements   -- completed achievements we've seen
 feed_events
   id (identity), kind, tavern_id → taverns (null for character posts),
   character_id → characters, user_id → users, data jsonb, created_at
+
+feed_reactions           -- cheers
+  event_id → feed_events, tavern_id → taverns, user_id → users, created_at   (pk: all three ids)
 ```
 
 `data` holds the kind-specific payload, such as `{from, to}` for a level-up, `{items: [{id, name, quality, slot, itemLevel}]}`
@@ -85,7 +95,11 @@ name, class and owner are joined in when the feed is read, so renames show up ev
 }
 ```
 
+Each event also has `"cheers": { "count": 2, "names": ["Bob", "Alice"], "cheeredByMe": true }`.
 Newest first. `nextCursor` is `null` when there are no older posts.
+
+`PUT` / `DELETE /api/taverns/:id/feed/:eventId/cheers` (members only, and only for posts visible in that Tavern)
+adds or removes your cheer and returns the post's updated `cheers`. Both are idempotent.
 
 ## UI
 
@@ -99,7 +113,6 @@ Newest first. `nextCursor` is `null` when there are no older posts.
 
 ## Ideas for later
 
-- **Reactions:** a "Cheers! 🍺" button and a count per post (`feed_reactions(event_id, user_id)`).
 - **Comments** on posts.
 - **Races to milestones:** "First in the Tavern to reach 60!" (computed when the level-up is posted).
 - **Dungeon or profession posts**, if the Forever API exposes encounters or professions.

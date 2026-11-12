@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { api, type TavernDetail } from '../api/client';
-import { keys, useCharacters, useTavern } from '../api/hooks';
+import { keys, useCharacters, useMe, useTavern } from '../api/hooks';
 import { AddCharacterForm } from '../components/AddCharacterForm';
 import { CharacterTable } from '../components/CharacterTable';
 import { DungeonTable } from '../components/DungeonTable';
@@ -155,6 +155,7 @@ export function TavernDetailPage() {
   const { id = '' } = useParams();
   const [view, setView] = useState<View>('feed');
   const tavern = useTavern(id);
+  const me = useMe();
   const qc = useQueryClient();
   const refresh = useMutation({
     mutationFn: () => api.refreshTavern(id),
@@ -195,7 +196,7 @@ export function TavernDetailPage() {
           </button>
         ))}
       </div>
-      {view === 'feed' && <TavernFeed tavernId={t.id} />}
+      {view === 'feed' && <TavernFeed tavernId={t.id} viewerName={me.data?.displayName} />}
       {view === 'characters' && <CharacterTable characters={t.characters} />}
       {view === 'dungeons' && <DungeonTable characters={t.characters} />}
 

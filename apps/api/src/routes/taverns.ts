@@ -2,7 +2,7 @@ import { randomInt } from 'node:crypto';
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { badRequest, jsonBody, requireUser, uuidParam, type AppDeps, type AppEnv } from '../context.js';
-import { recordEvent, tavernFeed } from '../feed.js';
+import { eventVisibleInTavern, recordEvent, setCheer, tavernFeed } from '../feed.js';
 import { serializeCharacter } from '../serialize.js';
 import { refreshStale, type CharacterRow } from '../sync.js';
 
@@ -132,8 +132,20 @@ export function tavernRoutes({ db, blizzard }: AppDeps) {
     const before = c.req.query('before');
     if (before !== undefined && !/^\d{1,18}$/.test(before)) badRequest('Invalid cursor');
     const limit = Math.min(50, Math.max(1, Number(c.req.query('limit')) || 30));
-    return c.json(await tavernFeed(db, tavern.id, { before, limit }));
+    return c.json(await tavernFeed(db, tavern.id, user.id, { before, limit }));
   });
+
+  for (const method of ['put', 'delete'] as const) {
+    app[method]('/taverns/:id/feed/:eventId/cheers', async (c) => {
+      const user = requireUser(c);
+      const tavern = await membership(uuidParam(c, 'id'), user.id);
+      const eventId = c.req.param('eventId');
+      if (!/^\d{1,18}$/.test(eventId) || !(await eventVisibleInTavern(db, tavern.id, eventId))) {
+        throw new HTTPException(404, { message: 'Post not found' });
+      }
+      return c.json(await setCheer(db, tavern.id, eventId, user.id, method === 'put'));
+    });
+  }
 
   app.patch('/taverns/:id', async (c) => {
     const user = requireUser(c);
@@ -172,6 +184,7 @@ export function tavernRoutes({ db, blizzard }: AppDeps) {
          and character_id in (select id from characters where user_id = $2)`,
       [tavern.id, user.id],
     );
+    await db.query('delete from feed_reactions where tavern_id = $1 and user_id = $2', [tavern.id, user.id]);
     await db.query('delete from tavern_members where tavern_id = $1 and user_id = $2', [tavern.id, user.id]);
     return c.json({ ok: true });
   });

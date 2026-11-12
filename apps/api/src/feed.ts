@@ -139,26 +139,48 @@ interface FeedRow {
   level: number | null;
   owner_id: string | null;
   owner_name: string | null;
+  cheer_names: string[] | string;
+  cheered: boolean;
 }
 
-export async function tavernFeed(db: Db, tavernId: string, opts: { before?: string | null; limit: number }) {
-  const params: unknown[] = [tavernId, opts.limit + 1];
+/** Which events a tavern can see: its own posts, plus posts about characters currently in it. */
+const VISIBLE_IN_TAVERN = `(
+  e.tavern_id = $1
+  or (e.tavern_id is null and e.character_id in (select character_id from tavern_characters where tavern_id = $1))
+)`;
+
+export async function eventVisibleInTavern(db: Db, tavernId: string, eventId: string): Promise<boolean> {
+  const [row] = await db.query(`select 1 from feed_events e where e.id = $2::bigint and ${VISIBLE_IN_TAVERN}`, [
+    tavernId,
+    eventId,
+  ]);
+  return !!row;
+}
+
+export async function tavernFeed(
+  db: Db,
+  tavernId: string,
+  viewerId: string,
+  opts: { before?: string | null; limit: number },
+) {
+  const params: unknown[] = [tavernId, opts.limit + 1, viewerId];
   let cursor = '';
   if (opts.before) {
     params.push(opts.before);
-    cursor = 'and e.id < $3::bigint';
+    cursor = 'and e.id < $4::bigint';
   }
   const rows = await db.query<FeedRow>(
     `select e.id::text as id, e.kind, e.tavern_id, e.character_id, e.data, e.created_at,
        c.name, c.surname, c.class, c.race, c.level,
-       u.id as owner_id, u.display_name as owner_name
+       u.id as owner_id, u.display_name as owner_name,
+       (select coalesce(json_agg(ru.display_name order by r.created_at), '[]'::json)
+          from feed_reactions r join users ru on ru.id = r.user_id
+          where r.event_id = e.id and r.tavern_id = $1) as cheer_names,
+       exists(select 1 from feed_reactions r where r.event_id = e.id and r.tavern_id = $1 and r.user_id = $3) as cheered
      from feed_events e
      left join characters c on c.id = e.character_id
      left join users u on u.id = coalesce(e.user_id, c.user_id)
-     where (
-       e.tavern_id = $1
-       or (e.tavern_id is null and e.character_id in (select character_id from tavern_characters where tavern_id = $1))
-     ) ${cursor}
+     where ${VISIBLE_IN_TAVERN} ${cursor}
      order by e.id desc
      limit $2`,
     params,
@@ -174,7 +196,38 @@ export async function tavernFeed(db: Db, tavernId: string, opts: { before?: stri
         : null,
       user: r.owner_id ? { id: r.owner_id, displayName: r.owner_name } : null,
       data: typeof r.data === 'string' ? JSON.parse(r.data) : r.data,
+      cheers: cheersOf(r),
     })),
     nextCursor: rows.length > opts.limit ? page[page.length - 1].id : null,
   };
+}
+
+function cheersOf(r: Pick<FeedRow, 'cheer_names' | 'cheered'>) {
+  const names: string[] = typeof r.cheer_names === 'string' ? JSON.parse(r.cheer_names) : r.cheer_names;
+  return { count: names.length, names, cheeredByMe: r.cheered };
+}
+
+/** Add or remove the viewer's cheer, returning the post's updated cheers. */
+export async function setCheer(db: Db, tavernId: string, eventId: string, userId: string, on: boolean) {
+  if (on) {
+    await db.query(
+      'insert into feed_reactions (event_id, tavern_id, user_id) values ($1::bigint, $2, $3) on conflict do nothing',
+      [eventId, tavernId, userId],
+    );
+  } else {
+    await db.query('delete from feed_reactions where event_id = $1::bigint and tavern_id = $2 and user_id = $3', [
+      eventId,
+      tavernId,
+      userId,
+    ]);
+  }
+  const [row] = await db.query<Pick<FeedRow, 'cheer_names' | 'cheered'>>(
+    `select
+       (select coalesce(json_agg(ru.display_name order by r.created_at), '[]'::json)
+          from feed_reactions r join users ru on ru.id = r.user_id
+          where r.event_id = $1::bigint and r.tavern_id = $2) as cheer_names,
+       exists(select 1 from feed_reactions where event_id = $1::bigint and tavern_id = $2 and user_id = $3) as cheered`,
+    [eventId, tavernId, userId],
+  );
+  return cheersOf(row);
 }

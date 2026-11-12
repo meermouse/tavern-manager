@@ -1,6 +1,7 @@
+import { useMutation, useQueryClient, type InfiniteData } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
-import type { FeedEvent } from '../api/client';
-import { useTavernFeed } from '../api/hooks';
+import { api, type Cheers, type FeedEvent, type FeedPage } from '../api/client';
+import { keys, useTavernFeed } from '../api/hooks';
 import { ClassName } from './ClassName';
 
 const MAX_LEVEL = 60;
@@ -160,7 +161,58 @@ function Details({ event }: { event: FeedEvent }) {
   return null;
 }
 
-export function FeedPost({ event, now }: { event: FeedEvent; now?: number }) {
+export function cheersLabel(cheers: Cheers): string {
+  if (!cheers.count) return 'Be the first to raise a glass';
+  return `Cheers from ${cheers.names.join(', ')}`;
+}
+
+export function CheerButton({ cheers, onToggle, pending }: { cheers: Cheers; onToggle: () => void; pending?: boolean }) {
+  return (
+    <button
+      type="button"
+      className={`cheer ghost small${cheers.cheeredByMe ? ' cheered' : ''}`}
+      aria-pressed={cheers.cheeredByMe}
+      title={cheersLabel(cheers)}
+      disabled={pending}
+      onClick={onToggle}
+    >
+      <span aria-hidden="true">🍺</span> Cheers{cheers.count > 0 && <span className="cheer-count">{cheers.count}</span>}
+    </button>
+  );
+}
+
+/** Toggle the viewer's cheer, updating the cached feed immediately and rolling back on error. */
+function useCheer(tavernId: string, viewerName: string | undefined) {
+  const qc = useQueryClient();
+  const key = keys.feed(tavernId);
+  const patch = (eventId: string, fn: (c: Cheers) => Cheers) =>
+    qc.setQueryData<InfiniteData<FeedPage>>(key, (data) =>
+      data && {
+        ...data,
+        pages: data.pages.map((p) => ({
+          ...p,
+          events: p.events.map((e) => (e.id === eventId ? { ...e, cheers: fn(e.cheers) } : e)),
+        })),
+      },
+    );
+  return useMutation({
+    mutationFn: ({ eventId, on }: { eventId: string; on: boolean }) => api.setCheer(tavernId, eventId, on),
+    onMutate: async ({ eventId, on }) => {
+      await qc.cancelQueries({ queryKey: key });
+      const previous = qc.getQueryData<InfiniteData<FeedPage>>(key);
+      patch(eventId, (c) => ({
+        count: c.count + (on ? 1 : -1),
+        cheeredByMe: on,
+        names: on ? [...c.names, viewerName ?? 'You'] : c.names.filter((n) => n !== viewerName),
+      }));
+      return { previous };
+    },
+    onError: (_err, _vars, ctx) => ctx?.previous && qc.setQueryData(key, ctx.previous),
+    onSuccess: (cheers, { eventId }) => patch(eventId, () => cheers),
+  });
+}
+
+export function FeedPost({ event, now, onCheer }: { event: FeedEvent; now?: number; onCheer?: () => void }) {
   const { icon, text, className } = headline(event);
   const showOwner = !!event.character && event.kind !== 'character_joined';
   return (
@@ -177,13 +229,20 @@ export function FeedPost({ event, now }: { event: FeedEvent; now?: number }) {
           <span className="feed-icon" aria-hidden="true">{icon}</span> {text}
         </p>
         <Details event={event} />
+        {onCheer && event.cheers && (
+          <div className="feed-actions">
+            <CheerButton cheers={event.cheers} onToggle={onCheer} />
+            {event.cheers.count > 0 && <span className="muted small-text cheer-names">{cheersLabel(event.cheers)}</span>}
+          </div>
+        )}
       </div>
     </li>
   );
 }
 
-export function TavernFeed({ tavernId }: { tavernId: string }) {
+export function TavernFeed({ tavernId, viewerName }: { tavernId: string; viewerName?: string }) {
   const feed = useTavernFeed(tavernId);
+  const cheer = useCheer(tavernId, viewerName);
 
   if (feed.isPending) return <p className="muted">Loading the feed…</p>;
   if (feed.error) return <p className="error">{feed.error.message}</p>;
@@ -205,7 +264,11 @@ export function TavernFeed({ tavernId }: { tavernId: string }) {
     <div className="feed">
       <ol className="feed-list">
         {events.map((e) => (
-          <FeedPost key={e.id} event={e} />
+          <FeedPost
+            key={e.id}
+            event={e}
+            onCheer={() => cheer.mutate({ eventId: e.id, on: !e.cheers.cheeredByMe })}
+          />
         ))}
       </ol>
       {feed.hasNextPage && (

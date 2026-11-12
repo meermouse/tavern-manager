@@ -185,6 +185,14 @@ td.actions { text-align: right; display: flex; gap: 0.4rem; justify-content: fle
 .feed-post.loot-epic { border-left: 3px solid var(--q-epic); }
 .feed-post.loot-legendary { border-left: 3px solid var(--q-legendary); }
 .feed-post.loot-rare { border-left: 3px solid var(--q-rare); }
+.feed-actions { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; margin-top: 0.55rem; }
+button.cheer { display: inline-flex; align-items: center; gap: 0.35rem; border-radius: 999px; padding: 0.15rem 0.7rem; }
+button.cheer.cheered { border-color: var(--accent); background: rgba(224, 164, 60, 0.16); color: var(--accent); }
+button.cheer.cheered span[aria-hidden] { display: inline-block; animation: cheer-clink 0.35s ease-out; }
+.cheer-count { font-variant-numeric: tabular-nums; font-weight: 700; }
+.cheer-names { overflow-wrap: anywhere; }
+@keyframes cheer-clink { 40% { transform: rotate(-18deg) scale(1.25); } }
+@media (prefers-reduced-motion: reduce) { button.cheer.cheered span[aria-hidden] { animation: none; } }
 .feed-empty { max-width: 680px; width: 100%; margin: 0 auto; text-align: center; }
 .quality { font-weight: 600; }
 .q-poor { color: #9d9d9d; }

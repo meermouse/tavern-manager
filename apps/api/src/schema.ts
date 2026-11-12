@@ -98,6 +98,16 @@ create table if not exists feed_events (
 create index if not exists feed_events_character_idx on feed_events(character_id, id desc);
 create index if not exists feed_events_tavern_idx on feed_events(tavern_id, id desc) where tavern_id is not null;
 
+-- "Cheers!" reactions. Scoped per tavern: a character's posts show in every tavern it's in,
+-- but each tavern only sees its own members' cheers.
+create table if not exists feed_reactions (
+  event_id bigint not null references feed_events(id) on delete cascade,
+  tavern_id uuid not null references taverns(id) on delete cascade,
+  user_id uuid not null references users(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (event_id, tavern_id, user_id)
+);
+
 select pg_advisory_unlock(727274);
 `;
 

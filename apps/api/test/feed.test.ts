@@ -195,4 +195,43 @@ describe('activity feed', () => {
     expect(page3.nextCursor).toBeNull();
     expect((await w.alice.get(`/api/taverns/${w.tavern.id}/feed?before=abc`)).status).toBe(400);
   });
+
+  it('lets members cheer posts, scoped to the tavern', async () => {
+    const state: FakeState = { level: 20, items: [], achievements: [], lastLoginAt: null };
+    const w = await world(state);
+    const bob = await w.login('Bob#5678');
+    const carol = await w.login('Carol#1111');
+    await bob.post(`/api/invites/${w.tavern.inviteCode}/join`);
+    state.level = 21;
+    await w.resync();
+    const [levelUp] = (await w.feed()).events;
+    expect(levelUp.cheers).toEqual({ count: 0, names: [], cheeredByMe: false });
+
+    const url = `/api/taverns/${w.tavern.id}/feed/${levelUp.id}/cheers`;
+    expect((await bob.put(url)).body).toEqual({ count: 1, names: ['Bob'], cheeredByMe: true });
+    expect((await bob.put(url)).body.count).toBe(1); // idempotent
+    expect((await w.alice.put(url)).body).toEqual({ count: 2, names: ['Bob', 'Alice'], cheeredByMe: true });
+    expect((await w.feed()).events[0].cheers).toEqual({ count: 2, names: ['Bob', 'Alice'], cheeredByMe: true });
+    expect((await bob.del(url)).body).toEqual({ count: 1, names: ['Alice'], cheeredByMe: false });
+
+    // Non-members, unknown posts, and posts from another tavern are off limits.
+    expect((await carol.put(url)).status).toBe(404);
+    expect((await bob.put(`/api/taverns/${w.tavern.id}/feed/999999/cheers`)).status).toBe(404);
+    expect((await bob.put(`/api/taverns/${w.tavern.id}/feed/abc/cheers`)).status).toBe(404);
+    const other = (await w.alice.post('/api/taverns', { name: 'Elsewhere' })).body;
+    const otherPost = (await w.alice.get(`/api/taverns/${other.id}/feed`)).body.events[0];
+    expect((await w.alice.put(`/api/taverns/${w.tavern.id}/feed/${otherPost.id}/cheers`)).status).toBe(404);
+
+    // The same character post in another tavern has its own cheers.
+    await w.alice.put(`/api/taverns/${other.id}/characters/${w.ch.id}`);
+    const shared = (await w.alice.get(`/api/taverns/${other.id}/feed`)).body.events.find(
+      (e: { id: string }) => e.id === levelUp.id,
+    );
+    expect(shared.cheers.count).toBe(0);
+
+    // Leaving the tavern removes your cheers there.
+    await bob.put(url);
+    await bob.post(`/api/taverns/${w.tavern.id}/leave`);
+    expect((await w.feed()).events.find((e: { id: string }) => e.id === levelUp.id).cheers.names).toEqual(['Alice']);
+  });
 });

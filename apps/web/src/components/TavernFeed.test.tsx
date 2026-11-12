@@ -1,7 +1,7 @@
-import { cleanup, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { FeedEvent } from '../api/client';
-import { FeedPost, isMilestone, timeAgo } from './TavernFeed';
+import { cheersLabel, FeedPost, isMilestone, timeAgo } from './TavernFeed';
 
 afterEach(cleanup);
 
@@ -10,7 +10,16 @@ const character = { id: 'c1', name: 'Judgement', surname: 'Judy', class: 'Paladi
 const user = { id: 'u1', displayName: 'Alice' };
 
 function post(over: Partial<FeedEvent>): FeedEvent {
-  return { id: '1', kind: 'level_up', createdAt: '2026-11-12T09:00:00Z', character, user, data: {}, ...over };
+  return {
+    id: '1',
+    kind: 'level_up',
+    createdAt: '2026-11-12T09:00:00Z',
+    character,
+    user,
+    data: {},
+    cheers: { count: 0, names: [], cheeredByMe: false },
+    ...over,
+  };
 }
 
 function renderPost(event: FeedEvent) {
@@ -101,5 +110,36 @@ describe('FeedPost', () => {
     expect(
       renderPost(post({ kind: 'tavern_founded', character: null, data: { tavernName: 'The Prancing Pony' } })).textContent,
     ).toContain('Alice founded The Prancing Pony');
+  });
+});
+
+describe('cheers', () => {
+  it('labels who cheered', () => {
+    expect(cheersLabel({ count: 0, names: [], cheeredByMe: false })).toBe('Be the first to raise a glass');
+    expect(cheersLabel({ count: 2, names: ['Bob', 'Alice'], cheeredByMe: true })).toBe('Cheers from Bob, Alice');
+  });
+
+  it('shows the count and pressed state, and toggles', () => {
+    const onCheer = vi.fn();
+    render(
+      <ul>
+        <FeedPost
+          event={post({ data: { from: 1, to: 2 }, cheers: { count: 2, names: ['Bob', 'Alice'], cheeredByMe: true } })}
+          now={NOW}
+          onCheer={onCheer}
+        />
+      </ul>,
+    );
+    const button = screen.getByRole('button', { name: /cheers/i });
+    expect(button.getAttribute('aria-pressed')).toBe('true');
+    expect(button.textContent).toContain('2');
+    expect(screen.getByText('Cheers from Bob, Alice')).toBeTruthy();
+    fireEvent.click(button);
+    expect(onCheer).toHaveBeenCalledOnce();
+  });
+
+  it('hides the button when the post has no cheer handler', () => {
+    renderPost(post({ data: { from: 1, to: 2 } }));
+    expect(screen.queryByRole('button')).toBeNull();
   });
 });

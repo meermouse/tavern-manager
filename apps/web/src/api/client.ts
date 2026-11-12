@@ -81,6 +81,13 @@ export interface FeedEvent {
     achievements?: FeedAchievement[];
     tavernName?: string;
   };
+  cheers: Cheers;
+}
+
+export interface Cheers {
+  count: number;
+  names: string[];
+  cheeredByMe: boolean;
 }
 
 export interface FeedPage {
@@ -148,6 +155,8 @@ export const api = {
   regenerateInvite: (id: string) => request<TavernDetail>('POST', `/api/taverns/${id}/invite-code`),
   tavernFeed: (id: string, before?: string | null) =>
     request<FeedPage>('GET', `/api/taverns/${id}/feed${before ? `?before=${encodeURIComponent(before)}` : ''}`),
+  setCheer: (tavernId: string, eventId: string, on: boolean) =>
+    request<Cheers>(on ? 'PUT' : 'DELETE', `/api/taverns/${tavernId}/feed/${eventId}/cheers`),
   refreshTavern: (id: string) => request<TavernDetail>('POST', `/api/taverns/${id}/refresh`),
   addToTavern: (tavernId: string, characterId: string) =>
     request<{ ok: true }>('PUT', `/api/taverns/${tavernId}/characters/${characterId}`),
