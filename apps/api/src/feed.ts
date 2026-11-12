@@ -5,6 +5,12 @@ import type { CharacterRow } from './sync.js';
 /** Kinds of feed post. See docs/activity-feed.md. */
 export type FeedKind = 'level_up' | 'loot' | 'achievement' | 'character_joined' | 'member_joined' | 'tavern_founded';
 
+/**
+ * Bump when `parseEquipment` starts keeping more detail, so gear saved by an older version is re-fetched once
+ * instead of waiting for the character's next login. 2 = tooltip details (stats, effects, ...).
+ */
+export const EQUIPMENT_VERSION = 2;
+
 /** Item qualities worth a post. */
 export const NOTABLE_QUALITIES = new Set(['RARE', 'EPIC', 'LEGENDARY', 'ARTIFACT']);
 
@@ -107,7 +113,8 @@ export async function detectProgress(
   // (The first sync always has no previous login, so baselines still get taken.)
   const loggedInSince =
     !row.last_login_at || !prev.last_login_at || row.last_login_at.getTime() !== prev.last_login_at.getTime();
-  if (!loggedInSince) return;
+  const gearOutdated = (row.equipment_version ?? 0) < EQUIPMENT_VERSION;
+  if (!loggedInSince && !gearOutdated) return;
 
   const items = await bestEffort(
     'Equipment sync',
@@ -115,12 +122,13 @@ export async function detectProgress(
   );
   if (items) {
     // Keep the full set for the character details pane.
-    await db.query('update characters set equipment = $2::jsonb, equipment_synced_at = now() where id = $1', [
-      row.id,
-      JSON.stringify(items),
-    ]);
+    await db.query(
+      'update characters set equipment = $2::jsonb, equipment_synced_at = now(), equipment_version = $3 where id = $1',
+      [row.id, JSON.stringify(items), EQUIPMENT_VERSION],
+    );
     await detectLoot(db, row, items);
   }
+  if (!loggedInSince) return; // Only the gear needed refreshing.
 
   const achievements = await bestEffort(
     'Achievement sync',
@@ -144,6 +152,7 @@ interface FeedRow {
   race: string | null;
   level: number | null;
   avatar_url: string | null;
+  equipment: unknown;
   owner_id: string | null;
   owner_name: string | null;
   cheer_names: string[] | string;
@@ -183,6 +192,7 @@ export async function tavernFeed(
   const rows = await db.query<FeedRow>(
     `select e.id::text as id, e.kind, e.tavern_id, e.character_id, e.data, e.created_at,
        c.name, c.surname, c.class, c.race, c.level, c.avatar_url,
+       case when e.kind = 'loot' then c.equipment end as equipment,
        u.id as owner_id, u.display_name as owner_name,
        (select coalesce(json_agg(ru.display_name order by r.created_at), '[]'::json)
           from feed_reactions r join users ru on ru.id = r.user_id
@@ -214,10 +224,30 @@ export async function tavernFeed(
           }
         : null,
       user: r.owner_id ? { id: r.owner_id, displayName: r.owner_name } : null,
-      data: typeof r.data === 'string' ? JSON.parse(r.data) : r.data,
+      data: withItemDetails(typeof r.data === 'string' ? JSON.parse(r.data) : r.data, r.equipment),
       cheers: cheersOf(r),
     })),
     nextCursor: rows.length > opts.limit ? page[page.length - 1].id : null,
+  };
+}
+
+type SavedItem = { id: number } & Record<string, unknown>;
+
+/**
+ * Loot posts made before items kept tooltip details only have the basics. Fill them in from the character's
+ * current saved gear when they still have the same item.
+ */
+export function withItemDetails(data: Record<string, unknown>, equipment: unknown): Record<string, unknown> {
+  const raw = typeof equipment === 'string' ? JSON.parse(equipment) : equipment;
+  if (!Array.isArray(data.items) || !Array.isArray(raw)) return data;
+  const byId = new Map((raw as SavedItem[]).map((i) => [i.id, i]));
+  return {
+    ...data,
+    items: (data.items as SavedItem[]).map((item) => {
+      const saved = byId.get(item.id);
+      // The post's own fields win; the saved copy only adds what the post is missing.
+      return saved ? { ...saved, ...item } : item;
+    }),
   };
 }
 

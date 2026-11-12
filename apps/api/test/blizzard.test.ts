@@ -165,6 +165,27 @@ describe('parseEquipment tooltip details', () => {
   });
 });
 
+describe('parseEquipment stat fallback', () => {
+  it('builds stat lines when there is no display string', () => {
+    const [boots] = parseEquipment({
+      equipped_items: [
+        {
+          item: { id: 2315 },
+          name: 'Dark Leather Boots',
+          quality: { type: 'RARE' },
+          stats: [
+            { type: { type: 'AGILITY', name: 'Agility' }, value: 4 },
+            { type: { type: 'STAMINA', name: 'Stamina' }, value: '3' },
+            { type: { name: 'Spirit' }, value: -1 },
+            { value: 5 },
+          ],
+        },
+      ],
+    });
+    expect(boots.stats).toEqual(['+4 Agility', '+3 Stamina', '-1 Spirit']);
+  });
+});
+
 describe('parseAchievements', () => {
   it('keeps completed achievements only', () => {
     const list = parseAchievements({
