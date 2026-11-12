@@ -157,6 +157,36 @@ describe('activity feed', () => {
     expect(w.calls).toEqual({ equipment: 2, achievements: 2, media: 2 });
   });
 
+  it('re-fetches gear saved by an older parser once, even without a new login', async () => {
+    const login = new Date('2026-11-01T00:00:00Z');
+    const state: FakeState = { level: 40, items: [], achievements: [], lastLoginAt: login };
+    const w = await world(state);
+    // Simulate gear saved before tooltip details existed.
+    await w.db.query('update characters set equipment_version = 1 where id = $1', [w.ch.id]);
+    await w.resync();
+    expect(w.calls.equipment).toBe(2);
+    expect(w.calls.achievements).toBe(1); // only the gear was outdated
+    await w.resync();
+    expect(w.calls.equipment).toBe(2);
+  });
+
+  it('fills in old loot posts from the saved gear', async () => {
+    const state: FakeState = { level: 40, items: [item(1, 'RARE')], achievements: [], lastLoginAt: null };
+    const w = await world(state);
+    // An old-style post with only the basics, for an item the character still wears with full details.
+    await w.db.query(
+      `insert into feed_events (kind, character_id, data) values ('loot', $1, $2)`,
+      [w.ch.id, JSON.stringify({ items: [{ id: 1, name: 'Item 1', quality: 'RARE', slot: 'Feet', itemLevel: 15 }, { id: 99, name: 'Gone', quality: 'RARE', slot: null, itemLevel: null }] })],
+    );
+    await w.db.query('update characters set equipment = $2::jsonb where id = $1', [
+      w.ch.id,
+      JSON.stringify([{ ...item(1, 'RARE'), stats: ['+5 Agility'], armor: '60 Armor' }]),
+    ]);
+    const [post] = (await w.feed()).events;
+    expect(post.data.items[0]).toMatchObject({ id: 1, slot: 'Feet', itemLevel: 15, stats: ['+5 Agility'], armor: '60 Armor' });
+    expect(post.data.items[1]).toEqual({ id: 99, name: 'Gone', quality: 'RARE', slot: null, itemLevel: null });
+  });
+
   it('shows member joins, scopes character posts to taverns they are in, and is members-only', async () => {
     const state: FakeState = { level: 20, items: [], achievements: [], lastLoginAt: null };
     const w = await world(state);

@@ -122,6 +122,8 @@ alter table characters add column if not exists media_synced_at timestamptz;
 -- Everything the character has equipped, as of the last equipment fetch (EquippedItem[]).
 alter table characters add column if not exists equipment jsonb;
 alter table characters add column if not exists equipment_synced_at timestamptz;
+-- Which parser version produced \`equipment\`; older saves get re-fetched once (see EQUIPMENT_VERSION).
+alter table characters add column if not exists equipment_version integer not null default 0;
 
 select pg_advisory_unlock(727274);
 `;

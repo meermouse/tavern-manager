@@ -32,6 +32,7 @@ export interface CharacterRow {
   media_synced_at: Date | null;
   equipment: unknown;
   equipment_synced_at: Date | null;
+  equipment_version: number;
   created_at: Date;
 }
 

@@ -237,6 +237,14 @@ function strings(list: unknown, pick: (v: Json) => string | null): string[] | nu
   return out.length ? out : null;
 }
 
+/** `{ type: { name: 'Stamina' }, value: 5 }` → "+5 Stamina", for stats without a display string. */
+function statLine(stat: Json): string | null {
+  const value = typeof stat.value === 'number' ? stat.value : Number(stat.value);
+  const name = nameOf(stat.type) ?? text(stat.type);
+  if (!Number.isFinite(value) || !name) return null;
+  return `${value >= 0 ? '+' : ''}${value} ${name}`;
+}
+
 const EFFECT_PREFIX = /^(Equip|Use|Chance on hit):/i;
 
 function parseItemDetails(it: Json): Partial<EquippedItem> {
@@ -252,7 +260,7 @@ function parseItemDetails(it: Json): Partial<EquippedItem> {
     unique: display(it.unique_equipped) ?? (it.is_unique_equipped === true ? 'Unique-Equipped' : null),
     armor: display(it.armor),
     weapon: weaponLines.length ? weaponLines : null,
-    stats: strings(it.stats, (s) => (s.is_negated === true ? null : display(s))),
+    stats: strings(it.stats, (s) => (s.is_negated === true ? null : (display(s) ?? statLine(s)))),
     enchantments: strings(it.enchantments, (e) => display(e)),
     effects: strings(it.spells, (sp) => {
       const desc = text(sp.description);
