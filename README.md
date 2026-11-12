@@ -21,6 +21,7 @@ Players sign in with their Battle.net account, add their characters, and join a 
 - **Add characters.** Import characters from the signed-in Battle.net account, or add one manually by first name + surname.
 - **Dungeon finder.** Browse the original level-60 dungeons and nine new WoW Forever dungeons, with recommended group sizes and faction access. Tavern characters appear in every matching level range. New dungeon levels and access notes follow [Blizzard's dungeon announcement](https://news.blizzard.com/en-us/article/24301455/explore-the-new-dungeons-of-world-of-warcraft-forever).
 - **Map of Azeroth.** The home page embeds the interactive [Forever Map](https://wowforevermap.com/) by wowforevermap.com, a separate fan site, credited with a link to the full map. A "Simple map" tab switches to our own stylised map (classic continents plus Zephras Isle, Riverglades, Shen'dralas and Mount Hyjal, with capitals, towns and dungeon entrances), which also serves as a fallback if the embed doesn't load. The choice is remembered per browser.
+- **Activity feed.** Each Tavern's home tab is a social-style feed of level-ups (with milestone and max-level highlights), newly equipped rare/epic/legendary gear, achievements, and new members and characters. The first sync of each character records a silent baseline, so adding a character doesn't flood the feed. See [docs/activity-feed.md](docs/activity-feed.md).
 - **Taverns.** Create a Tavern, invite friends with a shareable invite link/code, and choose which of your characters to add to it.
 - **Character list (primary screen).** A sortable, filterable table of every character in the selected Tavern, with these columns:
 
@@ -38,7 +39,8 @@ Players sign in with their Battle.net account, add their characters, and join a 
 ### Ideas for later
 - Role (tank / healer / DPS) per character
 - Item level and gear
-- Last-updated timestamp and level-up history
+- Last-updated timestamp
+- Feed reactions and comments (see [docs/activity-feed.md](docs/activity-feed.md#ideas-for-later))
 
 ---
 
@@ -104,6 +106,9 @@ tavern_members
 
 tavern_characters
   tavern_id → taverns, character_id → characters
+
+feed_events, character_items, character_achievements
+  activity feed; see docs/activity-feed.md
 ```
 
 ---
@@ -232,6 +237,7 @@ tavern-tracker/
 - [x] Create / join Taverns via invite code
 - [x] Sortable character table
 - [x] Scheduled refresh
+- [x] Tavern activity feed (level-ups, gear, achievements)
 - [ ] Verify Forever API response shapes against live data (parser is best-effort until the API is documented)
 - [ ] Ownership check for manually added characters
 - [ ] Roles and dungeon-planning filters

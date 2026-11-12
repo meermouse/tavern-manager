@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { api, ApiError } from './client';
 
 export const keys = {
@@ -6,6 +6,8 @@ export const keys = {
   characters: ['characters'] as const,
   taverns: ['taverns'] as const,
   tavern: (id: string) => ['taverns', id] as const,
+  // Nested under the tavern key, so invalidating a tavern refetches its feed too.
+  feed: (id: string) => ['taverns', id, 'feed'] as const,
   invite: (code: string) => ['invite', code] as const,
 };
 
@@ -34,4 +36,13 @@ export function useTaverns() {
 
 export function useTavern(id: string) {
   return useQuery({ queryKey: keys.tavern(id), queryFn: () => api.tavern(id) });
+}
+
+export function useTavernFeed(id: string) {
+  return useInfiniteQuery({
+    queryKey: keys.feed(id),
+    queryFn: ({ pageParam }) => api.tavernFeed(id, pageParam),
+    initialPageParam: null as string | null,
+    getNextPageParam: (last) => last.nextCursor,
+  });
 }

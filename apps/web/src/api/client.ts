@@ -52,6 +52,42 @@ export interface TavernDetail {
   characters: TavernCharacter[];
 }
 
+export type FeedKind = 'level_up' | 'loot' | 'achievement' | 'character_joined' | 'member_joined' | 'tavern_founded';
+
+export interface FeedItem {
+  id: number;
+  name: string;
+  quality: string;
+  slot: string | null;
+  itemLevel: number | null;
+}
+
+export interface FeedAchievement {
+  id: number;
+  name: string;
+  completedAt: string | null;
+}
+
+export interface FeedEvent {
+  id: string;
+  kind: FeedKind;
+  createdAt: string;
+  character: Pick<Character, 'id' | 'name' | 'surname' | 'class' | 'race' | 'level'> | null;
+  user: { id: string; displayName: string } | null;
+  data: {
+    from?: number;
+    to?: number;
+    items?: FeedItem[];
+    achievements?: FeedAchievement[];
+    tavernName?: string;
+  };
+}
+
+export interface FeedPage {
+  events: FeedEvent[];
+  nextCursor: string | null;
+}
+
 export interface InvitePreview {
   id: string;
   name: string;
@@ -110,6 +146,8 @@ export const api = {
   deleteTavern: (id: string) => request<{ ok: true }>('DELETE', `/api/taverns/${id}`),
   leaveTavern: (id: string) => request<{ ok: true }>('POST', `/api/taverns/${id}/leave`),
   regenerateInvite: (id: string) => request<TavernDetail>('POST', `/api/taverns/${id}/invite-code`),
+  tavernFeed: (id: string, before?: string | null) =>
+    request<FeedPage>('GET', `/api/taverns/${id}/feed${before ? `?before=${encodeURIComponent(before)}` : ''}`),
   refreshTavern: (id: string) => request<TavernDetail>('POST', `/api/taverns/${id}/refresh`),
   addToTavern: (tavernId: string, characterId: string) =>
     request<{ ok: true }>('PUT', `/api/taverns/${tavernId}/characters/${characterId}`),

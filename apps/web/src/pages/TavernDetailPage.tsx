@@ -6,6 +6,7 @@ import { keys, useCharacters, useTavern } from '../api/hooks';
 import { AddCharacterForm } from '../components/AddCharacterForm';
 import { CharacterTable } from '../components/CharacterTable';
 import { DungeonTable } from '../components/DungeonTable';
+import { TavernFeed } from '../components/TavernFeed';
 
 function InvitePanel({ tavern }: { tavern: TavernDetail }) {
   const qc = useQueryClient();
@@ -143,14 +144,24 @@ function MembersPanel({ tavern }: { tavern: TavernDetail }) {
   );
 }
 
+type View = 'feed' | 'characters' | 'dungeons';
+const VIEWS: [View, string][] = [
+  ['feed', 'Feed'],
+  ['characters', 'Characters'],
+  ['dungeons', 'Dungeons'],
+];
+
 export function TavernDetailPage() {
   const { id = '' } = useParams();
-  const [view, setView] = useState<'characters' | 'dungeons'>('characters');
+  const [view, setView] = useState<View>('feed');
   const tavern = useTavern(id);
   const qc = useQueryClient();
   const refresh = useMutation({
     mutationFn: () => api.refreshTavern(id),
-    onSuccess: (t) => qc.setQueryData(keys.tavern(id), t),
+    onSuccess: (t) => {
+      qc.setQueryData(keys.tavern(id), t);
+      qc.invalidateQueries({ queryKey: keys.feed(id) });
+    },
   });
 
   if (tavern.isPending) return <p className="muted">Loading…</p>;
@@ -178,26 +189,15 @@ export function TavernDetailPage() {
       {refresh.error && <p className="error">{refresh.error.message}</p>}
 
       <div className="view-tabs" role="group" aria-label="Tavern views">
-        <button
-          className={view === 'characters' ? 'active' : ''}
-          aria-pressed={view === 'characters'}
-          onClick={() => setView('characters')}
-        >
-          Characters
-        </button>
-        <button
-          className={view === 'dungeons' ? 'active' : ''}
-          aria-pressed={view === 'dungeons'}
-          onClick={() => setView('dungeons')}
-        >
-          Dungeons
-        </button>
+        {VIEWS.map(([key, label]) => (
+          <button key={key} className={view === key ? 'active' : ''} aria-pressed={view === key} onClick={() => setView(key)}>
+            {label}
+          </button>
+        ))}
       </div>
-      {view === 'characters' ? (
-        <CharacterTable characters={t.characters} />
-      ) : (
-        <DungeonTable characters={t.characters} />
-      )}
+      {view === 'feed' && <TavernFeed tavernId={t.id} />}
+      {view === 'characters' && <CharacterTable characters={t.characters} />}
+      {view === 'dungeons' && <DungeonTable characters={t.characters} />}
 
       <div className="three-col">
         <MyCharactersPanel tavern={t} />

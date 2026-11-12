@@ -65,6 +65,39 @@ create table if not exists tavern_characters (
   primary key (tavern_id, character_id)
 );
 
+-- Activity feed (see docs/activity-feed.md).
+alter table characters add column if not exists last_login_at timestamptz;
+alter table characters add column if not exists gear_baseline_at timestamptz;
+alter table characters add column if not exists achievements_baseline_at timestamptz;
+
+create table if not exists character_items (
+  character_id uuid not null references characters(id) on delete cascade,
+  item_id integer not null,
+  quality text not null,
+  first_seen_at timestamptz not null default now(),
+  primary key (character_id, item_id)
+);
+
+create table if not exists character_achievements (
+  character_id uuid not null references characters(id) on delete cascade,
+  achievement_id integer not null,
+  completed_at timestamptz,
+  first_seen_at timestamptz not null default now(),
+  primary key (character_id, achievement_id)
+);
+
+create table if not exists feed_events (
+  id bigint generated always as identity primary key,
+  kind text not null,
+  tavern_id uuid references taverns(id) on delete cascade,
+  character_id uuid references characters(id) on delete cascade,
+  user_id uuid references users(id) on delete cascade,
+  data jsonb not null default '{}',
+  created_at timestamptz not null default now()
+);
+create index if not exists feed_events_character_idx on feed_events(character_id, id desc);
+create index if not exists feed_events_tavern_idx on feed_events(tavern_id, id desc) where tavern_id is not null;
+
 select pg_advisory_unlock(727274);
 `;
 
