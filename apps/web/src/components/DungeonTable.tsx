@@ -1,5 +1,6 @@
 import type { TavernCharacter } from '../api/client';
 import { CharacterLevel } from './CharacterLevel';
+import { CharacterAvatar } from './CharacterAvatar';
 import { ClassName } from './ClassName';
 import { assignCharactersToDungeons } from '../dungeons';
 
@@ -10,6 +11,7 @@ function CharacterNames({ characters }: { characters: TavernCharacter[] }) {
     <div className="dungeon-characters">
       {characters.map((character) => (
         <span className="dungeon-character" key={character.id}>
+          <CharacterAvatar character={character} size="xs" />
           <strong>{character.name} {character.surname}</strong>
           <span className="muted small-text">{character.ownerName}</span>
           {character.class && <ClassName value={character.class} />}

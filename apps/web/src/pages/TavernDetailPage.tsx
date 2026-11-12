@@ -1,9 +1,11 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
-import { api, type TavernDetail } from '../api/client';
+import { api, type TavernCharacter, type TavernDetail } from '../api/client';
 import { keys, useCharacters, useMe, useTavern } from '../api/hooks';
 import { AddCharacterForm } from '../components/AddCharacterForm';
+import { CharacterAvatar } from '../components/CharacterAvatar';
+import { CharacterDetails } from '../components/CharacterDetails';
 import { CharacterTable } from '../components/CharacterTable';
 import { DungeonTable } from '../components/DungeonTable';
 import { TavernFeed } from '../components/TavernFeed';
@@ -90,6 +92,7 @@ function MyCharactersPanel({ tavern }: { tavern: TavernDetail }) {
                   toggle.mutate({ id: c.id, add });
                 }}
               />
+              <CharacterAvatar character={c} size="xs" />
               {c.name} {c.surname}
               <span className="muted small-text">{c.level != null ? ` · ${c.level}` : ' · pending'}</span>
             </label>
@@ -141,6 +144,24 @@ function MembersPanel({ tavern }: { tavern: TavernDetail }) {
       )}
       {(leave.error || remove.error) && <p className="error">{(leave.error || remove.error)?.message}</p>}
     </section>
+  );
+}
+
+/** The character table, with a details pane above it for the selected row. */
+function CharacterRoster({ tavern }: { tavern: TavernDetail }) {
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  // Look the selection up in the latest tavern data, so the pane closes if the character leaves.
+  const selected = tavern.characters.find((c) => c.id === selectedId) ?? null;
+  const close = useCallback(() => setSelectedId(null), []);
+  return (
+    <div className="stack roster">
+      {selected && <CharacterDetails tavernId={tavern.id} character={selected} onClose={close} />}
+      <CharacterTable
+        characters={tavern.characters}
+        selectedId={selected?.id ?? null}
+        onSelect={(c: TavernCharacter | null) => setSelectedId(c?.id ?? null)}
+      />
+    </div>
   );
 }
 
@@ -197,7 +218,7 @@ export function TavernDetailPage() {
         ))}
       </div>
       {view === 'feed' && <TavernFeed tavernId={t.id} viewerName={me.data?.displayName} />}
-      {view === 'characters' && <CharacterTable characters={t.characters} />}
+      {view === 'characters' && <CharacterRoster tavern={t} />}
       {view === 'dungeons' && <DungeonTable characters={t.characters} />}
 
       <div className="three-col">

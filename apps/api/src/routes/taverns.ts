@@ -3,7 +3,7 @@ import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { badRequest, jsonBody, requireUser, uuidParam, type AppDeps, type AppEnv } from '../context.js';
 import { eventVisibleInTavern, recordEvent, setCheer, tavernFeed } from '../feed.js';
-import { serializeCharacter } from '../serialize.js';
+import { serializeCharacter, serializeEquipment } from '../serialize.js';
 import { refreshStale, type CharacterRow } from '../sync.js';
 
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -197,6 +197,30 @@ export function tavernRoutes({ db, blizzard }: AppDeps) {
   });
 
   // ---- Characters in a tavern ----
+
+  /** Everything the details pane shows: profile, portraits, saved gear and this character's recent posts. */
+  app.get('/taverns/:id/characters/:characterId', async (c) => {
+    const user = requireUser(c);
+    const tavern = await membership(uuidParam(c, 'id'), user.id);
+    const characterId = uuidParam(c, 'characterId');
+    const [row] = await db.query<CharacterRow & { owner_name: string }>(
+      `select c.*, u.display_name as owner_name from tavern_characters tc
+       join characters c on c.id = tc.character_id
+       join users u on u.id = c.user_id
+       where tc.tavern_id = $1 and tc.character_id = $2`,
+      [tavern.id, characterId],
+    );
+    if (!row) throw new HTTPException(404, { message: 'Character not found' });
+    const recent = await tavernFeed(db, tavern.id, user.id, { limit: 5, characterId });
+    return c.json({
+      ...serializeCharacter(row),
+      ownerId: row.user_id,
+      ownerName: row.owner_name,
+      equipment: serializeEquipment(row),
+      equipmentSyncedAt: row.equipment_synced_at,
+      recent: recent.events,
+    });
+  });
 
   app.put('/taverns/:id/characters/:characterId', async (c) => {
     const user = requireUser(c);

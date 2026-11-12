@@ -108,6 +108,21 @@ create table if not exists feed_reactions (
   primary key (event_id, tavern_id, user_id)
 );
 
+-- Character details pane and portraits.
+alter table characters add column if not exists guild text;
+alter table characters add column if not exists faction text;
+alter table characters add column if not exists gender text;
+alter table characters add column if not exists title text;
+alter table characters add column if not exists item_level integer;
+alter table characters add column if not exists achievement_points integer;
+alter table characters add column if not exists avatar_url text;
+alter table characters add column if not exists inset_url text;
+alter table characters add column if not exists render_url text;
+alter table characters add column if not exists media_synced_at timestamptz;
+-- Everything the character has equipped, as of the last equipment fetch (EquippedItem[]).
+alter table characters add column if not exists equipment jsonb;
+alter table characters add column if not exists equipment_synced_at timestamptz;
+
 select pg_advisory_unlock(727274);
 `;
 

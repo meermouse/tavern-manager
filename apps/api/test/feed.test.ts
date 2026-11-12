@@ -9,11 +9,12 @@ interface FakeState {
   achievements: CompletedAchievement[] | null;
   lastLoginAt: Date | null;
   equipmentError?: boolean;
+  mediaError?: boolean;
 }
 
 /** A Blizzard client whose answers the test controls. */
 function fakeBlizzard(state: FakeState) {
-  const calls = { equipment: 0, achievements: 0 };
+  const calls = { equipment: 0, achievements: 0, media: 0 };
   const client: BlizzardClient = {
     async getCharacter(_region, name, surname) {
       return { name, surname, class: 'Mage', race: 'Gnome', level: state.level, ruleset: 'Normal', lastLoginAt: state.lastLoginAt };
@@ -29,6 +30,11 @@ function fakeBlizzard(state: FakeState) {
     async getAchievements() {
       calls.achievements++;
       return state.achievements;
+    },
+    async getMedia() {
+      calls.media++;
+      if (state.mediaError) throw new Error('boom');
+      return { avatar: `https://render.example/${calls.media}-avatar.jpg`, inset: null, main: 'https://render.example/main.jpg', mainRaw: null };
     },
   };
   return { client, calls };
@@ -143,12 +149,12 @@ describe('activity feed', () => {
     const login = new Date('2026-11-01T00:00:00Z');
     const state: FakeState = { level: 40, items: [], achievements: [], lastLoginAt: login };
     const w = await world(state);
-    expect(w.calls).toEqual({ equipment: 1, achievements: 1 });
+    expect(w.calls).toEqual({ equipment: 1, achievements: 1, media: 1 });
     await w.resync();
-    expect(w.calls).toEqual({ equipment: 1, achievements: 1 });
+    expect(w.calls).toEqual({ equipment: 1, achievements: 1, media: 1 });
     state.lastLoginAt = new Date('2026-11-02T00:00:00Z');
     await w.resync();
-    expect(w.calls).toEqual({ equipment: 2, achievements: 2 });
+    expect(w.calls).toEqual({ equipment: 2, achievements: 2, media: 2 });
   });
 
   it('shows member joins, scopes character posts to taverns they are in, and is members-only', async () => {
@@ -233,5 +239,26 @@ describe('activity feed', () => {
     await bob.put(url);
     await bob.post(`/api/taverns/${w.tavern.id}/leave`);
     expect((await w.feed()).events.find((e: { id: string }) => e.id === levelUp.id).cheers.names).toEqual(['Alice']);
+  });
+
+  it('stores portraits and full equipment, refetching portraits only after a login or when stale', async () => {
+    const state: FakeState = { level: 40, items: [item(1, 'COMMON')], achievements: [], lastLoginAt: new Date(1000) };
+    const w = await world(state);
+    expect(w.calls.media).toBe(1);
+    expect(w.ch).toMatchObject({ avatarUrl: 'https://render.example/1-avatar.jpg', renderUrl: 'https://render.example/main.jpg' });
+    const details = (await w.alice.get(`/api/taverns/${w.tavern.id}/characters/${w.ch.id}`)).body;
+    expect(details.equipment).toEqual([item(1, 'COMMON')]);
+
+    await w.resync();
+    expect(w.calls.media).toBe(1); // no login since: keep the images we have
+
+    state.lastLoginAt = new Date(2000);
+    expect((await w.resync()).avatar_url).toBe('https://render.example/2-avatar.jpg');
+
+    // A failing media call keeps the old images and doesn't break the sync.
+    state.mediaError = true;
+    await w.db.query(`update characters set media_synced_at = now() - interval '2 days'`);
+    const row = await w.resync();
+    expect(row).toMatchObject({ status: 'ok', avatar_url: 'https://render.example/2-avatar.jpg' });
   });
 });

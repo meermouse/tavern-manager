@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, type Character } from '../api/client';
 import { keys, useCharacters, useMe } from '../api/hooks';
 import { AddCharacterForm } from '../components/AddCharacterForm';
+import { CharacterAvatar } from '../components/CharacterAvatar';
 import { CharacterLevel } from '../components/CharacterLevel';
 import { ClassName } from '../components/ClassName';
 
@@ -16,7 +17,12 @@ function CharacterRow({ character }: { character: Character }) {
 
   return (
     <tr>
-      <td data-label="Character"><strong>{character.name} {character.surname}</strong></td>
+      <td data-label="Character">
+        <span className="char-cell">
+          <CharacterAvatar character={character} size="xs" />
+          <strong>{character.name} {character.surname}</strong>
+        </span>
+      </td>
       <td data-label="Region">{character.region.toUpperCase()}</td>
       <td data-label="Ruleset">{character.ruleset ?? <span className="muted">—</span>}</td>
       <td data-label="Class"><ClassName value={character.class} /></td>

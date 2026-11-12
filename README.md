@@ -22,6 +22,8 @@ Players sign in with their Battle.net account, add their characters, and join a 
 - **Dungeon finder.** Browse the original level-60 dungeons and nine new WoW Forever dungeons, with recommended group sizes and faction access. Tavern characters appear in every matching level range. New dungeon levels and access notes follow [Blizzard's dungeon announcement](https://news.blizzard.com/en-us/article/24301455/explore-the-new-dungeons-of-world-of-warcraft-forever).
 - **Map of Azeroth.** The home page embeds the interactive [Forever Map](https://wowforevermap.com/) by wowforevermap.com, a separate fan site, credited with a link to the full map. A "Simple map" tab switches to our own stylised map (classic continents plus Zephras Isle, Riverglades, Shen'dralas and Mount Hyjal, with capitals, towns and dungeon entrances), which also serves as a fallback if the embed doesn't load. The choice is remembered per browser.
 - **Activity feed.** Each Tavern's home tab is a social-style feed of level-ups (with milestone and max-level highlights), newly equipped rare/epic/legendary gear, achievements, and new members and characters. Friends can raise a 🍺 **Cheers** on any post. The first sync of each character records a silent baseline, so adding a character doesn't flood the feed. See [docs/activity-feed.md](docs/activity-feed.md).
+- **Character portraits.** Each character's Blizzard render headshot (from the character-media endpoint) is shown as a class-coloured icon wherever the character appears: the character table, feed posts, the dungeon finder, My characters and the tavern sidebar. Characters without an image yet (e.g. pending) show their initial instead.
+- **Character details.** Click a row in a tavern's character table to open a details pane above it: the full-body render, title, guild, faction, ruleset, item level, achievement points, last seen in game, everything they have equipped (quality-coloured, in paper-doll order), and their latest feed posts. Click the row again, press Esc or ✕ to close.
 - **Taverns.** Create a Tavern, invite friends with a shareable invite link/code, and choose which of your characters to add to it.
 - **Character list (primary screen).** A sortable, filterable table of every character in the selected Tavern, with these columns:
 
@@ -38,8 +40,8 @@ Players sign in with their Battle.net account, add their characters, and join a 
 
 ### Ideas for later
 - Role (tank / healer / DPS) per character
-- Item level and gear
-- Last-updated timestamp
+- Item icons and tooltips (needs the Forever static-data namespace for `/data/wow/media/item/{id}`)
+- Character details on the My characters page and from feed posts
 - Feed comments (see [docs/activity-feed.md](docs/activity-feed.md#ideas-for-later))
 
 ---
@@ -96,7 +98,10 @@ sessions
 characters
   id, user_id → users, region, name, surname, ruleset,
   class, race, level, status (ok | pending | error), sync_error,
-  last_synced_at, last_attempt_at
+  last_synced_at, last_attempt_at,
+  guild, faction, gender, title, item_level, achievement_points,   -- details pane
+  avatar_url, inset_url, render_url, media_synced_at,              -- character-media renders
+  equipment (jsonb), equipment_synced_at                           -- full equipped gear
 
 taverns
   id, name, owner_id → users, invite_code, created_at
@@ -199,6 +204,8 @@ The plain Node server (`npm run build && npm start`) also works for hosts like F
 - **Auth:** Battle.net OAuth authorization-code flow (`openid wow.profile`). The CSRF `state` lives in a short-lived signed cookie. Sessions are random tokens in an httpOnly cookie, stored hashed in the `sessions` table (30 days). The user's Battle.net access token is kept on the session so characters can be imported.
 - **Characters:** added manually (first name + surname + region) or imported from `/profile/user/wow`. A character can only be claimed by one user (unique on region + name + surname, case-insensitive). If import fails, the UI falls back to manual entry.
 - **Blizzard client:** client-credentials app token (cached), `GET /profile/wow/character/{name}-{surname}?namespace=profile-forever-{region}`. A 404 marks the character **pending** and it is retried later. Because the Forever API is undocumented, the response parser is deliberately tolerant (`character_class`/`playable_class`, localized names, several ruleset shapes); see `apps/api/src/blizzard/client.ts`.
+- **Portraits:** `GET /profile/wow/character/{name}-{surname}/character-media` returns render URLs on `render.worldofwarcraft.com` (`avatar`, `inset`, `main`, `main-raw`; older `avatar_url`/`bust_url`/`render_url` are also read). Only `https://` URLs are stored. They're fetched when a character has none, when Blizzard reports a new login (appearance only changes in game), or once a day, and a failed fetch keeps the old images. The browser loads the images straight from Blizzard's CDN. The mock client draws stand-in SVG portraits so local dev shows something.
+- **Character details:** `GET /api/taverns/:id/characters/:characterId` (tavern members only) returns the profile, renders, the gear saved by the last equipment sync, and the character's five latest posts in that tavern.
 - **Refresh & rate limits:** characters are refreshed sequentially, oldest first. The scheduler refreshes anything older than `REFRESH_INTERVAL_MINUTES`. "Refresh levels" on a tavern only refreshes characters older than 5 minutes, and per-character refresh has a 2-minute cooldown.
 
 ---
