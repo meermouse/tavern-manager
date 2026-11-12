@@ -2,10 +2,10 @@ import { useMutation, useQueryClient, type InfiniteData } from '@tanstack/react-
 import type { ReactNode } from 'react';
 import { api, type Cheers, type FeedEvent, type FeedPage } from '../api/client';
 import { keys, useTavernFeed } from '../api/hooks';
-import { ClassName } from './ClassName';
+import { CharacterAvatar } from './CharacterAvatar';
+import { ClassName, classKey } from './ClassName';
 
 const MAX_LEVEL = 60;
-const CLASS_KEYS = ['warrior', 'paladin', 'hunter', 'rogue', 'priest', 'shaman', 'mage', 'warlock', 'druid'];
 
 export function timeAgo(iso: string, now: number = Date.now()): string {
   const seconds = Math.max(0, Math.round((now - new Date(iso).getTime()) / 1000));
@@ -24,11 +24,6 @@ export function isMilestone(from: number, to: number): boolean {
   return to >= MAX_LEVEL || Math.floor(from / 10) < Math.floor(to / 10);
 }
 
-function classKey(value: string | null | undefined): string | null {
-  const key = value?.toLowerCase().replace(/\s+/g, '') ?? '';
-  return CLASS_KEYS.includes(key) ? key : null;
-}
-
 function plural(n: number, word: string) {
   return `${n} ${word}${n === 1 ? '' : 's'}`;
 }
@@ -38,10 +33,10 @@ function qualityLabel(q: string) {
 }
 
 function Avatar({ event }: { event: FeedEvent }) {
-  const letter = (event.character?.name ?? event.user?.displayName ?? '?').charAt(0).toUpperCase();
-  const key = event.character ? classKey(event.character.class) : null;
+  if (event.character) return <CharacterAvatar character={event.character} size="md" className="feed-avatar" />;
+  const letter = (event.user?.displayName ?? '?').charAt(0).toUpperCase();
   return (
-    <div className={`feed-avatar ${key ? `class-bg-${key}` : ''}`} aria-hidden="true">
+    <div className="feed-avatar" aria-hidden="true">
       {letter}
     </div>
   );

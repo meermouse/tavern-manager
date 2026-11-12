@@ -20,11 +20,30 @@ export interface Character {
   status: CharacterStatus;
   syncError: string | null;
   lastSyncedAt: string | null;
+  lastLoginAt?: string | null;
+  guild?: string | null;
+  faction?: string | null;
+  gender?: string | null;
+  title?: string | null;
+  itemLevel?: number | null;
+  achievementPoints?: number | null;
+  /** Blizzard character render images (see the API's `/character-media` sync). */
+  avatarUrl?: string | null;
+  insetUrl?: string | null;
+  renderUrl?: string | null;
 }
 
 export interface TavernCharacter extends Character {
   ownerId: string;
   ownerName: string;
+}
+
+export interface CharacterDetails extends TavernCharacter {
+  /** Everything equipped as of the last gear sync; `null` if we haven't been able to fetch it. */
+  equipment: FeedItem[] | null;
+  equipmentSyncedAt: string | null;
+  /** This character's latest feed posts in this tavern. */
+  recent: FeedEvent[];
 }
 
 export interface TavernSummary {
@@ -72,7 +91,7 @@ export interface FeedEvent {
   id: string;
   kind: FeedKind;
   createdAt: string;
-  character: Pick<Character, 'id' | 'name' | 'surname' | 'class' | 'race' | 'level'> | null;
+  character: Pick<Character, 'id' | 'name' | 'surname' | 'class' | 'race' | 'level' | 'avatarUrl'> | null;
   user: { id: string; displayName: string } | null;
   data: {
     from?: number;
@@ -157,6 +176,8 @@ export const api = {
     request<FeedPage>('GET', `/api/taverns/${id}/feed${before ? `?before=${encodeURIComponent(before)}` : ''}`),
   setCheer: (tavernId: string, eventId: string, on: boolean) =>
     request<Cheers>(on ? 'PUT' : 'DELETE', `/api/taverns/${tavernId}/feed/${eventId}/cheers`),
+  characterDetails: (tavernId: string, characterId: string) =>
+    request<CharacterDetails>('GET', `/api/taverns/${tavernId}/characters/${characterId}`),
   refreshTavern: (id: string) => request<TavernDetail>('POST', `/api/taverns/${id}/refresh`),
   addToTavern: (tavernId: string, characterId: string) =>
     request<{ ok: true }>('PUT', `/api/taverns/${tavernId}/characters/${characterId}`),

@@ -1,4 +1,5 @@
 import { RULESETS, type BlizzardClient, type CharacterProfile } from './client.js';
+import { mockPortraits } from './portrait.js';
 
 const CLASSES = ['Warrior', 'Paladin', 'Hunter', 'Rogue', 'Priest', 'Shaman', 'Mage', 'Warlock', 'Druid'];
 const RACES = ['Human', 'Dwarf', 'Night Elf', 'Gnome', 'Orc', 'Undead', 'Tauren', 'Troll'];
@@ -20,6 +21,10 @@ const MOCK_GEAR = [
   { id: 900007, name: 'Crown of the Innkeeper', quality: 'EPIC', slot: 'Head', minLevel: 58 },
 ];
 
+const HORDE = new Set(['Orc', 'Undead', 'Tauren', 'Troll']);
+const GUILDS = ['The Foaming Tankards', 'Last Orders', 'Hearth & Home', null];
+const TITLES = [null, '{name} the Explorer', 'Private {name}', '{name} of the Tavern'];
+
 const MOCK_ACHIEVEMENTS = [10, 20, 30, 40, 50, 60].map((level) => ({ id: 800000 + level, name: `Level ${level}`, level }));
 
 function capitalise(s: string): string {
@@ -37,14 +42,23 @@ export function createMockBlizzardClient(): BlizzardClient {
       const h = hash(`${region}:${name.toLowerCase()}-${surname.toLowerCase()}`);
       // Levels drift upwards over time so "refresh" visibly does something.
       const dayBump = Math.floor(Date.now() / 86_400_000) % 5;
+      const race = RACES[(h >>> 4) % RACES.length];
+      const level = Math.min(60, 10 + ((h >>> 8) % 46) + dayBump);
+      const title = TITLES[(h >>> 18) % TITLES.length];
       return {
         name: capitalise(name),
         surname: capitalise(surname),
         class: CLASSES[h % CLASSES.length],
-        race: RACES[(h >>> 4) % RACES.length],
-        level: Math.min(60, 10 + ((h >>> 8) % 46) + dayBump),
+        race,
+        level,
         ruleset: RULESETS[(h >>> 12) % RULESETS.length],
         lastLoginAt: null,
+        guild: GUILDS[(h >>> 16) % GUILDS.length],
+        faction: HORDE.has(race) ? 'Horde' : 'Alliance',
+        gender: (h >>> 20) % 2 ? 'Female' : 'Male',
+        title: title && title.replace('{name}', capitalise(name)),
+        itemLevel: Math.round(level * 1.05),
+        achievementPoints: Math.floor(level / 10) * 10,
       };
     },
     async getAccountCharacters() {
@@ -61,6 +75,11 @@ export function createMockBlizzardClient(): BlizzardClient {
         ...g,
         itemLevel: minLevel + 5,
       }));
+    },
+    async getMedia(region, name, surname) {
+      const profile = await client.getCharacter(region, name, surname);
+      if (!profile?.class || !profile.race) return null;
+      return mockPortraits(profile.name, profile.class, profile.race);
     },
     async getAchievements(region, name, surname) {
       const level = (await client.getCharacter(region, name, surname))?.level;

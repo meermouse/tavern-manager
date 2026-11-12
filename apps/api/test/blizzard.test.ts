@@ -5,6 +5,7 @@ import {
   normalizeRuleset,
   parseAccountCharacters,
   parseAchievements,
+  parseCharacterMedia,
   parseCharacterProfile,
   parseEquipment,
 } from '../src/blizzard/client.js';
@@ -21,6 +22,12 @@ describe('parseCharacterProfile', () => {
         race: { id: 1, name: 'Human' },
         ruleset: { type: 'RPPVP', name: 'Roleplay PvP' },
         last_login_timestamp: 1_760_000_000_000,
+        guild: { name: 'Last Orders', id: 7 },
+        faction: { type: 'ALLIANCE', name: 'Alliance' },
+        gender: { type: 'FEMALE' },
+        active_title: { id: 1, name: 'the Explorer', display_string: '{name} the Explorer' },
+        equipped_item_level: 58,
+        achievement_points: 420,
       },
       { name: 'judgement', surname: 'judy' },
     );
@@ -32,6 +39,12 @@ describe('parseCharacterProfile', () => {
       level: 42,
       ruleset: 'Roleplay PvP',
       lastLoginAt: new Date(1_760_000_000_000),
+      guild: 'Last Orders',
+      faction: 'Alliance',
+      gender: 'Female',
+      title: 'Judgement the Explorer',
+      itemLevel: 58,
+      achievementPoints: 420,
     });
   });
 
@@ -42,6 +55,34 @@ describe('parseCharacterProfile', () => {
     );
     expect(p).toMatchObject({ name: 'Judgement', surname: 'judy', class: 'Mage', race: null, level: 7, ruleset: null });
     expect(p.lastLoginAt).toBeNull();
+  });
+});
+
+describe('parseCharacterMedia', () => {
+  it('reads the assets list', () => {
+    const base = 'https://render.worldofwarcraft.com/eu/character/x/1';
+    expect(
+      parseCharacterMedia({
+        assets: [
+          { key: 'avatar', value: `${base}-avatar.jpg` },
+          { key: 'inset', value: `${base}-inset.jpg` },
+          { key: 'main', value: `${base}-main.jpg` },
+          { key: 'main-raw', value: `${base}-main-raw.png` },
+        ],
+      }),
+    ).toEqual({
+      avatar: `${base}-avatar.jpg`,
+      inset: `${base}-inset.jpg`,
+      main: `${base}-main.jpg`,
+      mainRaw: `${base}-main-raw.png`,
+    });
+  });
+
+  it('falls back to the older url fields and rejects non-https values', () => {
+    expect(
+      parseCharacterMedia({ avatar_url: 'https://x/a.jpg', bust_url: 'javascript:alert(1)', render_url: 'https://x/r.jpg' }),
+    ).toEqual({ avatar: 'https://x/a.jpg', inset: null, main: 'https://x/r.jpg', mainRaw: null });
+    expect(parseCharacterMedia({ assets: [] })).toBeNull();
   });
 });
 
@@ -136,6 +177,10 @@ describe('createBlizzardClient', () => {
     // App token is cached.
     expect(calls.filter((u) => u.includes('/token'))).toHaveLength(1);
 
+    expect(await client.getMedia!('eu', 'Nobody', 'Here')).toBeNull();
+    expect(calls).toContain(
+      'https://eu.api.blizzard.com/profile/wow/character/nobody-here/character-media?namespace=profile-forever-eu&locale=en_US',
+    );
     expect(await client.getEquipment!('eu', 'Nobody', 'Here')).toBeNull();
     expect(calls).toContain(
       'https://eu.api.blizzard.com/profile/wow/character/nobody-here/equipment?namespace=profile-forever-eu&locale=en_US',

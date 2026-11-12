@@ -11,6 +11,26 @@ export interface CharacterProfile {
   ruleset: string | null;
   /** When the character last logged in (data only updates on logout). `null` if the API doesn't say. */
   lastLoginAt: Date | null;
+  // Extra profile details, shown on the character details pane. Optional: the Forever API is undocumented.
+  guild?: string | null;
+  faction?: string | null;
+  gender?: string | null;
+  /** Active title with the name filled in, e.g. "Judgement the Explorer". */
+  title?: string | null;
+  itemLevel?: number | null;
+  achievementPoints?: number | null;
+}
+
+/** Character render images from the `/character-media` endpoint. */
+export interface CharacterMedia {
+  /** Small square headshot (~84px). */
+  avatar: string | null;
+  /** Wide bust shot (~230×116). */
+  inset: string | null;
+  /** Full-body render with background. */
+  main: string | null;
+  /** Full-body render on a transparent background. */
+  mainRaw: string | null;
 }
 
 /** Blizzard item quality types, upper-case, e.g. `RARE`, `EPIC`. */
@@ -44,6 +64,8 @@ export interface BlizzardClient {
   getEquipment?(region: Region, name: string, surname: string): Promise<EquippedItem[] | null>;
   /** Completed achievements, or `null` when the endpoint isn't available. Optional: best-effort. */
   getAchievements?(region: Region, name: string, surname: string): Promise<CompletedAchievement[] | null>;
+  /** Character render images, or `null` when not available. Optional: best-effort. */
+  getMedia?(region: Region, name: string, surname: string): Promise<CharacterMedia | null>;
 }
 
 export class BlizzardError extends Error {
@@ -113,7 +135,52 @@ export function parseCharacterProfile(json: Json, fallback: { name: string; surn
     level: Number.isFinite(level) ? level : null,
     ruleset,
     lastLoginAt: timestamp(json.last_login_timestamp),
+    guild: nameOf(json.guild),
+    faction: nameOf(json.faction) ?? (json.faction && typeof json.faction === 'object' ? capitalised(text((json.faction as Json).type)) : null),
+    gender: nameOf(json.gender) ?? (json.gender && typeof json.gender === 'object' ? capitalised(text((json.gender as Json).type)) : null),
+    title: titleOf(json.active_title, text(json.name) ?? fallback.name),
+    itemLevel: int(json.equipped_item_level) ?? int(json.average_item_level),
+    achievementPoints: int(json.achievement_points),
   };
+}
+
+function capitalised(s: string | null): string | null {
+  return s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : null;
+}
+
+/** `{ display_string: '{name} the Explorer' }` → `Judgement the Explorer`. */
+function titleOf(value: unknown, name: string): string | null {
+  if (!value || typeof value !== 'object') return null;
+  const display = text((value as Json).display_string);
+  if (display) return display.replace('{name}', name);
+  return nameOf(value);
+}
+
+/** Absolute http(s) URLs only: these end up in `<img src>`. */
+function imageUrl(value: unknown): string | null {
+  const s = text(value);
+  return s && /^https:\/\//i.test(s) ? s : null;
+}
+
+/**
+ * `/character-media` responses: `{ assets: [{ key: 'avatar', value: url }, …] }` (current), or the older
+ * `avatar_url` / `bust_url` / `render_url` fields. `null` when there are no images at all.
+ */
+export function parseCharacterMedia(json: Json): CharacterMedia | null {
+  const assets: Record<string, string | null> = {};
+  if (Array.isArray(json.assets)) {
+    for (const a of json.assets as Json[]) {
+      const key = text(a?.key);
+      if (key) assets[key.toLowerCase()] = imageUrl(a.value);
+    }
+  }
+  const media: CharacterMedia = {
+    avatar: assets.avatar ?? imageUrl(json.avatar_url),
+    inset: assets.inset ?? imageUrl(json.bust_url),
+    main: assets.main ?? imageUrl(json.render_url),
+    mainRaw: assets['main-raw'] ?? null,
+  };
+  return Object.values(media).some(Boolean) ? media : null;
 }
 
 function timestamp(value: unknown): Date | null {
@@ -237,6 +304,11 @@ export function createBlizzardClient(
     async getAchievements(region, name, surname) {
       const json = await getProfile(region, name, surname, '/achievements');
       return json && parseAchievements(json);
+    },
+
+    async getMedia(region, name, surname) {
+      const json = await getProfile(region, name, surname, '/character-media');
+      return json && parseCharacterMedia(json);
     },
 
     async getAccountCharacters(region, userAccessToken) {

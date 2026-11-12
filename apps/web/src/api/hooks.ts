@@ -8,6 +8,8 @@ export const keys = {
   tavern: (id: string) => ['taverns', id] as const,
   // Nested under the tavern key, so invalidating a tavern refetches its feed too.
   feed: (id: string) => ['taverns', id, 'feed'] as const,
+  // Nested under the tavern key too, so a tavern refresh updates an open details pane.
+  characterDetails: (tavernId: string, characterId: string) => ['taverns', tavernId, 'characters', characterId] as const,
   invite: (code: string) => ['invite', code] as const,
 };
 
@@ -36,6 +38,13 @@ export function useTaverns() {
 
 export function useTavern(id: string) {
   return useQuery({ queryKey: keys.tavern(id), queryFn: () => api.tavern(id) });
+}
+
+export function useCharacterDetails(tavernId: string, characterId: string) {
+  return useQuery({
+    queryKey: keys.characterDetails(tavernId, characterId),
+    queryFn: () => api.characterDetails(tavernId, characterId),
+  });
 }
 
 export function useTavernFeed(id: string) {

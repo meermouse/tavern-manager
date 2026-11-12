@@ -34,7 +34,7 @@ const data = [
 const names = () =>
   within(screen.getAllByRole('rowgroup')[1])
     .getAllByRole('row')
-    .map((r) => within(r).getAllByRole('cell')[0].textContent);
+    .map((r) => within(r).getAllByRole('cell')[0].querySelector('strong')?.textContent);
 
 describe('CharacterTable', () => {
   it('renders all columns and sorts by level descending, pending last', () => {

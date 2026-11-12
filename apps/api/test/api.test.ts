@@ -154,6 +154,33 @@ describe('taverns', () => {
     expect((await alice.get('/api/taverns/not-a-uuid')).status).toBe(404);
   });
 
+  it('serves character details with portraits, gear and recent posts to tavern members only', async () => {
+    const { login } = await setup();
+    const alice = await login('Alice#1234');
+    const bob = await login('Bob#5678');
+    const carol = await login('Carol#9999');
+    const tavern = (await alice.post('/api/taverns', { name: 'Pony' })).body;
+    await bob.post(`/api/invites/${tavern.inviteCode}/join`);
+    const ch = (await alice.post('/api/characters', { name: 'Judgement', surname: 'Judy' })).body;
+    expect(ch.avatarUrl).toMatch(/^data:image\/svg\+xml,/);
+    expect(ch.renderUrl).toMatch(/^data:image\/svg\+xml,/);
+    expect(ch.faction).toMatch(/Alliance|Horde/);
+
+    const path = `/api/taverns/${tavern.id}/characters/${ch.id}`;
+    expect((await bob.get(path)).status).toBe(404); // not in the tavern yet
+    await alice.put(`/api/taverns/${tavern.id}/characters/${ch.id}`);
+
+    const details = await bob.get(path);
+    expect(details.status).toBe(200);
+    expect(details.body).toMatchObject({ id: ch.id, ownerName: 'Alice', avatarUrl: ch.avatarUrl });
+    expect(Array.isArray(details.body.equipment)).toBe(true);
+    expect(details.body.equipment.length).toBeGreaterThan(0);
+    expect(details.body.recent.map((e: { kind: string }) => e.kind)).toEqual(['character_joined']);
+    expect(details.body.recent[0].character.avatarUrl).toBe(ch.avatarUrl);
+
+    expect((await carol.get(path)).status).toBe(404); // not a member
+  });
+
   it('refreshes tavern characters on demand', async () => {
     const { login, db } = await setup();
     const alice = await login('Alice#1234');

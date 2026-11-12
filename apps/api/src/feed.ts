@@ -27,7 +27,7 @@ export async function recordEvent(
   ]);
 }
 
-async function bestEffort<T>(label: string, fn: (() => Promise<T | null>) | undefined): Promise<T | null> {
+export async function bestEffort<T>(label: string, fn: (() => Promise<T | null>) | undefined): Promise<T | null> {
   if (!fn) return null;
   try {
     return await fn();
@@ -114,7 +114,14 @@ export async function detectProgress(
     'Equipment sync',
     blizzard.getEquipment && (() => blizzard.getEquipment!(row.region, row.name, row.surname)),
   );
-  if (items) await detectLoot(db, row, items);
+  if (items) {
+    // Keep the full set for the character details pane.
+    await db.query('update characters set equipment = $2::jsonb, equipment_synced_at = now() where id = $1', [
+      row.id,
+      JSON.stringify(items),
+    ]);
+    await detectLoot(db, row, items);
+  }
 
   const achievements = await bestEffort(
     'Achievement sync',
@@ -137,6 +144,7 @@ interface FeedRow {
   class: string | null;
   race: string | null;
   level: number | null;
+  avatar_url: string | null;
   owner_id: string | null;
   owner_name: string | null;
   cheer_names: string[] | string;
@@ -161,17 +169,21 @@ export async function tavernFeed(
   db: Db,
   tavernId: string,
   viewerId: string,
-  opts: { before?: string | null; limit: number },
+  opts: { before?: string | null; limit: number; characterId?: string },
 ) {
   const params: unknown[] = [tavernId, opts.limit + 1, viewerId];
   let cursor = '';
   if (opts.before) {
     params.push(opts.before);
-    cursor = 'and e.id < $4::bigint';
+    cursor += ` and e.id < $${params.length}::bigint`;
+  }
+  if (opts.characterId) {
+    params.push(opts.characterId);
+    cursor += ` and e.character_id = $${params.length}`;
   }
   const rows = await db.query<FeedRow>(
     `select e.id::text as id, e.kind, e.tavern_id, e.character_id, e.data, e.created_at,
-       c.name, c.surname, c.class, c.race, c.level,
+       c.name, c.surname, c.class, c.race, c.level, c.avatar_url,
        u.id as owner_id, u.display_name as owner_name,
        (select coalesce(json_agg(ru.display_name order by r.created_at), '[]'::json)
           from feed_reactions r join users ru on ru.id = r.user_id
@@ -192,7 +204,15 @@ export async function tavernFeed(
       kind: r.kind,
       createdAt: r.created_at,
       character: r.character_id
-        ? { id: r.character_id, name: r.name, surname: r.surname, class: r.class, race: r.race, level: r.level }
+        ? {
+            id: r.character_id,
+            name: r.name,
+            surname: r.surname,
+            class: r.class,
+            race: r.race,
+            level: r.level,
+            avatarUrl: r.avatar_url,
+          }
         : null,
       user: r.owner_id ? { id: r.owner_id, displayName: r.owner_name } : null,
       data: typeof r.data === 'string' ? JSON.parse(r.data) : r.data,

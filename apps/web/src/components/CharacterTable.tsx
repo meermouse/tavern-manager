@@ -11,6 +11,7 @@ import {
 } from '@tanstack/react-table';
 import { useMemo, useState } from 'react';
 import type { TavernCharacter } from '../api/client';
+import { CharacterAvatar } from './CharacterAvatar';
 import { CharacterLevel } from './CharacterLevel';
 import { ClassName } from './ClassName';
 
@@ -39,7 +40,16 @@ function uniqueSorted(values: (string | null)[]): string[] {
   return [...new Set(values.filter((v): v is string => !!v))].sort();
 }
 
-export function CharacterTable({ characters }: { characters: TavernCharacter[] }) {
+export function CharacterTable({
+  characters,
+  selectedId,
+  onSelect,
+}: {
+  characters: TavernCharacter[];
+  selectedId?: string | null;
+  /** Called with the clicked character, or `null` when the selected row is clicked again. */
+  onSelect?: (character: TavernCharacter | null) => void;
+}) {
   const [sorting, setSorting] = useState<SortingState>([{ id: 'level', desc: true }]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [search, setSearch] = useState('');
@@ -49,7 +59,12 @@ export function CharacterTable({ characters }: { characters: TavernCharacter[] }
       col.accessor((c) => `${c.name} ${c.surname}`, {
         id: 'name',
         header: 'Character',
-        cell: (info) => <strong>{info.getValue()}</strong>,
+        cell: (info) => (
+          <span className="char-cell">
+            <CharacterAvatar character={info.row.original} size="xs" />
+            <strong>{info.getValue()}</strong>
+          </span>
+        ),
       }),
       col.accessor('ruleset', {
         header: 'Ruleset',
@@ -162,15 +177,36 @@ export function CharacterTable({ characters }: { characters: TavernCharacter[] }
             ))}
           </thead>
           <tbody>
-            {rows.map((row) => (
-              <tr key={row.id}>
+            {rows.map((row) => {
+              const selected = row.original.id === selectedId;
+              const select = () => onSelect?.(selected ? null : row.original);
+              return (
+              <tr
+                key={row.id}
+                className={onSelect ? `selectable${selected ? ' selected' : ''}` : undefined}
+                aria-selected={onSelect ? selected : undefined}
+                tabIndex={onSelect ? 0 : undefined}
+                title={onSelect ? `Show details for ${row.original.name} ${row.original.surname}` : undefined}
+                onClick={onSelect ? select : undefined}
+                onKeyDown={
+                  onSelect
+                    ? (e) => {
+                        if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) {
+                          e.preventDefault();
+                          select();
+                        }
+                      }
+                    : undefined
+                }
+              >
                 {row.getVisibleCells().map((cell) => (
                   <td key={cell.id} data-label={String(cell.column.columnDef.header)}>
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </td>
                 ))}
               </tr>
-            ))}
+              );
+            })}
             {rows.length === 0 && (
               <tr>
                 <td colSpan={columns.length} className="muted center">
