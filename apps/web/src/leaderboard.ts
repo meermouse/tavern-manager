@@ -54,6 +54,18 @@ const sheet =
 
 const totalDeaths = stat('Total deaths', /^total deaths$/i, /^deaths$/i);
 const totalKills = stat('Total kills', 'Creatures killed', /^total kills/i, /creatures killed/i);
+const needRolls = stat('Need rolls made on loot', /need rolls/i);
+const greedRolls = stat('Greed rolls made on loot', /greed rolls/i);
+const disenchantRolls = stat('Disenchant rolls made on loot', /disenchant rolls/i);
+
+/** Need/greed/disenchant counts; `null` unless we know at least the need and greed rolls. */
+function lootRolls(e: LeaderboardEntry) {
+  const need = needRolls(e);
+  const greed = greedRolls(e);
+  if (need == null || greed == null) return null;
+  return { need, total: need + greed + (disenchantRolls(e) ?? 0) };
+}
+
 const quality = (...qualities: string[]) => (e: LeaderboardEntry) =>
   e.gearQualities ? qualities.reduce((n, q) => n + (e.gearQualities?.[q] ?? 0), 0) : null;
 
@@ -168,7 +180,23 @@ export const METRICS: Metric[] = [
   { key: 'gold-acquired', label: 'Total gold acquired', group: 'Adventuring & wealth', format: 'gold', description: 'Every coin ever earned.', value: stat('Total gold acquired') },
   { key: 'most-gold', label: 'Most gold ever owned', group: 'Adventuring & wealth', format: 'gold', description: 'Peak bank balance.', value: stat('Most gold ever owned') },
   { key: 'gold-looted', label: 'Gold looted', group: 'Adventuring & wealth', format: 'gold', description: 'Coin prised from corpses.', value: stat('Gold looted') },
-  { key: 'need-rolls', label: 'Need rolls', group: 'Adventuring & wealth', description: 'Times they hit Need on loot. Ahem.', value: stat('Need rolls made on loot', /need rolls/i) },
+
+  // ---- Loot rolls ----
+  { key: 'need-rolls', label: 'Total need rolls', group: 'Loot rolls', description: 'Times they hit Need on loot. Ahem.', value: needRolls },
+  { key: 'greed-rolls', label: 'Total greed rolls', group: 'Loot rolls', description: 'The polite way to loot.', value: greedRolls },
+  {
+    key: 'loot-rolls', label: 'Total loot rolls', group: 'Loot rolls',
+    description: 'Need, greed and disenchant rolls added up.',
+    value: (e) => lootRolls(e)?.total ?? null,
+  },
+  {
+    key: 'need-percent', label: 'Need roll %', group: 'Loot rolls', format: 'percent',
+    description: 'Share of their loot rolls that were Need. Who’s the ninja?',
+    value: (e) => {
+      const r = lootRolls(e);
+      return r && r.total > 0 ? (r.need / r.total) * 100 : null;
+    },
+  },
 
   // ---- Just for fun ----
   { key: 'falling', label: 'Deaths from falling', group: 'Just for fun', description: 'Gravity: undefeated.', value: stat('Deaths from falling', /deaths from falling/i) },
@@ -183,7 +211,6 @@ export const METRICS: Metric[] = [
   { key: 'hearthed', label: 'Times hearthed home', group: 'Just for fun', description: 'Homesick much?', value: stat('Number of times hearthed', /hearth/i) },
   { key: 'summons', label: 'Summons accepted', group: 'Just for fun', description: 'Too lazy to walk to the dungeon.', value: stat('Summons accepted', /summons accepted/i) },
   { key: 'abandoned', label: 'Quests abandoned', group: 'Just for fun', description: 'Gave up on that escort quest.', value: stat('Quests abandoned', /quests abandoned/i) },
-  { key: 'greed-rolls', label: 'Greed rolls', group: 'Just for fun', description: 'The polite way to loot.', value: stat('Greed rolls made on loot', /greed rolls/i) },
   { key: 'hugs', label: 'Hugs given', group: 'Just for fun', description: '/hug count. Wholesome.', value: stat('Number of hugs', /hugs/i) },
   { key: 'fish', label: 'Fish caught', group: 'Just for fun', description: 'Patience of a saint.', value: stat('Fish caught', /fish.*caught|caught.*fish/i) },
   { key: 'fashion', label: 'Fashion disasters', group: 'Just for fun', description: 'Grey and white items still being worn.', value: quality('POOR', 'COMMON') },

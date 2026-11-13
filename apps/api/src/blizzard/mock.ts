@@ -153,6 +153,7 @@ export function createMockBlizzardClient(): BlizzardClient {
         'Number of hugs': n(27, 0.3),
         'Need rolls made on loot': n(28, 0.5),
         'Greed rolls made on loot': n(29, 1.1),
+        'Disenchant rolls made on loot': n(31, 0.3),
         'Fish caught': n(30, 0.8),
       };
     },

@@ -77,6 +77,19 @@ describe('metrics', () => {
     expect(metric('kd').value(entry({ statistics: { 'Total deaths': 0, 'Total kills': 7 } }))).toBe(7);
   });
 
+  it('totals loot rolls and works out the need percentage', () => {
+    const e = entry({
+      statistics: { 'Need rolls made on loot': 6, 'Greed rolls made on loot': 12, 'Disenchant rolls made on loot': 2 },
+    });
+    expect(metric('need-rolls').value(e)).toBe(6);
+    expect(metric('loot-rolls').value(e)).toBe(20);
+    expect(metric('need-percent').value(e)).toBe(30);
+    // No greed count, or no rolls at all: no percentage.
+    expect(metric('need-percent').value(entry({ statistics: { 'Need rolls made on loot': 6 } }))).toBeNull();
+    const none = entry({ statistics: { 'Need rolls made on loot': 0, 'Greed rolls made on loot': 0 } });
+    expect(metric('need-percent').value(none)).toBeNull();
+  });
+
   it('offers pinned and populated metrics, plus raw statistics nothing else shows', () => {
     const keys = availableMetrics([
       entry({ statistics: { 'Total deaths': 4, 'Deaths from falling': 1, 'Times jumped': 9000 } }),
