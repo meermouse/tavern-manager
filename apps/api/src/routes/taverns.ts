@@ -1,6 +1,7 @@
 import { randomInt } from 'node:crypto';
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
+import { awardAchievements } from '../achievements.js';
 import { badRequest, jsonBody, requireUser, uuidParam, type AppDeps, type AppEnv } from '../context.js';
 import { eventVisibleInTavern, recordEvent, setCheer, tavernFeed } from '../feed.js';
 import { serializeCharacter, serializeEquipment } from '../serialize.js';
@@ -61,6 +62,7 @@ export function tavernRoutes({ db, blizzard }: AppDeps) {
        order by c.level desc nulls last, c.name`,
       [tavern.id],
     );
+    const achievements = awardAchievements(characters);
     return {
       id: tavern.id,
       name: tavern.name,
@@ -77,6 +79,7 @@ export function tavernRoutes({ db, blizzard }: AppDeps) {
         ...serializeCharacter(c),
         ownerId: c.user_id,
         ownerName: c.owner_name,
+        achievements: achievements.get(c.id) ?? [],
       })),
     };
   }

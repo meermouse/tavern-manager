@@ -1,5 +1,6 @@
 import { createContext, useContext, type ReactNode } from 'react';
 import type { TavernCharacter } from '../api/client';
+import { AchievementBadges } from './AchievementBadges';
 import { CharacterAvatar } from './CharacterAvatar';
 import { CharacterLevel } from './CharacterLevel';
 import { ClassName, classKey } from './ClassName';
@@ -58,6 +59,7 @@ export function CharacterCard({ character: c }: { character: CharacterLike }) {
             </span>
           ))}
         </div>
+        <AchievementBadges achievements={c.achievements} labelled />
         <dl className="cc-stats">
           {c.ownerName && (
             <>

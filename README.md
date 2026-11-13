@@ -42,6 +42,15 @@ Players sign in with their Battle.net account, add their characters, and join a 
 - **Refresh.** Character data refreshes on a schedule and on demand.
 - **Leaderboard.** A friendly competition: a tavern's **Leaderboard** tab (and a top-level Leaderboard page covering your characters plus everyone in your taverns) ranks characters by a stat picked from a drop-down, with 🥇🥈🥉 for the podium, a highest/lowest-first toggle and a "best character per player" option. The default is **total gear item level** (all equipped item levels added up, shirt and tabard excluded). Stats come from data we already sync (gear, level, achievements, cheers) plus two best-effort Blizzard endpoints synced alongside each character: `/achievements/statistics` (lifetime counters such as total deaths, kills, deaths from falling, drinks consumed) and `/statistics` (the character sheet: health, strength, armor, crit...). Stats are only offered when someone has data for them, and any statistic Blizzard returns that isn't in the curated list still appears under "Every other statistic".
 
+- **Achievements.** Titles held by whichever character in a tavern currently leads a stat, shown as a medal next to the character (character table, details pane, hover card) and on the holder's player in the top bar. They're worked out live from synced statistics, so a title moves as soon as someone overtakes the holder, and ties share it. Nobody wins with a score of 0.
+
+  | Achievement | Awarded for |
+  |---|---|
+  | ⏳ **He Is Without Life** | Most hours played (the `Total time played` statistic, in seconds) |
+  | 🥷 **The Ninja** | Highest share of loot rolls that were Need (need ÷ need + greed + disenchant), at least 10 rolls |
+
+  Definitions live in `apps/api/src/achievements.ts`; add an entry to `ACHIEVEMENTS` for a new one.
+
 ### Ideas for later
 - Role (tank / healer / DPS) per character
 - Item icons and tooltips (needs the Forever static-data namespace for `/data/wow/media/item/{id}`)

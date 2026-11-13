@@ -165,6 +165,8 @@ export function createMockBlizzardClient(): BlizzardClient {
         'Greed rolls made on loot': n(29, 1.1),
         'Disenchant rolls made on loot': n(31, 0.3),
         'Fish caught': n(30, 0.8),
+        // Seconds, like /played: roughly 3 hours a level.
+        'Total time played': n(0, 3 * 3600),
       };
     },
     async getCharacterStats(region, name, surname) {

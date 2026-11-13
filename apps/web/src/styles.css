@@ -560,3 +560,13 @@ button.details-portrait.enlargeable:hover .enlarge-hint, button.details-portrait
 .cc-profession .profession-slot svg { width: 0.8rem; height: 0.8rem; }
 /* My characters has the most columns (professions, role pickers, actions): tighter cells keep it on screen. */
 .my-characters th, .my-characters td { padding-left: 0.55rem; padding-right: 0.55rem; }
+
+/* Tavern achievements */
+.achievement-badges { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0.25rem; margin-left: 0.4rem; vertical-align: middle; }
+.achievement-medal {
+  display: inline-grid; place-items: center; width: 1.5rem; height: 1.5rem; border-radius: 50%; font-size: 0.85rem; line-height: 1;
+  background: radial-gradient(circle at 35% 30%, #ffe39a, var(--accent) 60%, #8a5a14); box-shadow: 0 0 0 1px #8a5a14; cursor: default;
+}
+.badge.achievement-badge { color: var(--accent); border-color: var(--accent); margin-left: 0; text-transform: none; letter-spacing: 0; }
+.character-details .achievement-badges, .character-card .achievement-badges { display: flex; margin: 0.4rem 0 0; }
+.player-achievements { margin-left: 0; }
