@@ -10,6 +10,10 @@ export const keys = {
   feed: (id: string) => ['taverns', id, 'feed'] as const,
   // Nested under the tavern key too, so a tavern refresh updates an open details pane.
   characterDetails: (tavernId: string, characterId: string) => ['taverns', tavernId, 'characters', characterId] as const,
+  // Nested under the tavern key, so a tavern refresh re-ranks it.
+  tavernLeaderboard: (id: string) => ['taverns', id, 'leaderboard'] as const,
+  // Under `taverns` too: joining, leaving or a refresh changes who's on it.
+  leaderboard: ['taverns', 'leaderboard'] as const,
   invite: (code: string) => ['invite', code] as const,
 };
 
@@ -44,6 +48,14 @@ export function useCharacterDetails(tavernId: string, characterId: string) {
   return useQuery({
     queryKey: keys.characterDetails(tavernId, characterId),
     queryFn: () => api.characterDetails(tavernId, characterId),
+  });
+}
+
+/** A tavern's leaderboard, or (no id) everyone in your taverns plus your own characters. */
+export function useLeaderboard(tavernId?: string) {
+  return useQuery({
+    queryKey: tavernId ? keys.tavernLeaderboard(tavernId) : keys.leaderboard,
+    queryFn: () => (tavernId ? api.tavernLeaderboard(tavernId) : api.leaderboard()),
   });
 }
 

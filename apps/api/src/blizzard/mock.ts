@@ -112,6 +112,71 @@ export function createMockBlizzardClient(): BlizzardClient {
       if (!profile?.class || !profile.race) return null;
       return mockPortraits(profile.name, profile.class, profile.race);
     },
+    async getStatistics(region, name, surname) {
+      const profile = await client.getCharacter(region, name, surname);
+      if (!profile?.level) return null;
+      const h = hash(`stats:${profile.name}-${profile.surname}`);
+      const lvl = profile.level;
+      // Names as Blizzard's retail statistics use them; scaled by level so higher characters have done more.
+      const n = (shift: number, per: number) => Math.round(lvl * per * (0.5 + ((h >>> shift) % 100) / 100));
+      const deathsFalling = n(1, 0.15);
+      const deathsDrowning = n(2, 0.05);
+      const deathsPlayers = /pvp/i.test(profile.ruleset ?? '') ? n(3, 0.6) : 0;
+      return {
+        'Total deaths': deathsFalling + deathsDrowning + deathsPlayers + n(4, 0.5),
+        'Deaths from falling': deathsFalling,
+        'Deaths from drowning': deathsDrowning,
+        'Deaths from fatigue': n(5, 0.01),
+        'Deaths from fire and lava': n(6, 0.02),
+        'Deaths from other players': deathsPlayers,
+        'Total deaths in 5-player dungeons': n(7, 0.08),
+        'Creatures killed': n(8, 60),
+        'Critters killed': n(9, 1.5),
+        'Honorable kills': deathsPlayers * 2,
+        'Total damage done': n(10, 9000),
+        'Total damage received': n(11, 7000),
+        'Total healing done': n(12, 2500),
+        'Largest hit dealt': n(13, 12),
+        'Largest heal cast': n(14, 9),
+        'Quests completed': n(15, 7),
+        'Quests abandoned': n(16, 0.4),
+        'Flight paths taken': n(17, 1.2),
+        'Number of times hearthed': n(18, 1.6),
+        'Summons accepted': n(19, 0.2),
+        'Gold looted': n(20, 900),
+        'Most gold ever owned': n(21, 4000),
+        'Total gold acquired': n(22, 9000),
+        'Food eaten': n(23, 3),
+        'Beverages consumed': n(24, 3.5),
+        'Health potions consumed': n(25, 0.6),
+        'Bandages used': n(26, 0.9),
+        'Number of hugs': n(27, 0.3),
+        'Need rolls made on loot': n(28, 0.5),
+        'Greed rolls made on loot': n(29, 1.1),
+        'Disenchant rolls made on loot': n(31, 0.3),
+        'Fish caught': n(30, 0.8),
+      };
+    },
+    async getCharacterStats(region, name, surname) {
+      const profile = await client.getCharacter(region, name, surname);
+      if (!profile?.level) return null;
+      const h = hash(`sheet:${profile.name}-${profile.surname}`);
+      const lvl = profile.level;
+      const stat = (shift: number) => Math.round(lvl * (1 + ((h >>> shift) % 100) / 100));
+      return {
+        health: lvl * 70 + stat(1) * 5,
+        power: lvl * 40 + stat(2) * 3,
+        strength: stat(3),
+        agility: stat(4),
+        intellect: stat(5),
+        stamina: stat(6),
+        spirit: stat(7),
+        armor: stat(8) * 25,
+        attack_power: stat(9) * 2,
+        melee_crit: Math.round((2 + ((h >>> 10) % 80) / 10) * 100) / 100,
+        dodge: Math.round((2 + ((h >>> 11) % 60) / 10) * 100) / 100,
+      };
+    },
     async getAchievements(region, name, surname) {
       const level = (await client.getCharacter(region, name, surname))?.level;
       if (level == null) return null;

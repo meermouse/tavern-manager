@@ -38,6 +38,7 @@ Players sign in with their Battle.net account, add their characters, and join a 
   | Level | Blizzard API |
 
 - **Refresh.** Character data refreshes on a schedule and on demand.
+- **Leaderboard.** A friendly competition: a tavern's **Leaderboard** tab (and a top-level Leaderboard page covering your characters plus everyone in your taverns) ranks characters by a stat picked from a drop-down, with 🥇🥈🥉 for the podium, a highest/lowest-first toggle and a "best character per player" option. The default is **total gear item level** (all equipped item levels added up, shirt and tabard excluded). Stats come from data we already sync (gear, level, achievements, cheers) plus two best-effort Blizzard endpoints synced alongside each character: `/achievements/statistics` (lifetime counters such as total deaths, kills, deaths from falling, drinks consumed) and `/statistics` (the character sheet: health, strength, armor, crit...). Stats are only offered when someone has data for them, and any statistic Blizzard returns that isn't in the curated list still appears under "Every other statistic".
 
 ### Ideas for later
 - Role (tank / healer / DPS) per character

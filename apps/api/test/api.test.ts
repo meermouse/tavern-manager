@@ -215,3 +215,55 @@ describe('taverns', () => {
     expect(refreshed.characters[0].level).toBe(ch.level);
   });
 });
+
+describe('leaderboard', () => {
+  it('ranks tavern characters by gear and statistics, for members only', async () => {
+    const { login } = await setup();
+    const alice = await login('Alice#1234');
+    const bob = await login('Bob#5678');
+    const carol = await login('Carol#0001');
+    const judy = (await alice.post('/api/characters', { name: 'Judgement', surname: 'Judy' })).body;
+    const grim = (await bob.post('/api/characters', { name: 'Grimble', surname: 'Thornwick' })).body;
+    const tavern = (await alice.post('/api/taverns', { name: 'The Prancing Pony' })).body;
+    await bob.post(`/api/invites/${tavern.inviteCode}/join`);
+    await alice.put(`/api/taverns/${tavern.id}/characters/${judy.id}`);
+    await bob.put(`/api/taverns/${tavern.id}/characters/${grim.id}`);
+
+    const res = await alice.get(`/api/taverns/${tavern.id}/leaderboard`);
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveLength(2);
+    const entry = res.body.find((e: { id: string }) => e.id === judy.id);
+    expect(entry).toMatchObject({ ownerName: 'Alice', cheers: 0, cheersGiven: 0 });
+    expect(entry.gearItemLevel).toBeGreaterThan(0);
+    expect(entry.statistics['Total deaths']).toBeGreaterThanOrEqual(0);
+    expect(entry.statistics['Creatures killed']).toBeGreaterThan(0);
+    expect(entry.characterStats.health).toBeGreaterThan(0);
+
+    expect((await carol.get(`/api/taverns/${tavern.id}/leaderboard`)).status).toBe(404);
+
+    // Bob cheers a post: it counts as given for Bob's characters and received for the character posted about.
+    const feed = (await bob.get(`/api/taverns/${tavern.id}/feed`)).body.events;
+    const post = feed.find((e: { character: { id: string } | null }) => e.character?.id === judy.id);
+    await bob.put(`/api/taverns/${tavern.id}/feed/${post.id}/cheers`);
+    const after = (await alice.get(`/api/taverns/${tavern.id}/leaderboard`)).body;
+    expect(after.find((e: { id: string }) => e.id === grim.id).cheersGiven).toBe(1);
+    expect(after.find((e: { id: string }) => e.id === judy.id)).toMatchObject({ cheers: 1, cheersGiven: 0 });
+  });
+
+  it('outside a tavern, covers your characters and everyone in your taverns', async () => {
+    const { login } = await setup();
+    const alice = await login('Alice#1234');
+    const bob = await login('Bob#5678');
+    const carol = await login('Carol#0001');
+    await alice.post('/api/characters', { name: 'Judgement', surname: 'Judy' });
+    const grim = (await bob.post('/api/characters', { name: 'Grimble', surname: 'Thornwick' })).body;
+    await carol.post('/api/characters', { name: 'Stranger', surname: 'Danger' });
+    const tavern = (await alice.post('/api/taverns', { name: 'The Prancing Pony' })).body;
+    await bob.post(`/api/invites/${tavern.inviteCode}/join`);
+    await bob.put(`/api/taverns/${tavern.id}/characters/${grim.id}`);
+
+    const names = (await alice.get('/api/leaderboard')).body.map((e: { name: string }) => e.name).sort();
+    expect(names).toEqual(['Grimble', 'Judgement']);
+    expect((await carol.get('/api/leaderboard')).body.map((e: { name: string }) => e.name)).toEqual(['Stranger']);
+  });
+});

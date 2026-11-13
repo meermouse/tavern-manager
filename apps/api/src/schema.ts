@@ -128,6 +128,12 @@ alter table characters add column if not exists equipment_version integer not nu
 -- Party roles the owner picks for the character (any of 'tank', 'healer', 'damage'; empty = none).
 alter table characters add column if not exists roles text[] not null default '{}';
 
+-- Leaderboard: lifetime counters from /achievements/statistics and the character sheet from /statistics
+-- (both StatisticMap: name → number).
+alter table characters add column if not exists statistics jsonb;
+alter table characters add column if not exists character_stats jsonb;
+alter table characters add column if not exists statistics_synced_at timestamptz;
+
 select pg_advisory_unlock(727274);
 `;
 

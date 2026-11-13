@@ -4,6 +4,7 @@ import { HTTPException } from 'hono/http-exception';
 import type { AppDeps, AppEnv, SessionInfo, UserRow } from './context.js';
 import { authRoutes, hashToken, SESSION_COOKIE } from './routes/auth.js';
 import { characterRoutes } from './routes/characters.js';
+import { leaderboardRoutes } from './routes/leaderboard.js';
 import { meRoutes } from './routes/me.js';
 import { tavernRoutes } from './routes/taverns.js';
 
@@ -35,6 +36,7 @@ export function createApp(deps: AppDeps) {
   app.route('/api/me', meRoutes(deps));
   app.route('/api/characters', characterRoutes(deps));
   app.route('/api', tavernRoutes(deps));
+  app.route('/api', leaderboardRoutes(deps));
 
   app.notFound((c) => c.json({ error: 'Not found' }, 404));
   app.onError((err, c) => {

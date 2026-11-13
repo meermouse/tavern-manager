@@ -4,6 +4,8 @@ import {
   createBlizzardClient,
   normalizeRuleset,
   parseAccountCharacters,
+  parseAchievementStatistics,
+  parseCharacterStats,
   parseAchievements,
   parseCharacterMedia,
   parseCharacterProfile,
@@ -200,6 +202,56 @@ describe('parseAchievements', () => {
       { id: 7, name: 'Level 20', completedAt: null },
     ]);
     expect(parseAchievements({})).toEqual([]);
+  });
+});
+
+describe('parseAchievementStatistics', () => {
+  it('flattens nested categories into name → quantity', () => {
+    const stats = parseAchievementStatistics({
+      categories: [
+        {
+          name: 'Character',
+          statistics: [{ id: 1, name: 'Total deaths', quantity: 12 }],
+          sub_categories: [
+            {
+              name: 'Deaths',
+              statistics: [
+                { id: 2, name: 'Deaths from falling', quantity: '3' },
+                { id: 3, name: { en_US: 'Deaths from drowning' }, quantity: 1 },
+                { id: 4, name: 'Broken', quantity: 'n/a' },
+              ],
+            },
+          ],
+        },
+        { name: 'Combat', sub_categories: [{ statistics: [{ name: 'Creatures killed', quantity: 4000 }] }] },
+      ],
+    });
+    expect(stats).toEqual({
+      'Total deaths': 12,
+      'Deaths from falling': 3,
+      'Deaths from drowning': 1,
+      'Creatures killed': 4000,
+    });
+  });
+
+  it('returns null when there are no statistics', () => {
+    expect(parseAchievementStatistics({ categories: [] })).toBeNull();
+  });
+});
+
+describe('parseCharacterStats', () => {
+  it('prefers effective values and keeps plain numbers', () => {
+    expect(
+      parseCharacterStats({
+        _links: { self: { href: 'x' } },
+        character: { name: 'Judgement' },
+        health: 4200,
+        power_type: { name: 'Mana' },
+        strength: { base: 50, effective: 72 },
+        melee_crit: { rating: 0, value: 5.2 },
+        armor: { base: 900, effective: 1100 },
+      }),
+    ).toEqual({ health: 4200, strength: 72, melee_crit: 5.2, armor: 1100 });
   });
 });
 

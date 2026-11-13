@@ -2,13 +2,14 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { api, type FeedEvent, type TavernCharacter, type TavernDetail } from '../api/client';
-import { keys, useCharacters, useMe, useTavern } from '../api/hooks';
+import { keys, useCharacters, useLeaderboard, useMe, useTavern } from '../api/hooks';
 import { AddCharacterForm } from '../components/AddCharacterForm';
 import { CharacterAvatar } from '../components/CharacterAvatar';
 import { CharacterDirectory, CharacterLink } from '../components/CharacterLink';
 import { CharacterDetails } from '../components/CharacterDetails';
 import { CharacterTable } from '../components/CharacterTable';
 import { DungeonTable } from '../components/DungeonTable';
+import { LeaderboardTable } from '../components/LeaderboardTable';
 import { TavernFeed } from '../components/TavernFeed';
 import { RoleIcons } from '../components/RoleIcons';
 import { matchesFaction, useFactionFilter, type FactionFilter } from '../faction';
@@ -171,6 +172,18 @@ function CharacterRoster({ tavern, characters }: { tavern: TavernDetail; charact
   );
 }
 
+/** The tavern's leaderboard, limited to the characters the faction filter shows. */
+function TavernLeaderboard({ tavernId, visible }: { tavernId: string; visible: TavernCharacter[] }) {
+  const board = useLeaderboard(tavernId);
+  const entries = useMemo(() => {
+    const ids = new Set(visible.map((c) => c.id));
+    return (board.data ?? []).filter((e) => ids.has(e.id));
+  }, [board.data, visible]);
+  if (board.isPending) return <p className="muted">Loading…</p>;
+  if (board.error) return <p className="error">{board.error.message}</p>;
+  return <LeaderboardTable entries={entries} emptyText="No characters in this tavern yet." />;
+}
+
 const FACTIONS: [FactionFilter, string][] = [
   ['both', 'Both'],
   ['horde', 'Horde'],
@@ -195,11 +208,12 @@ function FactionPicker({ value, onChange }: { value: FactionFilter; onChange: (f
   );
 }
 
-type View = 'feed' | 'characters' | 'dungeons';
+type View = 'feed' | 'characters' | 'dungeons' | 'leaderboard';
 const VIEWS: [View, string][] = [
   ['feed', 'Feed'],
   ['characters', 'Characters'],
   ['dungeons', 'Dungeons'],
+  ['leaderboard', 'Leaderboard'],
 ];
 
 export function TavernDetailPage() {
@@ -231,6 +245,7 @@ export function TavernDetailPage() {
     onSuccess: (t) => {
       qc.setQueryData(keys.tavern(id), t);
       qc.invalidateQueries({ queryKey: keys.feed(id) });
+      qc.invalidateQueries({ queryKey: keys.tavernLeaderboard(id) });
     },
   });
 
@@ -274,6 +289,7 @@ export function TavernDetailPage() {
         )}
         {view === 'characters' && <CharacterRoster tavern={t} characters={visible} />}
         {view === 'dungeons' && <DungeonTable characters={visible} showTotals />}
+        {view === 'leaderboard' && <TavernLeaderboard tavernId={t.id} visible={visible} />}
 
         <div className="three-col">
           <MyCharactersPanel tavern={t} />
