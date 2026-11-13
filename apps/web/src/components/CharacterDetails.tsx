@@ -4,6 +4,7 @@ import { useCharacterDetails } from '../api/hooks';
 import { CharacterLevel } from './CharacterLevel';
 import { ClassName, classKey } from './ClassName';
 import { ItemLink } from './ItemLink';
+import { PortraitViewer } from './PortraitViewer';
 import { FeedPost, timeAgo } from './TavernFeed';
 
 // Paper-doll order; anything we don't recognise goes last.
@@ -29,19 +30,33 @@ function Portrait({ character }: { character: TavernCharacter }) {
   const url = candidates.find((u) => !failed.includes(u));
   const key = classKey(character.class);
   const kind = url === character.renderUrl ? 'render' : url === character.insetUrl ? 'inset' : 'avatar';
-  return (
-    <div className={`details-portrait ${key ? `class-bg-${key}` : ''}`}>
-      {url ? (
-        <img
-          className={`portrait-${kind}`}
-          src={url}
-          alt={`${character.name} ${character.surname}, ${[character.race, character.class].filter(Boolean).join(' ') || 'character'}`}
-          onError={() => setFailed((f) => [...f, url])}
-        />
-      ) : (
+  const [enlarged, setEnlarged] = useState(false);
+  const name = `${character.name} ${character.surname}`;
+  const alt = `${name}, ${[character.race, character.class].filter(Boolean).join(' ') || 'character'}`;
+  const bg = key ? `class-bg-${key}` : '';
+  if (!url) {
+    return (
+      <div className={`details-portrait ${bg}`}>
         <span className="portrait-initial" aria-hidden="true">{character.name.charAt(0).toUpperCase()}</span>
+      </div>
+    );
+  }
+  return (
+    <>
+      <button
+        type="button"
+        className={`details-portrait enlargeable ${bg}`}
+        onClick={() => setEnlarged(true)}
+        aria-label={`Enlarge ${name}'s portrait`}
+        title="Click to enlarge"
+      >
+        <img className={`portrait-${kind}`} src={url} alt={alt} onError={() => setFailed((f) => [...f, url])} />
+        <span className="enlarge-hint" aria-hidden="true">⤢</span>
+      </button>
+      {enlarged && (
+        <PortraitViewer src={url} alt={alt} title={name} className={bg} onClose={() => setEnlarged(false)} />
       )}
-    </div>
+    </>
   );
 }
 
@@ -94,7 +109,7 @@ export function CharacterDetails({
   }, [character.id]);
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && !e.defaultPrevented && onClose();
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
