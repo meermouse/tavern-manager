@@ -25,7 +25,9 @@ describe('countRoles', () => {
 
 describe('DungeonTable', () => {
   it('shows how many characters are eligible for each dungeon, and per role', () => {
-    render(<DungeonTable characters={[char('Tanky', 14, ['tank']), char('Both', 15, ['healer', 'damage']), char('None', 16)]} />);
+    render(
+      <DungeonTable characters={[char('Tanky', 14, ['tank']), char('Both', 15, ['healer', 'damage']), char('None', 16)]} showTotals />,
+    );
     const cell = within(within(row('Ragefire Chasm')).getAllByRole('cell')[0]);
     expect(cell.getByText('3 eligible')).toBeTruthy();
     expect(cell.getByRole('listitem', { name: '1 tank' })).toBeTruthy();
@@ -34,6 +36,12 @@ describe('DungeonTable', () => {
 
     expect(within(row('Ruins of Lordaeron')).getByText('2 eligible')).toBeTruthy();
     expect(within(row('Blackrock Depths')).getByText('0 eligible')).toBeTruthy();
+  });
+
+  it('leaves the totals out unless asked (e.g. your own dungeons page)', () => {
+    render(<DungeonTable characters={[char('Tanky', 14, ['tank'])]} charactersLabel="Your characters" />);
+    expect(screen.queryByText(/eligible/)).toBeNull();
+    expect(screen.queryByRole('list', { name: 'Characters per role' })).toBeNull();
   });
 
   it("puts each character's roles before its name chip", () => {

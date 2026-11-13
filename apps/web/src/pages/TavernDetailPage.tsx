@@ -273,7 +273,7 @@ export function TavernDetailPage() {
           <TavernFeed tavernId={t.id} viewerName={me.data?.displayName} include={faction === 'both' ? undefined : includePost} />
         )}
         {view === 'characters' && <CharacterRoster tavern={t} characters={visible} />}
-        {view === 'dungeons' && <DungeonTable characters={visible} />}
+        {view === 'dungeons' && <DungeonTable characters={visible} showTotals />}
 
         <div className="three-col">
           <MyCharactersPanel tavern={t} />

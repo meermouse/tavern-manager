@@ -51,10 +51,13 @@ function EligibleSummary({ characters }: { characters: Character[] }) {
 export function DungeonTable({
   characters,
   charactersLabel = 'Tavern characters',
+  showTotals = false,
 }: {
   characters: Character[];
   /** Heading for the characters column, e.g. "Tavern characters" or "Your characters". */
   charactersLabel?: string;
+  /** Show each dungeon's eligible count and per-role totals (for tavern groups, not your own list). */
+  showTotals?: boolean;
 }) {
   const assignments = assignCharactersToDungeons(characters);
   // Only reserve the roles slot when someone has a role, so tables without any stay compact.
@@ -81,10 +84,14 @@ export function DungeonTable({
           ) : (
             <tr key={row.dungeon.name}>
               <td data-label="Dungeon">
-                <div className="dungeon-name">
+                {showTotals ? (
+                  <div className="dungeon-name">
+                    <strong>{row.dungeon.name}</strong>
+                    <EligibleSummary characters={row.characters} />
+                  </div>
+                ) : (
                   <strong>{row.dungeon.name}</strong>
-                  <EligibleSummary characters={row.characters} />
-                </div>
+                )}
               </td>
               <td data-label="Recommended level">{row.dungeon.minLevel}–{row.dungeon.maxLevel}</td>
               <td data-label="Players">{row.dungeon.players}</td>
