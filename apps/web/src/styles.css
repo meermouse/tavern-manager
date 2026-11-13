@@ -446,3 +446,36 @@ button.details-portrait.enlargeable:hover .enlarge-hint, button.details-portrait
 @media (prefers-reduced-motion: reduce) { .viewer-stage img { transition: none; } }
 @media (max-width: 640px) { button.details-portrait.enlargeable { height: 260px; } .viewer-hint { display: none; } }
 .viewer-stage.dragging img { transition: none; }
+
+/* Character roles (tank / healer / damage). */
+:root { --role-tank: #6fa0ec; --role-healer: #7ed37e; --role-damage: #e2685a; }
+.role-tank { color: var(--role-tank); }
+.role-healer { color: var(--role-healer); }
+.role-damage { color: var(--role-damage); }
+.role-icons { display: inline-flex; align-items: center; gap: 0.3rem; vertical-align: middle; }
+.role-icons .hover-trigger { cursor: help; }
+.role-icon {
+  display: inline-grid; place-items: center; width: 1.45rem; height: 1.45rem; border-radius: 50%;
+  border: 1px solid currentColor; background: color-mix(in srgb, currentColor 14%, transparent);
+}
+.role-icon svg { width: 0.85rem; height: 0.85rem; }
+.role-picker { display: inline-flex; gap: 0.3rem; }
+.role-toggle {
+  display: inline-grid; place-items: center; width: 1.9rem; height: 1.9rem; padding: 0; border-radius: 50%;
+  background: transparent; border: 1px dashed var(--border); color: var(--muted); opacity: 0.6;
+  transition: opacity 0.15s, border-color 0.15s, background 0.15s;
+}
+.role-toggle:hover:not(:disabled) { opacity: 1; border-color: currentColor; }
+.role-toggle.active { opacity: 1; border-style: solid; border-color: currentColor; background: color-mix(in srgb, currentColor 16%, transparent); }
+.role-toggle.role-tank.active, .role-toggle.role-tank:hover { color: var(--role-tank); }
+.role-toggle.role-healer.active, .role-toggle.role-healer:hover { color: var(--role-healer); }
+.role-toggle.role-damage.active, .role-toggle.role-damage:hover { color: var(--role-damage); }
+.role-toggle svg { width: 1rem; height: 1rem; }
+.role-tooltip strong { display: block; }
+.role-badge { display: inline-flex; align-items: center; gap: 0.25rem; border-color: currentColor; }
+.role-badge svg { width: 0.7rem; height: 0.7rem; }
+.badge.role-tank { color: var(--role-tank); }
+.badge.role-healer { color: var(--role-healer); }
+.badge.role-damage { color: var(--role-damage); }
+.details-badges .role-icons { margin-left: 0.4rem; }
+.checklist .role-icons { margin-left: 0.4rem; }

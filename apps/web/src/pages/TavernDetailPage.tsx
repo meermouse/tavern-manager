@@ -10,6 +10,7 @@ import { CharacterDetails } from '../components/CharacterDetails';
 import { CharacterTable } from '../components/CharacterTable';
 import { DungeonTable } from '../components/DungeonTable';
 import { TavernFeed } from '../components/TavernFeed';
+import { RoleIcons } from '../components/RoleIcons';
 import { matchesFaction, useFactionFilter, type FactionFilter } from '../faction';
 
 function InvitePanel({ tavern }: { tavern: TavernDetail }) {
@@ -99,6 +100,7 @@ function MyCharactersPanel({ tavern }: { tavern: TavernDetail }) {
                 {c.name} {c.surname}
               </CharacterLink>
               <span className="muted small-text">{c.level != null ? ` · ${c.level}` : ' · pending'}</span>
+              <RoleIcons roles={c.roles} />
             </label>
           </li>
         ))}

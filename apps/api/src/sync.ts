@@ -33,6 +33,7 @@ export interface CharacterRow {
   equipment: unknown;
   equipment_synced_at: Date | null;
   equipment_version: number;
+  roles: string[] | null;
   created_at: Date;
 }
 

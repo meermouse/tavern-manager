@@ -125,6 +125,9 @@ alter table characters add column if not exists equipment_synced_at timestamptz;
 -- Which parser version produced \`equipment\`; older saves get re-fetched once (see EQUIPMENT_VERSION).
 alter table characters add column if not exists equipment_version integer not null default 0;
 
+-- Party roles the owner picks for the character (any of 'tank', 'healer', 'damage'; empty = none).
+alter table characters add column if not exists roles text[] not null default '{}';
+
 select pg_advisory_unlock(727274);
 `;
 

@@ -10,11 +10,12 @@ import {
   type SortingState,
 } from '@tanstack/react-table';
 import { useMemo, useState } from 'react';
-import type { TavernCharacter } from '../api/client';
+import type { Role, TavernCharacter } from '../api/client';
 import { CharacterAvatar } from './CharacterAvatar';
 import { CharacterLink } from './CharacterLink';
 import { CharacterLevel } from './CharacterLevel';
 import { ClassName } from './ClassName';
+import { ROLES, ROLE_LABELS, RoleIcons } from './RoleIcons';
 import { factionOf } from '../faction';
 
 const col = createColumnHelper<TavernCharacter>();
@@ -34,9 +35,13 @@ const globalFilter: FilterFn<TavernCharacter> = (row, _columnId, value: string) 
   const q = value.trim().toLowerCase();
   if (!q) return true;
   const c = row.original;
-  return [c.name, c.surname, `${c.name} ${c.surname}`, c.ownerName, c.class, c.race, c.ruleset, factionOf(c)]
+  const roles = (c.roles ?? []).map((r) => ROLE_LABELS[r]);
+  return [c.name, c.surname, `${c.name} ${c.surname}`, c.ownerName, c.class, c.race, c.ruleset, factionOf(c), ...roles]
     .some((v) => v?.toLowerCase().includes(q));
 };
+
+const roleFilter: FilterFn<TavernCharacter> = (row, _columnId, value: Role | undefined) =>
+  !value || (row.original.roles ?? []).includes(value);
 
 function uniqueSorted(values: (string | null)[]): string[] {
   return [...new Set(values.filter((v): v is string => !!v))].sort();
@@ -97,6 +102,14 @@ export function CharacterTable({
           return f ? <span className={`faction ${f.toLowerCase()}`}>{f}</span> : <span className="muted">—</span>;
         },
       }),
+      // Sorts tanks, then healers, then damage; characters without roles go last.
+      col.accessor((c) => (c.roles?.length ? Math.min(...c.roles.map((r) => ROLES.indexOf(r))) : undefined), {
+        id: 'roles',
+        header: 'Roles',
+        filterFn: roleFilter,
+        sortUndefined: 'last',
+        cell: (info) => <RoleIcons roles={info.row.original.roles} />,
+      }),
       col.accessor('level', {
         header: 'Level',
         filterFn: levelRangeFilter,
@@ -155,6 +168,12 @@ export function CharacterTable({
             ))}
           </select>
         ))}
+        <select aria-label="Filter by role" value={filterValue('roles')} onChange={(e) => setFilter('roles', e.target.value)}>
+          <option value="">Any role</option>
+          {ROLES.map((r) => (
+            <option key={r} value={r}>{ROLE_LABELS[r]}</option>
+          ))}
+        </select>
         <span className="level-range">
           <label>
             Level
