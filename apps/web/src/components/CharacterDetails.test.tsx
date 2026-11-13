@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { CharacterDetails as Details, TavernCharacter } from '../api/client';
 import { CharacterAvatar } from './CharacterAvatar';
@@ -128,5 +128,37 @@ describe('CharacterDetails', () => {
     const img = screen.getByAltText(/Judgement Judy/);
     fireEvent.error(img);
     expect(screen.getByAltText(/Judgement Judy/).getAttribute('src')).toBe(judy.avatarUrl);
+  });
+
+  it("lets the owner set roles from the pane, even when none are set yet", async () => {
+    const calls: [string, RequestInit | undefined][] = [];
+    let saved: string[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+      calls.push([url, init]);
+      if (url === '/api/me') return new Response(JSON.stringify({ id: 'u1', battletag: 'Alice#1', displayName: 'Alice', canImport: true }));
+      if (init?.method === 'PATCH') saved = JSON.parse(String(init.body)).roles;
+      return new Response(JSON.stringify({ ...judy, roles: saved, equipment: [], equipmentSyncedAt: null, recent: [] }));
+    }));
+    renderWithQuery(<CharacterDetails tavernId="t1" character={judy} onClose={() => {}} />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Healer' }));
+    await waitFor(() =>
+      expect(calls.find(([, init]) => init?.method === 'PATCH')).toEqual([
+        '/api/characters/c1',
+        expect.objectContaining({ body: JSON.stringify({ roles: ['healer'] }) }),
+      ]),
+    );
+    expect(screen.getByRole('button', { name: 'Healer' }).getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it("only shows other players' roles, without the toggles", async () => {
+    vi.stubGlobal('fetch', vi.fn(async (url: string) =>
+      new Response(JSON.stringify(url === '/api/me'
+        ? { id: 'someone-else', battletag: 'Bob#1', displayName: 'Bob', canImport: true }
+        : { ...judy, roles: ['tank'], equipment: [], equipmentSyncedAt: null, recent: [] })),
+    ));
+    renderWithQuery(<CharacterDetails tavernId="t1" character={judy} onClose={() => {}} />);
+    expect(await screen.findByRole('listitem', { name: 'Tank' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Tank' })).toBeNull();
   });
 });
