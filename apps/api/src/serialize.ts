@@ -1,3 +1,4 @@
+import type { CharacterProfession } from './blizzard/client.js';
 import type { UserRow } from './context.js';
 import type { CharacterRow } from './sync.js';
 
@@ -34,7 +35,16 @@ export function serializeCharacter(row: CharacterRow) {
     insetUrl: row.inset_url,
     renderUrl: row.render_url,
     roles: normalizeRoles(row.roles),
+    professions: serializeProfessions(row),
   };
+}
+
+/** Saved professions, primaries first; `null` before they've synced. Tolerates the JSON-as-string shape. */
+export function serializeProfessions(row: CharacterRow): CharacterProfession[] | null {
+  const raw = typeof row.professions === 'string' ? JSON.parse(row.professions) : row.professions;
+  if (!Array.isArray(raw)) return null;
+  const list = (raw as CharacterProfession[]).filter((p) => p && typeof p.name === 'string');
+  return [...list.filter((p) => p.kind === 'primary'), ...list.filter((p) => p.kind !== 'primary')];
 }
 
 /** Saved equipment (see `feed.ts`), tolerating the JSON-as-string shape some drivers return. */

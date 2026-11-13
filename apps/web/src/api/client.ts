@@ -2,6 +2,16 @@ export type Region = 'us' | 'eu' | 'kr' | 'tw';
 export type CharacterStatus = 'ok' | 'pending' | 'error';
 export type Role = 'tank' | 'healer' | 'damage';
 
+/** A trained profession and its skill level, e.g. Alchemy 225 / 300. */
+export interface Profession {
+  name: string;
+  /** Primary professions fill the two profession slots; secondary skills (Cooking, Fishing, First Aid) are extra. */
+  kind: 'primary' | 'secondary';
+  skill: number | null;
+  /** Cap for the current rank, e.g. 300 for Artisan. */
+  maxSkill: number | null;
+}
+
 export interface Me {
   id: string;
   battletag: string;
@@ -34,6 +44,8 @@ export interface Character {
   renderUrl?: string | null;
   /** Party roles the owner assigned (empty when none). */
   roles?: Role[];
+  /** Trained professions, primaries first; `null` before they've synced. */
+  professions?: Profession[] | null;
 }
 
 export interface TavernCharacter extends Character {

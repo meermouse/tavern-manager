@@ -10,6 +10,7 @@ import {
   parseCharacterMedia,
   parseCharacterProfile,
   parseEquipment,
+  parseProfessions,
 } from '../src/blizzard/client.js';
 import { safeNext } from '../src/routes/auth.js';
 
@@ -252,6 +253,45 @@ describe('parseCharacterStats', () => {
         armor: { base: 900, effective: 1100 },
       }),
     ).toEqual({ health: 4200, strength: 72, melee_crit: 5.2, armor: 1100 });
+  });
+});
+
+describe('parseProfessions', () => {
+  it('reads classic-style skill points, primaries before secondaries', () => {
+    expect(
+      parseProfessions({
+        secondaries: [{ profession: { name: 'Cooking', id: 185 }, skill_points: 150, max_skill_points: 225 }],
+        primaries: [
+          { profession: { name: 'Alchemy', id: 171 }, skill_points: 225, max_skill_points: 300 },
+          { profession: { name: { en_US: 'Herbalism' } }, skill_points: 260, max_skill_points: 300 },
+        ],
+      }),
+    ).toEqual([
+      { name: 'Alchemy', kind: 'primary', skill: 225, maxSkill: 300 },
+      { name: 'Herbalism', kind: 'primary', skill: 260, maxSkill: 300 },
+      { name: 'Cooking', kind: 'secondary', skill: 150, maxSkill: 225 },
+    ]);
+  });
+
+  it('takes the most advanced tier from retail-style tiers', () => {
+    expect(
+      parseProfessions({
+        primaries: [
+          {
+            profession: { name: 'Mining' },
+            tiers: [
+              { skill_points: 300, max_skill_points: 300, tier: { name: 'Mining' } },
+              { skill_points: 40, max_skill_points: 75, tier: { name: 'Outland Mining' } },
+            ],
+          },
+        ],
+      }),
+    ).toEqual([{ name: 'Mining', kind: 'primary', skill: 300, maxSkill: 300 }]);
+  });
+
+  it('tells "none trained" apart from an unrecognised response', () => {
+    expect(parseProfessions({ primaries: [] })).toEqual([]);
+    expect(parseProfessions({ something: 'else' })).toBeNull();
   });
 });
 

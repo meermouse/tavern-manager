@@ -518,3 +518,45 @@ button.details-portrait.enlargeable:hover .enlarge-hint, button.details-portrait
   .metric-picker { width: 100%; }
   .metric-picker select { flex: 1; min-width: 0; }
 }
+
+/* Professions: two primary slots, each an icon plus skill level; empty slots are a dashed ring. */
+:root {
+  --prof-alchemy: #7fd6a4; --prof-blacksmithing: #c0c6cf; --prof-enchanting: #c49bff; --prof-engineering: #e8b04a;
+  --prof-herbalism: #8fd16a; --prof-leatherworking: #c99367; --prof-mining: #d0a77a; --prof-skinning: #e0c9a6;
+  --prof-tailoring: #f0a5c8; --prof-jewelcrafting: #6fd3e8; --prof-inscription: #e6d48a;
+  --prof-cooking: #f08a5d; --prof-first-aid: #ef6f6f; --prof-fishing: #6fa8ec;
+}
+.profession-slots { display: inline-flex; align-items: center; gap: 0.5rem; vertical-align: middle; }
+.profession-slots .hover-trigger { cursor: help; }
+.profession-slot { display: inline-flex; align-items: center; gap: 0.2rem; color: var(--accent); }
+.profession-slot svg { width: 1rem; height: 1rem; flex: none; }
+.profession-slot.empty { color: var(--muted); opacity: 0.75; }
+.profession-skill { font-size: 0.8rem; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text); min-width: 1.6rem; }
+.profession-alchemy { color: var(--prof-alchemy); }
+.profession-blacksmithing { color: var(--prof-blacksmithing); }
+.profession-enchanting { color: var(--prof-enchanting); }
+.profession-engineering { color: var(--prof-engineering); }
+.profession-herbalism { color: var(--prof-herbalism); }
+.profession-leatherworking { color: var(--prof-leatherworking); }
+.profession-mining { color: var(--prof-mining); }
+.profession-skinning { color: var(--prof-skinning); }
+.profession-tailoring { color: var(--prof-tailoring); }
+.profession-jewelcrafting { color: var(--prof-jewelcrafting); }
+.profession-inscription { color: var(--prof-inscription); }
+.profession-cooking { color: var(--prof-cooking); }
+.profession-first-aid { color: var(--prof-first-aid); }
+.profession-fishing { color: var(--prof-fishing); }
+.profession-tooltip { min-width: 170px; display: grid; gap: 0.1rem; }
+.profession-tooltip .tt-muted { color: #9aa3b5; }
+.skill-bar { display: block; height: 4px; border-radius: 2px; background: rgba(255, 255, 255, 0.15); overflow: hidden; margin-top: 0.2rem; }
+.skill-bar > span { display: block; height: 100%; background: currentColor; }
+.profession-tooltip .skill-bar, .profession-level .skill-bar { color: var(--accent); }
+.profession-list { list-style: none; margin: 0 0 0.9rem; padding: 0; display: grid; gap: 0.3rem; font-size: 0.9rem; }
+.profession-list li { display: grid; grid-template-columns: 1.1rem minmax(0, 1fr) 6.5rem; gap: 0.5rem; align-items: center; }
+.profession-list li.secondary { font-size: 0.85rem; }
+.profession-level { font-variant-numeric: tabular-nums; text-align: right; font-size: 0.85rem; }
+.character-card .cc-professions { display: flex; flex-wrap: wrap; gap: 0 0.6rem; }
+.cc-profession { display: inline-flex; align-items: center; gap: 0.25rem; }
+.cc-profession .profession-slot svg { width: 0.8rem; height: 0.8rem; }
+/* My characters has the most columns (professions, role pickers, actions): tighter cells keep it on screen. */
+.my-characters th, .my-characters td { padding-left: 0.55rem; padding-right: 0.55rem; }

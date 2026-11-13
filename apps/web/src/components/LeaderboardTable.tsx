@@ -5,6 +5,7 @@ import { CharacterAvatar } from './CharacterAvatar';
 import { CharacterLevel } from './CharacterLevel';
 import { CharacterLink } from './CharacterLink';
 import { ClassName } from './ClassName';
+import { ProfessionSlots } from './ProfessionIcons';
 
 const MEDALS = ['🥇', '🥈', '🥉'];
 
@@ -71,6 +72,7 @@ export function LeaderboardTable({ entries, emptyText }: { entries: LeaderboardE
               <th scope="col">IRL name</th>
               <th scope="col">Class</th>
               <th scope="col">Level</th>
+              <th scope="col">Professions</th>
               <th scope="col" className="num" aria-sort={ascending ? 'ascending' : 'descending'}>{metric.label}</th>
             </tr>
           </thead>
@@ -91,6 +93,7 @@ export function LeaderboardTable({ entries, emptyText }: { entries: LeaderboardE
                 <td data-label="IRL name">{entry.ownerName}</td>
                 <td data-label="Class"><ClassName value={entry.class} /></td>
                 <td data-label="Level"><CharacterLevel character={entry} /></td>
+                <td data-label="Professions"><ProfessionSlots professions={entry.professions} /></td>
                 <td data-label={metric.label} className="num">
                   {value == null ? <span className="muted">—</span> : <strong>{formatMetric(value, metric.format)}</strong>}
                 </td>
@@ -98,7 +101,7 @@ export function LeaderboardTable({ entries, emptyText }: { entries: LeaderboardE
             ))}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={6} className="muted center">{emptyText}</td>
+                <td colSpan={7} className="muted center">{emptyText}</td>
               </tr>
             )}
           </tbody>

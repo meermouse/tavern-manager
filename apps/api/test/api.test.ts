@@ -44,6 +44,21 @@ describe('characters', () => {
     expect((await alice.get('/api/characters')).body).toHaveLength(1);
   });
 
+  it('syncs professions with their skill levels, primaries first', async () => {
+    const { login } = await setup();
+    const alice = await login('Alice#1234');
+    const res = await alice.post('/api/characters', { name: 'judgement', surname: 'judy' });
+    const professions = res.body.professions as { name: string; kind: string; skill: number; maxSkill: number }[];
+    expect(Array.isArray(professions)).toBe(true);
+    expect(professions.filter((p) => p.kind === 'primary').length).toBeLessThanOrEqual(2);
+    const kinds = professions.map((p) => p.kind);
+    expect(kinds).toEqual([...kinds].sort((a, b) => (a === 'primary' ? 0 : 1) - (b === 'primary' ? 0 : 1)));
+    for (const p of professions) {
+      expect(p.skill).toBeGreaterThan(0);
+      expect(p.skill).toBeLessThanOrEqual(p.maxSkill);
+    }
+  });
+
   it('marks characters the API cannot see yet as pending', async () => {
     const { login } = await setup();
     const alice = await login('Alice#1234');
