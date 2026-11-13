@@ -145,10 +145,24 @@ td.actions { text-align: right; display: flex; gap: 0.4rem; justify-content: fle
 .level { font-variant-numeric: tabular-nums; font-weight: 600; }
 
 .dungeon-table th:nth-child(1) { min-width: 220px; }
-.dungeon-table th:nth-child(2), .dungeon-table th:nth-child(3), .dungeon-table th:nth-child(4) { min-width: 130px; }
+.dungeon-table th:nth-child(2), .dungeon-table th:nth-child(3), .dungeon-table th:nth-child(4) { min-width: 100px; }
+/* Give the character list most of the spare width, so chips only wrap when they must. */
+.dungeon-table th:last-child { width: 55%; }
 .dungeon-table th:last-child { min-width: 260px; }
-.dungeon-characters { display: flex; flex-wrap: wrap; gap: 0.4rem; }
-.dungeon-character { display: inline-flex; align-items: center; gap: 0.45rem; border-left: 2px solid var(--accent); padding: 0.15rem 0.45rem; background: var(--bg-input); }
+.dungeon-table td { white-space: normal; }
+.dungeon-name { display: flex; flex-direction: column; gap: 0.2rem; }
+.dungeon-eligible { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem 0.6rem; }
+.dungeon-characters { display: flex; flex-direction: column; gap: 0.4rem; list-style: none; margin: 0; padding: 0; min-width: 0; }
+.dungeon-line { display: flex; align-items: center; gap: 0.4rem; min-width: 0; }
+/* Room for all three role icons, so the chips line up whatever roles each character has. */
+.dungeon-roles { flex: 0 0 4.9rem; display: flex; justify-content: flex-end; }
+/* Wraps onto extra lines rather than running off the edge of the table. */
+.dungeon-character {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0.2rem 0.45rem; min-width: 0;
+  border-left: 2px solid var(--accent); padding: 0.15rem 0.45rem; background: var(--bg-input);
+}
+.dungeon-character .hover-trigger { min-width: 0; }
+.dungeon-character strong { overflow-wrap: anywhere; }
 .dungeon-between { background: rgba(224, 164, 60, 0.08); }
 .dungeon-between td:first-child { color: var(--muted); font-style: italic; }
 
@@ -230,6 +244,9 @@ button.cheer.cheered span[aria-hidden] { display: inline-block; animation: cheer
   td { border: none; padding: 0.2rem 0.9rem; display: flex; justify-content: space-between; white-space: normal; }
   td[data-label]::before { content: attr(data-label); color: var(--muted); font-size: 0.8rem; }
   td.actions { justify-content: flex-start; }
+  /* Long dungeon cells stack under their label instead of squeezing beside it. */
+  .dungeon-table td:first-child, .dungeon-table td:last-child { flex-direction: column; gap: 0.35rem; }
+  .dungeon-table td > * { min-width: 0; }
 }
 
 /* ---- World map ---- */
@@ -480,3 +497,8 @@ button.details-portrait.enlargeable:hover .enlarge-hint, button.details-portrait
 .details-badges .role-icons { margin-left: 0.4rem; }
 .checklist .role-icons { margin-left: 0.4rem; }
 .details-roles { display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.6rem; }
+.role-counts { display: inline-flex; flex-wrap: wrap; gap: 0.5rem; }
+.role-counts .hover-trigger { cursor: help; }
+.role-count { display: inline-flex; align-items: center; gap: 0.2rem; font-size: 0.85rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.role-count svg { width: 0.8rem; height: 0.8rem; }
+.role-count.none { opacity: 0.4; }
