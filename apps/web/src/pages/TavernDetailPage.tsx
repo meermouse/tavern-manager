@@ -246,6 +246,8 @@ export function TavernDetailPage() {
       qc.setQueryData(keys.tavern(id), t);
       qc.invalidateQueries({ queryKey: keys.feed(id) });
       qc.invalidateQueries({ queryKey: keys.tavernLeaderboard(id) });
+      // Fresh stats can move achievements, which the top bar shows.
+      qc.invalidateQueries({ queryKey: keys.me });
     },
   });
 

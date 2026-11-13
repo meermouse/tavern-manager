@@ -12,11 +12,30 @@ export interface Profession {
   maxSkill: number | null;
 }
 
+/** A tavern achievement: a title held by whoever in the tavern currently leads a stat. */
+export interface AchievementBadge {
+  key: string;
+  name: string;
+  icon: string;
+  description: string;
+  /** The winning score, formatted, e.g. "412 hours played". */
+  value: string;
+}
+
+/** An achievement one of your characters holds, and where. */
+export interface PlayerAchievement extends AchievementBadge {
+  tavernId: string;
+  tavernName: string;
+  character: { id: string; name: string; surname: string };
+}
+
 export interface Me {
   id: string;
   battletag: string;
   displayName: string;
   canImport: boolean;
+  /** Achievements your characters hold across your taverns. */
+  achievements?: PlayerAchievement[];
 }
 
 export interface Character {
@@ -51,6 +70,8 @@ export interface Character {
 export interface TavernCharacter extends Character {
   ownerId: string;
   ownerName: string;
+  /** Achievements this character holds in the tavern (tavern roster only). */
+  achievements?: AchievementBadge[];
 }
 
 export interface CharacterDetails extends TavernCharacter {

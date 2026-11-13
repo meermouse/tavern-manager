@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
 import type { LeaderboardEntry } from './api/client';
 
-export type MetricFormat = 'number' | 'gold' | 'percent' | 'ratio' | 'days';
+export type MetricFormat = 'number' | 'gold' | 'percent' | 'ratio' | 'days' | 'hours';
 
 export interface Metric {
   key: string;
@@ -197,6 +197,11 @@ export const METRICS: Metric[] = [
   { key: 'dodge', label: 'Dodge chance', group: 'Character sheet', format: 'percent', description: 'Chance to dodge an attack.', value: sheet('dodge') },
 
   // ---- Adventuring & wealth ----
+  {
+    key: 'played', label: 'Time played', group: 'Adventuring & wealth', format: 'hours',
+    description: 'Lifetime /played. The leader holds “He Is Without Life”.',
+    value: stat('Total time played', 'Time played', /time played/i, /played time/i),
+  },
   { key: 'quests', label: 'Quests completed', group: 'Adventuring & wealth', description: 'Lifetime quests turned in.', value: stat('Quests completed') },
   { key: 'flights', label: 'Flight paths taken', group: 'Adventuring & wealth', description: 'Gryphon, wyvern and hippogryph rides.', value: stat('Flight paths taken', /flight paths/i) },
   { key: 'gold-acquired', label: 'Total gold acquired', group: 'Adventuring & wealth', format: 'gold', description: 'Every coin ever earned.', value: stat('Total gold acquired') },
@@ -213,7 +218,7 @@ export const METRICS: Metric[] = [
   },
   {
     key: 'need-percent', label: 'Need roll %', group: 'Loot rolls', format: 'percent',
-    description: 'Share of their loot rolls that were Need. Who’s the ninja?',
+    description: 'Share of their loot rolls that were Need. The leader (10+ rolls) holds “The Ninja”.',
     value: (e) => {
       const r = lootRolls(e);
       return r && r.total > 0 ? (r.need / r.total) * 100 : null;
@@ -308,6 +313,9 @@ export function formatMetric(value: number, format: MetricFormat = 'number'): st
       return `${value.toFixed(2)}%`;
     case 'ratio':
       return value.toFixed(2);
+    case 'hours':
+      // Blizzard reports time played in seconds.
+      return `${Math.floor(value / 3600).toLocaleString()} h`;
     case 'days':
       return value < 1 ? 'Today' : `${Math.floor(value)} day${Math.floor(value) === 1 ? '' : 's'}`;
     default:

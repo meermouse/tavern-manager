@@ -15,6 +15,7 @@ import { CharacterAvatar } from './CharacterAvatar';
 import { CharacterLink } from './CharacterLink';
 import { CharacterLevel } from './CharacterLevel';
 import { ClassName } from './ClassName';
+import { AchievementBadges } from './AchievementBadges';
 import { ROLES, ROLE_LABELS, RoleIcons } from './RoleIcons';
 import { factionOf } from '../faction';
 import { ProfessionSlots, bestProfessionSkill } from './ProfessionIcons';
@@ -74,12 +75,15 @@ export function CharacterTable({
         header: 'Character',
         cell: (info) => (
           // Selectable rows are already a tab stop, so the name needn't be one too.
-          <CharacterLink character={info.row.original} focusable={!selectable}>
-            <span className="char-cell">
-              <CharacterAvatar character={info.row.original} size="xs" />
-              <strong>{info.getValue()}</strong>
-            </span>
-          </CharacterLink>
+          <>
+            <CharacterLink character={info.row.original} focusable={!selectable}>
+              <span className="char-cell">
+                <CharacterAvatar character={info.row.original} size="xs" />
+                <strong>{info.getValue()}</strong>
+              </span>
+            </CharacterLink>
+            <AchievementBadges achievements={info.row.original.achievements} />
+          </>
         ),
       }),
       col.accessor('ruleset', {
