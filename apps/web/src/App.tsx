@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes, useLocation } from 'react-router';
 import { useMe } from './api/hooks';
 import { Layout } from './components/Layout';
+import { MyDungeonsPage } from './pages/MyDungeonsPage';
 import { JoinPage } from './pages/JoinPage';
 import { LoginPage } from './pages/LoginPage';
 import { MyCharactersPage } from './pages/MyCharactersPage';
@@ -27,6 +28,7 @@ export function App() {
       <Route path="/" element={<RequireAuth><TavernsPage /></RequireAuth>} />
       <Route path="/taverns/:id" element={<RequireAuth><TavernDetailPage /></RequireAuth>} />
       <Route path="/characters" element={<RequireAuth><MyCharactersPage /></RequireAuth>} />
+      <Route path="/dungeons" element={<RequireAuth><MyDungeonsPage /></RequireAuth>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

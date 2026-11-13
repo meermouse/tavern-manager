@@ -67,6 +67,7 @@ export function Layout({ me, children }: { me: Me; children: React.ReactNode }) 
         <nav>
           <NavLink to="/" end>Taverns</NavLink>
           <NavLink to="/characters">Characters</NavLink>
+          <NavLink to="/dungeons">Dungeons</NavLink>
         </nav>
         <div className="user">
           <DisplayNameEditor key={me.displayName} me={me} />
