@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
-import { api, type TavernCharacter, type TavernDetail } from '../api/client';
+import { api, type FeedEvent, type TavernCharacter, type TavernDetail } from '../api/client';
 import { keys, useCharacters, useMe, useTavern } from '../api/hooks';
 import { AddCharacterForm } from '../components/AddCharacterForm';
 import { CharacterAvatar } from '../components/CharacterAvatar';
@@ -10,6 +10,7 @@ import { CharacterDetails } from '../components/CharacterDetails';
 import { CharacterTable } from '../components/CharacterTable';
 import { DungeonTable } from '../components/DungeonTable';
 import { TavernFeed } from '../components/TavernFeed';
+import { matchesFaction, useFactionFilter, type FactionFilter } from '../faction';
 
 function InvitePanel({ tavern }: { tavern: TavernDetail }) {
   const qc = useQueryClient();
@@ -151,19 +152,43 @@ function MembersPanel({ tavern }: { tavern: TavernDetail }) {
 }
 
 /** The character table, with a details pane above it for the selected row. */
-function CharacterRoster({ tavern }: { tavern: TavernDetail }) {
+function CharacterRoster({ tavern, characters }: { tavern: TavernDetail; characters: TavernCharacter[] }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  // Look the selection up in the latest tavern data, so the pane closes if the character leaves.
-  const selected = tavern.characters.find((c) => c.id === selectedId) ?? null;
+  // Look the selection up in the visible characters, so the pane closes if the character leaves or is filtered out.
+  const selected = characters.find((c) => c.id === selectedId) ?? null;
   const close = useCallback(() => setSelectedId(null), []);
   return (
     <div className="stack roster">
       {selected && <CharacterDetails tavernId={tavern.id} character={selected} onClose={close} />}
       <CharacterTable
-        characters={tavern.characters}
+        characters={characters}
         selectedId={selected?.id ?? null}
         onSelect={(c: TavernCharacter | null) => setSelectedId(c?.id ?? null)}
       />
+    </div>
+  );
+}
+
+const FACTIONS: [FactionFilter, string][] = [
+  ['both', 'Both'],
+  ['horde', 'Horde'],
+  ['alliance', 'Alliance'],
+];
+
+function FactionPicker({ value, onChange }: { value: FactionFilter; onChange: (f: FactionFilter) => void }) {
+  return (
+    <div className="faction-picker" role="group" aria-label="Faction filter">
+      <span className="muted small-text">Faction</span>
+      {FACTIONS.map(([key, label]) => (
+        <button
+          key={key}
+          className={`small${value === key ? ' active' : ''}${key !== 'both' ? ` faction ${key}` : ''}`}
+          aria-pressed={value === key}
+          onClick={() => onChange(key)}
+        >
+          {label}
+        </button>
+      ))}
     </div>
   );
 }
@@ -178,6 +203,7 @@ const VIEWS: [View, string][] = [
 export function TavernDetailPage() {
   const { id = '' } = useParams();
   const [view, setView] = useState<View>('feed');
+  const [faction, setFaction] = useFactionFilter(id);
   const tavern = useTavern(id);
   const me = useMe();
   const qc = useQueryClient();
@@ -185,6 +211,18 @@ export function TavernDetailPage() {
   const directory = useMemo(
     () => new Map((tavern.data?.characters ?? []).map((c) => [c.id, c])),
     [tavern.data?.characters],
+  );
+  const visible = useMemo(
+    () => (tavern.data?.characters ?? []).filter((c) => matchesFaction(c, faction)),
+    [tavern.data?.characters, faction],
+  );
+  const includePost = useCallback(
+    (e: FeedEvent) => {
+      if (faction === 'both' || !e.character) return true;
+      // Feed posts carry a trimmed character; prefer the roster's copy, which knows the faction.
+      return matchesFaction(directory.get(e.character.id) ?? e.character, faction);
+    },
+    [directory, faction],
   );
   const refresh = useMutation({
     mutationFn: () => api.refreshTavern(id),
@@ -219,16 +257,21 @@ export function TavernDetailPage() {
         </div>
         {refresh.error && <p className="error">{refresh.error.message}</p>}
 
-        <div className="view-tabs" role="group" aria-label="Tavern views">
-          {VIEWS.map(([key, label]) => (
-            <button key={key} className={view === key ? 'active' : ''} aria-pressed={view === key} onClick={() => setView(key)}>
-              {label}
-            </button>
-          ))}
+        <div className="view-bar">
+          <div className="view-tabs" role="group" aria-label="Tavern views">
+            {VIEWS.map(([key, label]) => (
+              <button key={key} className={view === key ? 'active' : ''} aria-pressed={view === key} onClick={() => setView(key)}>
+                {label}
+              </button>
+            ))}
+          </div>
+          <FactionPicker value={faction} onChange={setFaction} />
         </div>
-        {view === 'feed' && <TavernFeed tavernId={t.id} viewerName={me.data?.displayName} />}
-        {view === 'characters' && <CharacterRoster tavern={t} />}
-        {view === 'dungeons' && <DungeonTable characters={t.characters} />}
+        {view === 'feed' && (
+          <TavernFeed tavernId={t.id} viewerName={me.data?.displayName} include={faction === 'both' ? undefined : includePost} />
+        )}
+        {view === 'characters' && <CharacterRoster tavern={t} characters={visible} />}
+        {view === 'dungeons' && <DungeonTable characters={visible} />}
 
         <div className="three-col">
           <MyCharactersPanel tavern={t} />

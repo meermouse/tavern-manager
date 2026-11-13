@@ -39,7 +39,7 @@ const names = () =>
 describe('CharacterTable', () => {
   it('renders all columns and sorts by level descending, pending last', () => {
     render(<CharacterTable characters={data} />);
-    for (const h of ['Character', 'Ruleset', 'IRL name', 'Class', 'Race', 'Level']) {
+    for (const h of ['Character', 'Ruleset', 'IRL name', 'Class', 'Race', 'Faction', 'Level']) {
       expect(screen.getByRole('button', { name: new RegExp(h) })).toBeTruthy();
     }
     expect(names()).toEqual(['Judgement Judy', 'Grimble Thornwick', 'Pendingly Lowbie']);

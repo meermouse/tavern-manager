@@ -15,6 +15,7 @@ import { CharacterAvatar } from './CharacterAvatar';
 import { CharacterLink } from './CharacterLink';
 import { CharacterLevel } from './CharacterLevel';
 import { ClassName } from './ClassName';
+import { factionOf } from '../faction';
 
 const col = createColumnHelper<TavernCharacter>();
 
@@ -33,7 +34,7 @@ const globalFilter: FilterFn<TavernCharacter> = (row, _columnId, value: string) 
   const q = value.trim().toLowerCase();
   if (!q) return true;
   const c = row.original;
-  return [c.name, c.surname, `${c.name} ${c.surname}`, c.ownerName, c.class, c.race, c.ruleset]
+  return [c.name, c.surname, `${c.name} ${c.surname}`, c.ownerName, c.class, c.race, c.ruleset, factionOf(c)]
     .some((v) => v?.toLowerCase().includes(q));
 };
 
@@ -86,6 +87,15 @@ export function CharacterTable({
         header: 'Race',
         filterFn: equalsFilter,
         cell: (info) => info.getValue() ?? <span className="muted">—</span>,
+      }),
+      col.accessor((c) => factionOf(c), {
+        id: 'faction',
+        header: 'Faction',
+        sortUndefined: 'last',
+        cell: (info) => {
+          const f = info.getValue();
+          return f ? <span className={`faction ${f.toLowerCase()}`}>{f}</span> : <span className="muted">—</span>;
+        },
       }),
       col.accessor('level', {
         header: 'Level',

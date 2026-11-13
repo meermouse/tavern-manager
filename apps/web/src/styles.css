@@ -88,6 +88,16 @@ form input:not([type='checkbox']) { flex: 1 1 140px; }
 .view-tabs button { border: 0; border-radius: 0; background: transparent; color: var(--muted); padding: 0.45rem 0.1rem; border-bottom: 2px solid transparent; }
 .view-tabs button.active { color: var(--text); border-color: var(--accent); }
 .view-tabs button:hover:not(:disabled) { color: var(--text); }
+.view-bar { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 0.5rem 1rem; border-bottom: 1px solid var(--border); }
+.view-bar .view-tabs { border-bottom: 0; }
+.faction-picker { display: flex; align-items: center; gap: 0.35rem; padding-bottom: 0.35rem; }
+.faction-picker button { background: transparent; border-color: var(--border); color: var(--muted); font-weight: 500; }
+.faction-picker button:hover:not(:disabled) { border-color: var(--accent); }
+.faction-picker button.active { color: var(--text); border-color: var(--accent); background: rgba(224, 164, 60, 0.16); }
+.faction-picker button.faction.active { border-color: currentColor; }
+.faction-picker button.faction.horde { color: #e2685a; }
+.faction-picker button.faction.alliance { color: #6fa0ec; }
+.faction-picker button.faction:not(.active) { opacity: 0.75; }
 
 .muted { color: var(--muted); }
 .error { color: var(--danger); }
