@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { FeedItem, TavernCharacter } from '../api/client';
-import { useCharacterDetails } from '../api/hooks';
+import { useCharacterDetails, useMe, useSetRoles } from '../api/hooks';
 import { CharacterLevel } from './CharacterLevel';
 import { ClassName, classKey } from './ClassName';
 import { ItemLink } from './ItemLink';
 import { PortraitViewer } from './PortraitViewer';
-import { RoleIcons } from './RoleIcons';
+import { RoleIcons, RolePicker } from './RoleIcons';
 import { FeedPost, timeAgo } from './TavernFeed';
 
 // Paper-doll order; anything we don't recognise goes last.
@@ -104,6 +104,9 @@ export function CharacterDetails({
   // Show what the table already knows straight away; the details request adds gear, posts and fresher data.
   const c: TavernCharacter = { ...character, ...details.data };
   const ref = useRef<HTMLElement>(null);
+  const me = useMe();
+  const isOwner = !!me.data && me.data.id === c.ownerId;
+  const setRoles = useSetRoles(c.id);
 
   useEffect(() => {
     ref.current?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
@@ -143,8 +146,15 @@ export function CharacterDetails({
             {c.faction && <span className={`badge faction ${c.faction.toLowerCase()}`}>{c.faction}</span>}
             {c.ruleset && <span className="badge">{c.ruleset}</span>}
             <span className="badge">{c.region.toUpperCase()}</span>
-            <RoleIcons roles={c.roles} />
+            {!isOwner && <RoleIcons roles={c.roles} />}
           </div>
+          {isOwner && (
+            <div className="details-roles">
+              <span className="muted small-text">Your roles for this character</span>
+              <RolePicker roles={c.roles ?? []} onChange={(roles) => setRoles.mutate(roles)} />
+              {setRoles.error && <span className="error small-text">{setRoles.error.message}</span>}
+            </div>
+          )}
           {c.status !== 'ok' && c.syncError && <p className="muted small-text">{c.syncError}</p>}
         </header>
 

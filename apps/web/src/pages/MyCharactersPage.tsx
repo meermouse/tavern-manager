@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { api, type Character, type Role } from '../api/client';
-import { keys, useCharacters, useMe } from '../api/hooks';
+import { api, type Character } from '../api/client';
+import { keys, useCharacters, useMe, useSetRoles } from '../api/hooks';
 import { AddCharacterForm } from '../components/AddCharacterForm';
 import { CharacterAvatar } from '../components/CharacterAvatar';
 import { CharacterLink } from '../components/CharacterLink';
@@ -16,15 +16,7 @@ function CharacterRow({ character }: { character: Character }) {
   };
   const refresh = useMutation({ mutationFn: () => api.refreshCharacter(character.id), onSuccess: invalidate });
   const remove = useMutation({ mutationFn: () => api.deleteCharacter(character.id), onSuccess: invalidate });
-  const setRoles = useMutation({
-    mutationFn: (roles: Role[]) => api.setCharacterRoles(character.id, roles),
-    // Show the new roles straight away; the refetch afterwards corrects them if the save failed.
-    onMutate: (roles) =>
-      qc.setQueryData<Character[]>(keys.characters, (list) =>
-        list?.map((c) => (c.id === character.id ? { ...c, roles } : c)),
-      ),
-    onSettled: invalidate,
-  });
+  const setRoles = useSetRoles(character.id);
 
   return (
     <tr>

@@ -479,3 +479,4 @@ button.details-portrait.enlargeable:hover .enlarge-hint, button.details-portrait
 .badge.role-damage { color: var(--role-damage); }
 .details-badges .role-icons { margin-left: 0.4rem; }
 .checklist .role-icons { margin-left: 0.4rem; }
+.details-roles { display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.6rem; }
