@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { LeaderboardEntry } from '../api/client';
-import { availableMetrics, DEFAULT_METRIC, formatMetric, metricByKey, rankBy, useMetricChoice } from '../leaderboard';
+import { availableMetrics, unavailableMetrics, DEFAULT_METRIC, formatMetric, metricByKey, rankBy, useMetricChoice } from '../leaderboard';
 import { CharacterAvatar } from './CharacterAvatar';
 import { CharacterLevel } from './CharacterLevel';
 import { CharacterLink } from './CharacterLink';
@@ -24,6 +24,7 @@ export function LeaderboardTable({ entries, emptyText }: { entries: LeaderboardE
     for (const m of metrics) out.set(m.group, [...(out.get(m.group) ?? []), m]);
     return [...out];
   }, [metrics]);
+  const missing = useMemo(() => unavailableMetrics(entries), [entries]);
   const hasData = rows.some((r) => r.value != null);
 
   return (
@@ -39,6 +40,13 @@ export function LeaderboardTable({ entries, emptyText }: { entries: LeaderboardE
                 ))}
               </optgroup>
             ))}
+            {missing.length > 0 && (
+              <optgroup label="No data yet">
+                {missing.map((m) => (
+                  <option key={m.key} value={m.key} disabled>{m.label}</option>
+                ))}
+              </optgroup>
+            )}
           </select>
         </label>
         <button

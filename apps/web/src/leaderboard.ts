@@ -250,6 +250,12 @@ export function rawMetric(name: string): Metric {
   };
 }
 
+/** Curated metrics nobody here has data for yet (shown greyed out, so it's clear they exist). */
+export function unavailableMetrics(entries: LeaderboardEntry[]): Metric[] {
+  const offered = new Set(availableMetrics(entries).map((m) => m.key));
+  return METRICS.filter((m) => !offered.has(m.key));
+}
+
 /**
  * The metrics worth offering for these characters: the curated ones somebody has data for (plus the pinned
  * headline stats), then every raw statistic the curated list doesn't already show.

@@ -45,6 +45,14 @@ describe('LeaderboardTable', () => {
     expect(localStorage.getItem('leaderboard.metric')).toBe('deaths');
   });
 
+  it('lists stats nobody has data for as disabled options', () => {
+    render(<LeaderboardTable entries={data} emptyText="none" />);
+    const option = screen.getByRole('option', { name: 'Need roll %' }) as HTMLOptionElement;
+    expect(option.disabled).toBe(true);
+    expect(option.parentElement?.getAttribute('label')).toBe('No data yet');
+    expect((screen.getByRole('option', { name: 'Total deaths' }) as HTMLOptionElement).disabled).toBe(false);
+  });
+
   it('can show one character per player', () => {
     render(<LeaderboardTable entries={data} emptyText="none" />);
     fireEvent.click(screen.getByRole('checkbox', { name: /Best character per player/ }));
