@@ -341,6 +341,10 @@ button.cheer.cheered span[aria-hidden] { display: inline-block; animation: cheer
 .char-avatar-sm.char-avatar-initial { font-size: 0.95rem; }
 .char-avatar-md.char-avatar-initial { font-size: 1.15rem; }
 .char-cell { display: inline-flex; align-items: center; gap: 0.55rem; }
+/* Name plus any achievement medals, centred on one line. */
+.char-name-cell { display: inline-flex; align-items: center; gap: 0.4rem; vertical-align: middle; }
+.char-name-cell .achievement-badges { margin-left: 0; flex-wrap: nowrap; }
+.char-name-cell .achievement-medal { width: 1.3rem; height: 1.3rem; font-size: 0.75rem; }
 .checklist .char-avatar { margin-left: 0.1rem; }
 
 /* ---- Character table selection + details pane ---- */
