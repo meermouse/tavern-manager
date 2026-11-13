@@ -89,3 +89,36 @@ export function RolePicker({
     </span>
   );
 }
+
+/** How many of `characters` have each role (a character with several roles counts towards each). */
+export function countRoles(characters: { roles?: Role[] | null }[]): Record<Role, number> {
+  const counts: Record<Role, number> = { tank: 0, healer: 0, damage: 0 };
+  for (const c of characters) for (const r of ROLES) if (c.roles?.includes(r)) counts[r]++;
+  return counts;
+}
+
+const PLURALS: Record<Role, [string, string]> = {
+  tank: ['tank', 'tanks'],
+  healer: ['healer', 'healers'],
+  damage: ['damage dealer', 'damage dealers'],
+};
+
+/** Per-role totals: an icon and a number for each role, zeros dimmed, with a tooltip spelling it out. */
+export function RoleCounts({ characters }: { characters: { roles?: Role[] | null }[] }) {
+  const counts = countRoles(characters);
+  return (
+    <span className="role-counts" role="list" aria-label="Characters per role">
+      {ROLES.map((r) => {
+        const text = `${counts[r]} ${PLURALS[r][counts[r] === 1 ? 0 : 1]}`;
+        return (
+          <HoverCard key={r} focusable={false} content={() => <RoleTooltip role={r} extra={text} />}>
+            <span role="listitem" aria-label={text} className={`role-count role-${r}${counts[r] ? '' : ' none'}`}>
+              <RoleGlyph role={r} />
+              {counts[r]}
+            </span>
+          </HoverCard>
+        );
+      })}
+    </span>
+  );
+}
