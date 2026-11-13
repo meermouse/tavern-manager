@@ -1,5 +1,6 @@
 export type Region = 'us' | 'eu' | 'kr' | 'tw';
 export type CharacterStatus = 'ok' | 'pending' | 'error';
+export type Role = 'tank' | 'healer' | 'damage';
 
 export interface Me {
   id: string;
@@ -31,6 +32,8 @@ export interface Character {
   avatarUrl?: string | null;
   insetUrl?: string | null;
   renderUrl?: string | null;
+  /** Party roles the owner assigned (empty when none). */
+  roles?: Role[];
 }
 
 export interface TavernCharacter extends Character {
@@ -176,6 +179,7 @@ export const api = {
   importCharacters: () =>
     request<{ found: number; imported: number; skipped: number }>('POST', '/api/characters/import'),
   refreshCharacter: (id: string) => request<Character>('POST', `/api/characters/${id}/refresh`),
+  setCharacterRoles: (id: string, roles: Role[]) => request<Character>('PATCH', `/api/characters/${id}`, { roles }),
   deleteCharacter: (id: string) => request<{ ok: true }>('DELETE', `/api/characters/${id}`),
 
   taverns: () => request<TavernSummary[]>('GET', '/api/taverns'),

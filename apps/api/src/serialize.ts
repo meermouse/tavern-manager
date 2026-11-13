@@ -1,6 +1,15 @@
 import type { UserRow } from './context.js';
 import type { CharacterRow } from './sync.js';
 
+export const ROLES = ['tank', 'healer', 'damage'] as const;
+export type Role = (typeof ROLES)[number];
+
+/** Known roles only, deduplicated, in canonical tank → healer → damage order. */
+export function normalizeRoles(value: unknown): Role[] {
+  const list = Array.isArray(value) ? value : [];
+  return ROLES.filter((r) => list.includes(r));
+}
+
 export function serializeCharacter(row: CharacterRow) {
   return {
     id: row.id,
@@ -24,6 +33,7 @@ export function serializeCharacter(row: CharacterRow) {
     avatarUrl: row.avatar_url,
     insetUrl: row.inset_url,
     renderUrl: row.render_url,
+    roles: normalizeRoles(row.roles),
   };
 }
 

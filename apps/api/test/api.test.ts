@@ -86,6 +86,29 @@ describe('characters', () => {
     expect((await bob.post(`/api/characters/${ch.id}/refresh`)).status).toBe(404);
     expect((await alice.del(`/api/characters/${ch.id}`)).status).toBe(200);
   });
+
+  it('lets the owner set roles, shown everywhere the character is', async () => {
+    const { login } = await setup();
+    const alice = await login('Alice#1234');
+    const bob = await login('Bob#5678');
+    const ch = (await alice.post('/api/characters', { name: 'Judgement', surname: 'Judy' })).body;
+    expect(ch.roles).toEqual([]);
+
+    const set = await alice.patch(`/api/characters/${ch.id}`, { roles: ['damage', 'tank', 'tank'] });
+    expect(set.status).toBe(200);
+    expect(set.body.roles).toEqual(['tank', 'damage']);
+    expect((await alice.get('/api/characters')).body[0].roles).toEqual(['tank', 'damage']);
+
+    const tavern = (await alice.post('/api/taverns', { name: 'The Pig' })).body;
+    await alice.put(`/api/taverns/${tavern.id}/characters/${ch.id}`);
+    expect((await alice.get(`/api/taverns/${tavern.id}`)).body.characters[0].roles).toEqual(['tank', 'damage']);
+    expect((await alice.get(`/api/taverns/${tavern.id}/characters/${ch.id}`)).body.roles).toEqual(['tank', 'damage']);
+
+    expect((await alice.patch(`/api/characters/${ch.id}`, { roles: ['bard'] })).status).toBe(400);
+    expect((await alice.patch(`/api/characters/${ch.id}`, {})).status).toBe(400);
+    expect((await bob.patch(`/api/characters/${ch.id}`, { roles: ['healer'] })).status).toBe(404);
+    expect((await alice.patch(`/api/characters/${ch.id}`, { roles: [] })).body.roles).toEqual([]);
+  });
 });
 
 describe('taverns', () => {

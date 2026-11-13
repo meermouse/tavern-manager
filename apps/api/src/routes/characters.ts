@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { isRegion, type Region } from '../config.js';
 import { badRequest, jsonBody, requireUser, uuidParam, type AppDeps, type AppEnv } from '../context.js';
-import { serializeCharacter } from '../serialize.js';
+import { ROLES, normalizeRoles, serializeCharacter } from '../serialize.js';
 import { syncCharacter, type CharacterRow } from '../sync.js';
 
 /** Don't hit Blizzard again for the same character within this window. */
@@ -104,6 +104,21 @@ export function characterRoutes({ db, config, blizzard }: AppDeps) {
     const recent = row.last_attempt_at && Date.now() - row.last_attempt_at.getTime() < MANUAL_REFRESH_COOLDOWN_MS;
     const synced = recent ? row : await syncCharacter(db, blizzard, row);
     return c.json(serializeCharacter(synced));
+  });
+
+  /** Owner-only edits. Currently just `roles`: a list of 'tank' | 'healer' | 'damage' (empty for none). */
+  app.patch('/:id', async (c) => {
+    const user = requireUser(c);
+    const row = await ownedCharacter(user.id, uuidParam(c, 'id'));
+    const body = await jsonBody(c);
+    if (!Array.isArray(body.roles) || body.roles.some((r) => !(ROLES as readonly unknown[]).includes(r))) {
+      badRequest(`roles must be a list of: ${ROLES.join(', ')}`);
+    }
+    const [updated] = await db.query<CharacterRow>('update characters set roles = $2 where id = $1 returning *', [
+      row.id,
+      normalizeRoles(body.roles),
+    ]);
+    return c.json(serializeCharacter(updated));
   });
 
   app.delete('/:id', async (c) => {

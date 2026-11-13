@@ -1,11 +1,12 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { api, type Character } from '../api/client';
+import { api, type Character, type Role } from '../api/client';
 import { keys, useCharacters, useMe } from '../api/hooks';
 import { AddCharacterForm } from '../components/AddCharacterForm';
 import { CharacterAvatar } from '../components/CharacterAvatar';
 import { CharacterLink } from '../components/CharacterLink';
 import { CharacterLevel } from '../components/CharacterLevel';
 import { ClassName } from '../components/ClassName';
+import { RolePicker } from '../components/RoleIcons';
 
 function CharacterRow({ character }: { character: Character }) {
   const qc = useQueryClient();
@@ -15,6 +16,15 @@ function CharacterRow({ character }: { character: Character }) {
   };
   const refresh = useMutation({ mutationFn: () => api.refreshCharacter(character.id), onSuccess: invalidate });
   const remove = useMutation({ mutationFn: () => api.deleteCharacter(character.id), onSuccess: invalidate });
+  const setRoles = useMutation({
+    mutationFn: (roles: Role[]) => api.setCharacterRoles(character.id, roles),
+    // Show the new roles straight away; the refetch afterwards corrects them if the save failed.
+    onMutate: (roles) =>
+      qc.setQueryData<Character[]>(keys.characters, (list) =>
+        list?.map((c) => (c.id === character.id ? { ...c, roles } : c)),
+      ),
+    onSettled: invalidate,
+  });
 
   return (
     <tr>
@@ -31,6 +41,10 @@ function CharacterRow({ character }: { character: Character }) {
       <td data-label="Class"><ClassName value={character.class} /></td>
       <td data-label="Race">{character.race ?? <span className="muted">—</span>}</td>
       <td data-label="Level"><CharacterLevel character={character} /></td>
+      <td data-label="Roles">
+        <RolePicker roles={character.roles ?? []} onChange={(roles) => setRoles.mutate(roles)} />
+        {setRoles.error && <p className="error small-text">{setRoles.error.message}</p>}
+      </td>
       <td className="actions">
         <button className="ghost small" onClick={() => refresh.mutate()} disabled={refresh.isPending}>
           {refresh.isPending ? 'Refreshing…' : 'Refresh'}
@@ -104,7 +118,7 @@ export function MyCharactersPage() {
             <table>
               <thead>
                 <tr>
-                  <th>Character</th><th>Region</th><th>Ruleset</th><th>Class</th><th>Race</th><th>Level</th><th />
+                  <th>Character</th><th>Region</th><th>Ruleset</th><th>Class</th><th>Race</th><th>Level</th><th>Roles</th><th />
                 </tr>
               </thead>
               <tbody>

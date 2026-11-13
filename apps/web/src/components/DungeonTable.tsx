@@ -3,6 +3,7 @@ import { CharacterLevel } from './CharacterLevel';
 import { CharacterAvatar } from './CharacterAvatar';
 import { CharacterLink } from './CharacterLink';
 import { ClassName } from './ClassName';
+import { RoleIcons } from './RoleIcons';
 import { assignCharactersToDungeons } from '../dungeons';
 
 function CharacterNames({ characters }: { characters: Character[] }) {
@@ -20,6 +21,7 @@ function CharacterNames({ characters }: { characters: Character[] }) {
             <span className="muted small-text">{character.ownerName}</span>
           )}
           {character.class && <ClassName value={character.class} />}
+          <RoleIcons roles={character.roles} />
           <CharacterLevel character={character} />
         </span>
       ))}

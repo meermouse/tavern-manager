@@ -4,6 +4,7 @@ import { CharacterAvatar } from './CharacterAvatar';
 import { CharacterLevel } from './CharacterLevel';
 import { ClassName, classKey } from './ClassName';
 import { HoverCard } from './HoverCard';
+import { ROLES, ROLE_LABELS, RoleGlyph } from './RoleIcons';
 import { timeAgo } from '../time';
 
 /** Anything with an id and a name; the more fields, the richer the card. */
@@ -48,6 +49,13 @@ export function CharacterCard({ character: c }: { character: CharacterLike }) {
           {c.faction && <span className={`badge faction ${c.faction.toLowerCase()}`}>{c.faction}</span>}
           {c.ruleset && <span className="badge">{c.ruleset}</span>}
           {c.region && <span className="badge">{c.region.toUpperCase()}</span>}
+          {/* Labelled rather than icon-only: this card is itself a tooltip, so the icons can't have their own. */}
+          {ROLES.filter((r) => c.roles?.includes(r)).map((r) => (
+            <span key={r} className={`badge role-badge role-${r}`}>
+              <RoleGlyph role={r} />
+              {ROLE_LABELS[r]}
+            </span>
+          ))}
         </div>
         <dl className="cc-stats">
           {c.ownerName && (

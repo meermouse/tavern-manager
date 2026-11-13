@@ -26,7 +26,7 @@ function char(over: Partial<TavernCharacter>): TavernCharacter {
 }
 
 const data = [
-  char({ name: 'Judgement', surname: 'Judy', class: 'Paladin', level: 42, ownerName: 'Alice' }),
+  char({ name: 'Judgement', surname: 'Judy', class: 'Paladin', level: 42, ownerName: 'Alice', roles: ['tank', 'healer'] }),
   char({ name: 'Grimble', surname: 'Thornwick', class: 'Mage', race: 'Gnome', level: 18, ownerName: 'Bob', ruleset: 'PvP' }),
   char({ name: 'Pendingly', surname: 'Lowbie', class: null, race: null, level: null, status: 'pending', ownerName: 'Bob' }),
 ];
@@ -39,7 +39,7 @@ const names = () =>
 describe('CharacterTable', () => {
   it('renders all columns and sorts by level descending, pending last', () => {
     render(<CharacterTable characters={data} />);
-    for (const h of ['Character', 'Ruleset', 'IRL name', 'Class', 'Race', 'Faction', 'Level']) {
+    for (const h of ['Character', 'Ruleset', 'IRL name', 'Class', 'Race', 'Faction', 'Roles', 'Level']) {
       expect(screen.getByRole('button', { name: new RegExp(h) })).toBeTruthy();
     }
     expect(names()).toEqual(['Judgement Judy', 'Grimble Thornwick', 'Pendingly Lowbie']);
@@ -70,5 +70,12 @@ describe('parseInviteCode', () => {
   it('accepts codes and links', () => {
     expect(parseInviteCode(' abcd2345 ')).toBe('ABCD2345');
     expect(parseInviteCode('https://x.netlify.app/join/ABCD2345')).toBe('ABCD2345');
+  });
+
+  it('shows role icons and filters by role', () => {
+    render(<CharacterTable characters={data} />);
+    expect(screen.getByRole('listitem', { name: 'Healer' })).toBeTruthy();
+    fireEvent.change(screen.getByRole('combobox', { name: 'Filter by role' }), { target: { value: 'healer' } });
+    expect(names()).toEqual(['Judgement Judy']);
   });
 });
