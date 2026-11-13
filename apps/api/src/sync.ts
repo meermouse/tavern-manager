@@ -37,6 +37,8 @@ export interface CharacterRow {
   statistics: unknown;
   character_stats: unknown;
   statistics_synced_at: Date | null;
+  professions: unknown;
+  professions_synced_at: Date | null;
   created_at: Date;
 }
 
@@ -107,6 +109,35 @@ export async function syncStatistics(
   return updated ?? row;
 }
 
+/** Refetch professions at least this often, for characters whose last login the API doesn't report. */
+const PROFESSIONS_MAX_AGE_MS = 6 * 60 * 60_000;
+
+/**
+ * Fetch professions when we have none, the character logged in since the previous sync, or they're more than a few
+ * hours old. Best-effort: keeps the old list on failure.
+ */
+export async function syncProfessions(
+  db: Db,
+  blizzard: BlizzardClient,
+  row: CharacterRow,
+  prevLogin: Date | null,
+): Promise<CharacterRow> {
+  if (!blizzard.getProfessions) return row;
+  const last = row.professions_synced_at?.getTime();
+  const loggedIn = row.last_login_at != null && row.last_login_at.getTime() !== prevLogin?.getTime();
+  if (last != null && Date.now() - last <= PROFESSIONS_MAX_AGE_MS && !loggedIn) return row;
+  const professions = await bestEffort('Professions sync', () =>
+    blizzard.getProfessions!(row.region, row.name, row.surname),
+  );
+  // Stamp the attempt even when nothing comes back, so a missing endpoint isn't retried every sync.
+  const [updated] = await db.query<CharacterRow>(
+    `update characters set professions = coalesce($2::jsonb, professions), professions_synced_at = now()
+     where id = $1 returning *`,
+    [row.id, professions && JSON.stringify(professions)],
+  );
+  return updated ?? row;
+}
+
 export async function syncCharacter(db: Db, blizzard: BlizzardClient, row: CharacterRow): Promise<CharacterRow> {
   try {
     const profile = await blizzard.getCharacter(row.region, row.name, row.surname);
@@ -168,6 +199,11 @@ export async function syncCharacter(db: Db, blizzard: BlizzardClient, row: Chara
       result = await syncStatistics(db, blizzard, result, prev_login);
     } catch (err) {
       console.error('Statistics sync failed', err);
+    }
+    try {
+      result = await syncProfessions(db, blizzard, result, prev_login);
+    } catch (err) {
+      console.error('Professions sync failed', err);
     }
     return result;
   } catch (err) {

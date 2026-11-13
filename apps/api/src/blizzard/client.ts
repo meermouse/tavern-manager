@@ -75,6 +75,19 @@ export interface CompletedAchievement {
   completedAt: Date | null;
 }
 
+export type ProfessionKind = 'primary' | 'secondary';
+
+/** A trained profession and its skill level, e.g. Alchemy 225 / 300. */
+export interface CharacterProfession {
+  name: string;
+  /** Primary professions fill the character's two profession slots; secondary ones (Cooking, ...) are extra. */
+  kind: ProfessionKind;
+  /** Current skill, e.g. 225. `null` when the API doesn't say. */
+  skill: number | null;
+  /** Cap for the current rank, e.g. 300 (Artisan). `null` when the API doesn't say. */
+  maxSkill: number | null;
+}
+
 export interface AccountCharacter {
   name: string;
   surname: string;
@@ -98,6 +111,8 @@ export interface BlizzardClient {
   getStatistics?(region: Region, name: string, surname: string): Promise<StatisticMap | null>;
   /** Combat stats from `/statistics` (health, strength, armor, crit, ...), or `null`. Optional: best-effort. */
   getCharacterStats?(region: Region, name: string, surname: string): Promise<StatisticMap | null>;
+  /** Trained professions from `/professions`, or `null` when not available. Optional: best-effort. */
+  getProfessions?(region: Region, name: string, surname: string): Promise<CharacterProfession[] | null>;
 }
 
 /** Statistic name → value. */
@@ -366,6 +381,44 @@ export function parseCharacterStats(json: Json): StatisticMap | null {
   return Object.keys(out).length ? out : null;
 }
 
+/** One `primaries` / `secondaries` entry: classic-style flat skill points, or retail-style per-expansion `tiers`. */
+function parseProfession(entry: Json, kind: ProfessionKind): CharacterProfession | null {
+  const name = nameOf(entry.profession) ?? text(entry.name);
+  if (!name) return null;
+  let skill = num(entry.skill_points);
+  let maxSkill = num(entry.max_skill_points);
+  if (skill == null && Array.isArray(entry.tiers)) {
+    // Retail splits skill per expansion; take the most advanced tier.
+    for (const t of entry.tiers as Json[]) {
+      const points = t && typeof t === 'object' ? num(t.skill_points) : null;
+      if (points != null && (skill == null || points > skill)) {
+        skill = points;
+        maxSkill = num(t.max_skill_points);
+      }
+    }
+  }
+  return { name, kind, skill, maxSkill };
+}
+
+/**
+ * `/professions`: `{ primaries: [{ profession: { name }, skill_points, max_skill_points }], secondaries: [...] }`.
+ * Primaries first, then secondaries; a profession listed twice keeps its first entry. `[]` when the response lists
+ * no primaries (none trained); `null` when it doesn't look like a professions response at all.
+ */
+export function parseProfessions(json: Json): CharacterProfession[] | null {
+  const out: CharacterProfession[] = [];
+  const add = (list: unknown, kind: ProfessionKind) => {
+    if (!Array.isArray(list)) return;
+    for (const entry of list as Json[]) {
+      const p = entry && typeof entry === 'object' ? parseProfession(entry, kind) : null;
+      if (p && !out.some((o) => o.name.toLowerCase() === p.name.toLowerCase())) out.push(p);
+    }
+  };
+  add(json.primaries ?? json.primary, 'primary');
+  add(json.secondaries ?? json.secondary, 'secondary');
+  return out.length || Array.isArray(json.primaries) ? out : null;
+}
+
 export function parseAccountCharacters(json: Json): AccountCharacter[] {
   const accounts = Array.isArray(json.wow_accounts) ? (json.wow_accounts as Json[]) : [];
   const out: AccountCharacter[] = [];
@@ -454,6 +507,11 @@ export function createBlizzardClient(
     async getCharacterStats(region, name, surname) {
       const json = await getProfile(region, name, surname, '/statistics');
       return json && parseCharacterStats(json);
+    },
+
+    async getProfessions(region, name, surname) {
+      const json = await getProfile(region, name, surname, '/professions');
+      return json && parseProfessions(json);
     },
 
     async getAccountCharacters(region, userAccessToken) {

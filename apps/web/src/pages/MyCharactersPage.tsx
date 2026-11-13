@@ -6,6 +6,7 @@ import { CharacterAvatar } from '../components/CharacterAvatar';
 import { CharacterLink } from '../components/CharacterLink';
 import { CharacterLevel } from '../components/CharacterLevel';
 import { ClassName } from '../components/ClassName';
+import { ProfessionSlots } from '../components/ProfessionIcons';
 import { RolePicker } from '../components/RoleIcons';
 
 function CharacterRow({ character }: { character: Character }) {
@@ -33,6 +34,7 @@ function CharacterRow({ character }: { character: Character }) {
       <td data-label="Class"><ClassName value={character.class} /></td>
       <td data-label="Race">{character.race ?? <span className="muted">—</span>}</td>
       <td data-label="Level"><CharacterLevel character={character} /></td>
+      <td data-label="Professions"><ProfessionSlots professions={character.professions} /></td>
       <td data-label="Roles">
         <RolePicker roles={character.roles ?? []} onChange={(roles) => setRoles.mutate(roles)} />
         {setRoles.error && <p className="error small-text">{setRoles.error.message}</p>}
@@ -107,10 +109,10 @@ export function MyCharactersPage() {
         {characters.data && characters.data.length === 0 && <p className="muted">No characters yet.</p>}
         {characters.data && characters.data.length > 0 && (
           <div className="table-wrap">
-            <table>
+            <table className="my-characters">
               <thead>
                 <tr>
-                  <th>Character</th><th>Region</th><th>Ruleset</th><th>Class</th><th>Race</th><th>Level</th><th>Roles</th><th />
+                  <th>Character</th><th>Region</th><th>Ruleset</th><th>Class</th><th>Race</th><th>Level</th><th>Professions</th><th>Roles</th><th />
                 </tr>
               </thead>
               <tbody>

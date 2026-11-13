@@ -4,6 +4,7 @@ import { CharacterAvatar } from './CharacterAvatar';
 import { CharacterLevel } from './CharacterLevel';
 import { ClassName, classKey } from './ClassName';
 import { HoverCard } from './HoverCard';
+import { ProfessionGlyph, primaryProfessions, professionKey } from './ProfessionIcons';
 import { ROLES, ROLE_LABELS, RoleGlyph } from './RoleIcons';
 import { timeAgo } from '../time';
 
@@ -74,6 +75,23 @@ export function CharacterCard({ character: c }: { character: CharacterLike }) {
             <>
               <dt>Achievement points</dt>
               <dd>{c.achievementPoints}</dd>
+            </>
+          )}
+          {/* Spelled out rather than icon-only: this card is itself a tooltip, so the icons can't have their own. */}
+          {primaryProfessions(c.professions).length > 0 && (
+            <>
+              <dt>Professions</dt>
+              <dd className="cc-professions">
+                {primaryProfessions(c.professions).map((p) => (
+                  <span key={p.name} className="cc-profession">
+                    <span className={`profession-slot profession-${professionKey(p.name)}`}>
+                      <ProfessionGlyph name={p.name} />
+                    </span>
+                    {p.name}
+                    {p.skill != null && <span className="muted"> {p.skill}</span>}
+                  </span>
+                ))}
+              </dd>
             </>
           )}
           {c.lastLoginAt && (

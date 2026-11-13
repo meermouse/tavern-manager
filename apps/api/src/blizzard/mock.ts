@@ -58,6 +58,16 @@ const TITLES = [null, '{name} the Explorer', 'Private {name}', '{name} of the Ta
 
 const MOCK_ACHIEVEMENTS = [10, 20, 30, 40, 50, 60].map((level) => ({ id: 800000 + level, name: `Level ${level}`, level }));
 
+const PRIMARY_PROFESSIONS = [
+  'Alchemy', 'Blacksmithing', 'Enchanting', 'Engineering', 'Herbalism', 'Leatherworking', 'Mining', 'Skinning', 'Tailoring',
+];
+const SECONDARY_PROFESSIONS = ['Cooking', 'First Aid', 'Fishing'];
+
+/** Classic rank caps: Apprentice 75, Journeyman 150, Expert 225, Artisan 300. */
+function rankCap(skill: number): number {
+  return Math.min(300, Math.max(75, Math.ceil((skill + 1) / 75) * 75));
+}
+
 function capitalise(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
 }
@@ -176,6 +186,22 @@ export function createMockBlizzardClient(): BlizzardClient {
         melee_crit: Math.round((2 + ((h >>> 10) % 80) / 10) * 100) / 100,
         dodge: Math.round((2 + ((h >>> 11) % 60) / 10) * 100) / 100,
       };
+    },
+    async getProfessions(region, name, surname) {
+      const profile = await client.getCharacter(region, name, surname);
+      if (!profile?.level) return null;
+      const h = hash(`professions:${profile.name}-${profile.surname}`);
+      // Skill roughly keeps pace with level (5 per level), with some variety.
+      const skillAt = (shift: number) => Math.max(1, Math.min(300, Math.round(profile.level! * 5 * (0.4 + ((h >>> shift) % 60) / 100))));
+      const first = PRIMARY_PROFESSIONS[h % PRIMARY_PROFESSIONS.length];
+      const second = PRIMARY_PROFESSIONS[(h >>> 5) % PRIMARY_PROFESSIONS.length];
+      // Some characters only have one profession (or none), so empty slots show up locally too.
+      const primaries = (h >>> 10) % 6 === 0 ? [] : (h >>> 10) % 6 === 1 || first === second ? [first] : [first, second];
+      const secondaries = SECONDARY_PROFESSIONS.filter((_, i) => (h >>> (13 + i)) % 2);
+      return [
+        ...primaries.map((p, i) => ({ name: p, kind: 'primary' as const, skill: skillAt(16 + i * 4), maxSkill: 0 })),
+        ...secondaries.map((p, i) => ({ name: p, kind: 'secondary' as const, skill: skillAt(24 + i), maxSkill: 0 })),
+      ].map((p) => ({ ...p, maxSkill: rankCap(p.skill) }));
     },
     async getAchievements(region, name, surname) {
       const level = (await client.getCharacter(region, name, surname))?.level;

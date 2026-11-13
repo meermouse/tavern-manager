@@ -134,6 +134,10 @@ alter table characters add column if not exists statistics jsonb;
 alter table characters add column if not exists character_stats jsonb;
 alter table characters add column if not exists statistics_synced_at timestamptz;
 
+-- Trained professions from /professions (CharacterProfession[]: name, kind, skill, maxSkill).
+alter table characters add column if not exists professions jsonb;
+alter table characters add column if not exists professions_synced_at timestamptz;
+
 select pg_advisory_unlock(727274);
 `;
 

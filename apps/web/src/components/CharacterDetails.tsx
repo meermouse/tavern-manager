@@ -5,6 +5,7 @@ import { CharacterLevel } from './CharacterLevel';
 import { ClassName, classKey } from './ClassName';
 import { ItemLink } from './ItemLink';
 import { PortraitViewer } from './PortraitViewer';
+import { ProfessionList } from './ProfessionIcons';
 import { RoleIcons, RolePicker } from './RoleIcons';
 import { FeedPost, timeAgo } from './TavernFeed';
 
@@ -178,6 +179,8 @@ export function CharacterDetails({
 
         <div className="details-columns">
           <div>
+            <h3>Professions</h3>
+            <ProfessionList professions={c.professions} />
             <h3>Equipped</h3>
             <Gear items={details.isPending ? undefined : details.data?.equipment} syncedAt={details.data?.equipmentSyncedAt} />
           </div>

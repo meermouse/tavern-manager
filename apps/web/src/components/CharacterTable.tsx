@@ -17,6 +17,7 @@ import { CharacterLevel } from './CharacterLevel';
 import { ClassName } from './ClassName';
 import { ROLES, ROLE_LABELS, RoleIcons } from './RoleIcons';
 import { factionOf } from '../faction';
+import { ProfessionSlots, bestProfessionSkill } from './ProfessionIcons';
 
 const col = createColumnHelper<TavernCharacter>();
 
@@ -36,9 +37,13 @@ const globalFilter: FilterFn<TavernCharacter> = (row, _columnId, value: string) 
   if (!q) return true;
   const c = row.original;
   const roles = (c.roles ?? []).map((r) => ROLE_LABELS[r]);
-  return [c.name, c.surname, `${c.name} ${c.surname}`, c.ownerName, c.class, c.race, c.ruleset, factionOf(c), ...roles]
+  const professions = (c.professions ?? []).map((p) => p.name);
+  return [c.name, c.surname, `${c.name} ${c.surname}`, c.ownerName, c.class, c.race, c.ruleset, factionOf(c), ...roles, ...professions]
     .some((v) => v?.toLowerCase().includes(q));
 };
+
+const professionFilter: FilterFn<TavernCharacter> = (row, _columnId, value: string | undefined) =>
+  !value || (row.original.professions ?? []).some((p) => p.name === value);
 
 const roleFilter: FilterFn<TavernCharacter> = (row, _columnId, value: Role | undefined) =>
   !value || (row.original.roles ?? []).includes(value);
@@ -110,6 +115,15 @@ export function CharacterTable({
         sortUndefined: 'last',
         cell: (info) => <RoleIcons roles={info.row.original.roles} />,
       }),
+      // Sorts by the higher of the two primary profession skills; characters without professions go last.
+      col.accessor((c) => bestProfessionSkill(c.professions), {
+        id: 'professions',
+        header: 'Professions',
+        filterFn: professionFilter,
+        sortUndefined: 'last',
+        sortDescFirst: true,
+        cell: (info) => <ProfessionSlots professions={info.row.original.professions} />,
+      }),
       col.accessor('level', {
         header: 'Level',
         filterFn: levelRangeFilter,
@@ -146,6 +160,7 @@ export function CharacterTable({
     ruleset: uniqueSorted(characters.map((c) => c.ruleset)),
     class: uniqueSorted(characters.map((c) => c.class)),
     race: uniqueSorted(characters.map((c) => c.race)),
+    profession: uniqueSorted(characters.flatMap((c) => (c.professions ?? []).map((p) => p.name))),
   };
   const hasFilters = search !== '' || columnFilters.length > 0;
   const rows = table.getRowModel().rows;
@@ -155,7 +170,7 @@ export function CharacterTable({
       <div className="filters">
         <input
           type="search"
-          placeholder="Search name, player, class…"
+          placeholder="Search name, player, class, profession…"
           aria-label="Search characters"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -174,6 +189,14 @@ export function CharacterTable({
             <option key={r} value={r}>{ROLE_LABELS[r]}</option>
           ))}
         </select>
+        {options.profession.length > 0 && (
+          <select aria-label="Filter by profession" value={filterValue('professions')} onChange={(e) => setFilter('professions', e.target.value)}>
+            <option value="">Any profession</option>
+            {options.profession.map((p) => (
+              <option key={p} value={p}>{p}</option>
+            ))}
+          </select>
+        )}
         <span className="level-range">
           <label>
             Level

@@ -68,6 +68,11 @@ function lootRolls(e: LeaderboardEntry) {
   return { need, total: need + greed + (disenchantRolls(e) ?? 0) };
 }
 
+const primarySkills = (e: LeaderboardEntry) =>
+  (e.professions ?? []).filter((p) => p.kind === 'primary' && p.skill != null).map((p) => p.skill!);
+const professionSkill = (name: string) => (e: LeaderboardEntry) =>
+  e.professions?.find((p) => p.name.toLowerCase() === name.toLowerCase())?.skill ?? null;
+
 const quality = (...qualities: string[]) => (e: LeaderboardEntry) =>
   e.gearQualities ? qualities.reduce((n, q) => n + (e.gearQualities?.[q] ?? 0), 0) : null;
 
@@ -108,6 +113,21 @@ export const METRICS: Metric[] = [
     description: 'Blue-or-better items seen on the character since it joined Tavern Tracker.',
     value: (e) => e.notableItems,
   },
+
+  // ---- Professions ----
+  {
+    key: 'profession-best', label: 'Highest profession skill', group: 'Professions',
+    description: 'Skill in their best primary profession.',
+    value: (e) => (primarySkills(e).length ? Math.max(...primarySkills(e)) : null),
+  },
+  {
+    key: 'profession-total', label: 'Combined profession skill', group: 'Professions',
+    description: 'Both primary profession skills added up.',
+    value: (e) => (primarySkills(e).length ? primarySkills(e).reduce((a, b) => a + b, 0) : null),
+  },
+  { key: 'cooking', label: 'Cooking skill', group: 'Professions', description: 'Who’s the tavern chef?', value: professionSkill('Cooking') },
+  { key: 'first-aid', label: 'First Aid skill', group: 'Professions', description: 'Bandages at the ready.', value: professionSkill('First Aid') },
+  { key: 'fishing', label: 'Fishing skill', group: 'Professions', description: 'Patience, measured in skill points.', value: professionSkill('Fishing') },
 
   // ---- Combat ----
   {
