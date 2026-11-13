@@ -75,7 +75,7 @@ export function CharacterTable({
         header: 'Character',
         cell: (info) => (
           // Selectable rows are already a tab stop, so the name needn't be one too.
-          <>
+          <span className="char-name-cell">
             <CharacterLink character={info.row.original} focusable={!selectable}>
               <span className="char-cell">
                 <CharacterAvatar character={info.row.original} size="xs" />
@@ -83,7 +83,7 @@ export function CharacterTable({
               </span>
             </CharacterLink>
             <AchievementBadges achievements={info.row.original.achievements} />
-          </>
+          </span>
         ),
       }),
       col.accessor('ruleset', {
