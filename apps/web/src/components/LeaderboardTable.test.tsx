@@ -10,7 +10,7 @@ function entry(over: Partial<LeaderboardEntry>): LeaderboardEntry {
   return {
     id: crypto.randomUUID(), region: 'eu', name: 'Name', surname: 'Surname', ruleset: 'Normal', class: 'Warrior',
     race: 'Human', level: 10, status: 'ok', syncError: null, lastSyncedAt: null, ownerId: 'u1', ownerName: 'Alice',
-    gearItemLevel: null, gearQualities: null, achievementsEarned: 0, notableItems: 0, cheers: 0, feedPosts: 0,
+    gearItemLevel: null, gearQualities: null, achievementsEarned: 0, notableItems: 0, cheers: 0, cheersGiven: 0, feedPosts: 0,
     statistics: null, characterStats: null, statisticsSyncedAt: null,
     ...over,
   };

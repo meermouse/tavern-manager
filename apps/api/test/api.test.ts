@@ -233,13 +233,21 @@ describe('leaderboard', () => {
     expect(res.status).toBe(200);
     expect(res.body).toHaveLength(2);
     const entry = res.body.find((e: { id: string }) => e.id === judy.id);
-    expect(entry).toMatchObject({ ownerName: 'Alice', cheers: 0 });
+    expect(entry).toMatchObject({ ownerName: 'Alice', cheers: 0, cheersGiven: 0 });
     expect(entry.gearItemLevel).toBeGreaterThan(0);
     expect(entry.statistics['Total deaths']).toBeGreaterThanOrEqual(0);
     expect(entry.statistics['Creatures killed']).toBeGreaterThan(0);
     expect(entry.characterStats.health).toBeGreaterThan(0);
 
     expect((await carol.get(`/api/taverns/${tavern.id}/leaderboard`)).status).toBe(404);
+
+    // Bob cheers a post: it counts as given for Bob's characters and received for the character posted about.
+    const feed = (await bob.get(`/api/taverns/${tavern.id}/feed`)).body.events;
+    const post = feed.find((e: { character: { id: string } | null }) => e.character?.id === judy.id);
+    await bob.put(`/api/taverns/${tavern.id}/feed/${post.id}/cheers`);
+    const after = (await alice.get(`/api/taverns/${tavern.id}/leaderboard`)).body;
+    expect(after.find((e: { id: string }) => e.id === grim.id).cheersGiven).toBe(1);
+    expect(after.find((e: { id: string }) => e.id === judy.id)).toMatchObject({ cheers: 1, cheersGiven: 0 });
   });
 
   it('outside a tavern, covers your characters and everyone in your taverns', async () => {

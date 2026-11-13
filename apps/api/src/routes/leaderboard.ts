@@ -13,6 +13,7 @@ type LeaderboardRow = CharacterRow & {
   achievements_earned: number;
   notable_items: number;
   cheers: number;
+  cheers_given: number;
   feed_posts: number;
 };
 
@@ -38,7 +39,7 @@ export function gearSummary(equipment: unknown[] | null) {
 
 /**
  * Everything a leaderboard ranks by, for the characters matched by `scope` (a subquery of character ids).
- * Cheers count only reactions given in `cheerTaverns` (a subquery of tavern ids). Both may use `$1`.
+ * Cheers (received by the character, given by its player) count only reactions in `cheerTaverns` (a subquery of tavern ids). Both may use `$1`.
  */
 async function leaderboard(db: Db, param: string, scope: string, cheerTaverns: string) {
   const rows = await db.query<LeaderboardRow>(
@@ -47,6 +48,8 @@ async function leaderboard(db: Db, param: string, scope: string, cheerTaverns: s
        (select count(*)::int from character_items i where i.character_id = c.id) as notable_items,
        (select count(*)::int from feed_reactions r join feed_events e on e.id = r.event_id
           where e.character_id = c.id and r.tavern_id in (${cheerTaverns})) as cheers,
+       (select count(*)::int from feed_reactions r
+          where r.user_id = c.user_id and r.tavern_id in (${cheerTaverns})) as cheers_given,
        (select count(*)::int from feed_events e where e.character_id = c.id and e.kind in ('level_up', 'loot', 'achievement'))
           as feed_posts
      from characters c join users u on u.id = c.user_id
@@ -62,6 +65,7 @@ async function leaderboard(db: Db, param: string, scope: string, cheerTaverns: s
     achievementsEarned: r.achievements_earned,
     notableItems: r.notable_items,
     cheers: r.cheers,
+    cheersGiven: r.cheers_given,
     feedPosts: r.feed_posts,
     statistics: statMap(r.statistics),
     characterStats: statMap(r.character_stats),

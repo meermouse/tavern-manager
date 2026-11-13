@@ -14,6 +14,8 @@ export interface Metric {
   format?: MetricFormat;
   /** Keep in the picker even when nobody has data yet (the headline stats). */
   pinned?: boolean;
+  /** Belongs to the player, not the character: ranked one row per player. */
+  perPlayer?: boolean;
 }
 
 /**
@@ -214,6 +216,11 @@ export const METRICS: Metric[] = [
   { key: 'hugs', label: 'Hugs given', group: 'Just for fun', description: '/hug count. Wholesome.', value: stat('Number of hugs', /hugs/i) },
   { key: 'fish', label: 'Fish caught', group: 'Just for fun', description: 'Patience of a saint.', value: stat('Fish caught', /fish.*caught|caught.*fish/i) },
   { key: 'fashion', label: 'Fashion disasters', group: 'Just for fun', description: 'Grey and white items still being worn.', value: quality('POOR', 'COMMON') },
+  {
+    key: 'cheers-given', label: 'Most cheers given', group: 'Just for fun', perPlayer: true,
+    description: '🍺 raised on other people’s posts. The tavern’s biggest cheerleader (one row per player).',
+    value: (e) => e.cheersGiven,
+  },
   { key: 'cheers', label: 'Cheers received', group: 'Just for fun', description: '🍺 raised on this character’s feed posts.', value: (e) => e.cheers },
   { key: 'posts', label: 'Feed posts', group: 'Just for fun', description: 'Level-ups, loot and achievements posted. Main character energy.', value: (e) => e.feedPosts },
   {
@@ -297,7 +304,7 @@ export interface Ranked {
 
 /**
  * Rank characters by a metric, best first. Ties share a rank; characters with no data come last, unranked.
- * `onePerPlayer` keeps only each player's best character.
+ * `onePerPlayer` (always on for per-player metrics) keeps only each player's best character.
  */
 export function rankBy(
   entries: LeaderboardEntry[],
@@ -316,7 +323,7 @@ export function rankBy(
     return `${a.entry.name} ${a.entry.surname}`.localeCompare(`${b.entry.name} ${b.entry.surname}`);
   };
   rows.sort(cmp);
-  if (opts.onePerPlayer) {
+  if (opts.onePerPlayer || metric.perPlayer) {
     const seen = new Set<string>();
     rows = rows.filter((r) => !seen.has(r.entry.ownerId) && !!seen.add(r.entry.ownerId));
   }

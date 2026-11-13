@@ -58,6 +58,8 @@ export interface LeaderboardEntry extends TavernCharacter {
   achievementsEarned: number;
   notableItems: number;
   cheers: number;
+  /** 🍺 the character's player has raised. The same for all their characters. */
+  cheersGiven: number;
   feedPosts: number;
   /** Lifetime counters from Blizzard's achievement statistics, by name ("Total deaths", ...). */
   statistics: Record<string, number> | null;

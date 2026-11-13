@@ -50,7 +50,13 @@ export function LeaderboardTable({ entries, emptyText }: { entries: LeaderboardE
           {ascending ? '▲ Lowest first' : '▼ Highest first'}
         </button>
         <label className="small-text">
-          <input type="checkbox" checked={onePerPlayer} onChange={(e) => setOnePerPlayer(e.target.checked)} />{' '}
+          <input
+            type="checkbox"
+            checked={onePerPlayer || !!metric.perPlayer}
+            disabled={metric.perPlayer}
+            title={metric.perPlayer ? 'This stat belongs to the player, so it’s always one row each' : undefined}
+            onChange={(e) => setOnePerPlayer(e.target.checked)}
+          />{' '}
           Best character per player
         </label>
       </div>

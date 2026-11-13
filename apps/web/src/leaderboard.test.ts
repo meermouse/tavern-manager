@@ -22,6 +22,7 @@ function entry(over: Partial<LeaderboardEntry>): LeaderboardEntry {
     achievementsEarned: 0,
     notableItems: 0,
     cheers: 0,
+    cheersGiven: 0,
     feedPosts: 0,
     statistics: null,
     characterStats: null,
@@ -56,6 +57,18 @@ describe('rankBy', () => {
       ['Cat', 2],
       ['Dee', null],
     ]);
+  });
+
+  it('ranks per-player stats one row per player', () => {
+    const rows = rankBy(
+      [
+        entry({ name: 'Ann', ownerId: 'u1', cheersGiven: 5 }),
+        entry({ name: 'Amy', ownerId: 'u1', cheersGiven: 5 }),
+        entry({ name: 'Bob', ownerId: 'u2', cheersGiven: 9 }),
+      ],
+      metric('cheers-given'),
+    );
+    expect(rows.map((r) => [r.entry.ownerId, r.rank])).toEqual([['u2', 1], ['u1', 2]]);
   });
 
   it('can flip the order, still keeping no-data last', () => {
