@@ -236,15 +236,25 @@ export function FeedPost({ event, now, onCheer }: { event: FeedEvent; now?: numb
   );
 }
 
-export function TavernFeed({ tavernId, viewerName }: { tavernId: string; viewerName?: string }) {
+export function TavernFeed({
+  tavernId,
+  viewerName,
+  include,
+}: {
+  tavernId: string;
+  viewerName?: string;
+  /** Optional filter, e.g. the tavern's faction filter; posts it rejects are hidden. */
+  include?: (event: FeedEvent) => boolean;
+}) {
   const feed = useTavernFeed(tavernId);
   const cheer = useCheer(tavernId, viewerName);
 
   if (feed.isPending) return <p className="muted">Loading the feed…</p>;
   if (feed.error) return <p className="error">{feed.error.message}</p>;
 
-  const events = feed.data.pages.flatMap((p) => p.events);
-  if (!events.length) {
+  const all = feed.data.pages.flatMap((p) => p.events);
+  const events = include ? all.filter(include) : all;
+  if (!all.length) {
     return (
       <div className="card feed-empty">
         <p>Nothing has happened here yet.</p>
@@ -258,6 +268,7 @@ export function TavernFeed({ tavernId, viewerName }: { tavernId: string; viewerN
 
   return (
     <div className="feed">
+      {!events.length && <p className="muted">No posts from characters of this faction yet.</p>}
       <ol className="feed-list">
         {events.map((e) => (
           <FeedPost
