@@ -34,6 +34,9 @@ export interface CharacterRow {
   equipment_synced_at: Date | null;
   equipment_version: number;
   roles: string[] | null;
+  statistics: unknown;
+  character_stats: unknown;
+  statistics_synced_at: Date | null;
   created_at: Date;
 }
 
@@ -62,6 +65,44 @@ export async function syncMedia(
      where id = $1 returning *`,
     // Prefer the transparent render: it sits nicely on our own background.
     [row.id, media.avatar, media.inset, media.mainRaw ?? media.main],
+  );
+  return updated ?? row;
+}
+
+/** Refetch leaderboard statistics at least this often, for characters whose last login the API doesn't report. */
+const STATISTICS_MAX_AGE_MS = 6 * 60 * 60_000;
+
+/**
+ * Fetch the leaderboard statistics (lifetime counters and the character sheet) when we have none, the character
+ * logged in since the previous sync, or they're more than a few hours old. Best-effort: keeps old values on failure.
+ */
+export async function syncStatistics(
+  db: Db,
+  blizzard: BlizzardClient,
+  row: CharacterRow,
+  prevLogin: Date | null,
+): Promise<CharacterRow> {
+  if (!blizzard.getStatistics && !blizzard.getCharacterStats) return row;
+  const last = row.statistics_synced_at?.getTime();
+  const loggedIn = row.last_login_at != null && row.last_login_at.getTime() !== prevLogin?.getTime();
+  if (last != null && Date.now() - last <= STATISTICS_MAX_AGE_MS && !loggedIn) return row;
+  const { region, name, surname } = row;
+  const statistics = await bestEffort(
+    'Statistics sync',
+    blizzard.getStatistics && (() => blizzard.getStatistics!(region, name, surname)),
+  );
+  const characterStats = await bestEffort(
+    'Character stats sync',
+    blizzard.getCharacterStats && (() => blizzard.getCharacterStats!(region, name, surname)),
+  );
+  // Stamp the attempt even when both come back empty, so an endpoint Forever doesn't have isn't retried every sync.
+  const [updated] = await db.query<CharacterRow>(
+    `update characters set
+       statistics = coalesce($2::jsonb, statistics),
+       character_stats = coalesce($3::jsonb, character_stats),
+       statistics_synced_at = now()
+     where id = $1 returning *`,
+    [row.id, statistics && JSON.stringify(statistics), characterStats && JSON.stringify(characterStats)],
   );
   return updated ?? row;
 }
@@ -117,12 +158,18 @@ export async function syncCharacter(db: Db, blizzard: BlizzardClient, row: Chara
     } catch (err) {
       console.error('Feed detection failed', err);
     }
+    let result: CharacterRow = synced;
     try {
-      return await syncMedia(db, blizzard, synced, prev_login);
+      result = await syncMedia(db, blizzard, result, prev_login);
     } catch (err) {
       console.error('Media sync failed', err);
-      return synced;
     }
+    try {
+      result = await syncStatistics(db, blizzard, result, prev_login);
+    } catch (err) {
+      console.error('Statistics sync failed', err);
+    }
+    return result;
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     const [updated] = await db.query<CharacterRow>(

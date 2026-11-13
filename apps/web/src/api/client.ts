@@ -49,6 +49,23 @@ export interface CharacterDetails extends TavernCharacter {
   recent: FeedEvent[];
 }
 
+/** A character with everything the leaderboard can rank by. */
+export interface LeaderboardEntry extends TavernCharacter {
+  /** Sum of equipped item levels (shirt and tabard excluded); `null` before gear has synced. */
+  gearItemLevel: number | null;
+  /** Items worn per quality, e.g. `{ EPIC: 2, RARE: 5 }`. */
+  gearQualities: Record<string, number> | null;
+  achievementsEarned: number;
+  notableItems: number;
+  cheers: number;
+  feedPosts: number;
+  /** Lifetime counters from Blizzard's achievement statistics, by name ("Total deaths", ...). */
+  statistics: Record<string, number> | null;
+  /** The character sheet: health, strength, armor, melee_crit, ... */
+  characterStats: Record<string, number> | null;
+  statisticsSyncedAt: string | null;
+}
+
 export interface TavernSummary {
   id: string;
   name: string;
@@ -195,6 +212,8 @@ export const api = {
     request<Cheers>(on ? 'PUT' : 'DELETE', `/api/taverns/${tavernId}/feed/${eventId}/cheers`),
   characterDetails: (tavernId: string, characterId: string) =>
     request<CharacterDetails>('GET', `/api/taverns/${tavernId}/characters/${characterId}`),
+  tavernLeaderboard: (id: string) => request<LeaderboardEntry[]>('GET', `/api/taverns/${id}/leaderboard`),
+  leaderboard: () => request<LeaderboardEntry[]>('GET', '/api/leaderboard'),
   refreshTavern: (id: string) => request<TavernDetail>('POST', `/api/taverns/${id}/refresh`),
   addToTavern: (tavernId: string, characterId: string) =>
     request<{ ok: true }>('PUT', `/api/taverns/${tavernId}/characters/${characterId}`),

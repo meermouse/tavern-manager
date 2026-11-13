@@ -502,3 +502,19 @@ button.details-portrait.enlargeable:hover .enlarge-hint, button.details-portrait
 .role-count { display: inline-flex; align-items: center; gap: 0.2rem; font-size: 0.85rem; font-weight: 600; font-variant-numeric: tabular-nums; }
 .role-count svg { width: 0.8rem; height: 0.8rem; }
 .role-count.none { opacity: 0.4; }
+
+/* Leaderboard */
+.leaderboard-controls { margin-bottom: 0.25rem; }
+.metric-picker { display: flex; align-items: center; gap: 0.5rem; }
+.metric-picker select { min-width: 14rem; max-width: 100%; }
+.metric-description { margin: 0 0 0.75rem; }
+.leaderboard th.num, .leaderboard td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.leaderboard th.rank, .leaderboard td.rank { width: 3rem; text-align: center; font-variant-numeric: tabular-nums; }
+.leaderboard tr.podium-1 td { background: rgba(224, 164, 60, 0.12); }
+.leaderboard tr.podium-2 td { background: rgba(190, 200, 215, 0.07); }
+.leaderboard tr.podium-3 td { background: rgba(205, 127, 50, 0.07); }
+@media (max-width: 640px) {
+  .leaderboard th.rank, .leaderboard td.rank { width: 100%; text-align: inherit; }
+  .metric-picker { width: 100%; }
+  .metric-picker select { flex: 1; min-width: 0; }
+}

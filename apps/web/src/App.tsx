@@ -3,6 +3,7 @@ import { useMe } from './api/hooks';
 import { Layout } from './components/Layout';
 import { MyDungeonsPage } from './pages/MyDungeonsPage';
 import { JoinPage } from './pages/JoinPage';
+import { LeaderboardPage } from './pages/LeaderboardPage';
 import { LoginPage } from './pages/LoginPage';
 import { MyCharactersPage } from './pages/MyCharactersPage';
 import { TavernDetailPage } from './pages/TavernDetailPage';
@@ -29,6 +30,7 @@ export function App() {
       <Route path="/taverns/:id" element={<RequireAuth><TavernDetailPage /></RequireAuth>} />
       <Route path="/characters" element={<RequireAuth><MyCharactersPage /></RequireAuth>} />
       <Route path="/dungeons" element={<RequireAuth><MyDungeonsPage /></RequireAuth>} />
+      <Route path="/leaderboard" element={<RequireAuth><LeaderboardPage /></RequireAuth>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

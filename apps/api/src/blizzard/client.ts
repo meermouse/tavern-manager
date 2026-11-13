@@ -91,7 +91,17 @@ export interface BlizzardClient {
   getAchievements?(region: Region, name: string, surname: string): Promise<CompletedAchievement[] | null>;
   /** Character render images, or `null` when not available. Optional: best-effort. */
   getMedia?(region: Region, name: string, surname: string): Promise<CharacterMedia | null>;
+  /**
+   * Lifetime counters from `/achievements/statistics` ("Total deaths", "Creatures killed", ...), keyed by
+   * Blizzard's statistic name, or `null` when not available. Optional: best-effort.
+   */
+  getStatistics?(region: Region, name: string, surname: string): Promise<StatisticMap | null>;
+  /** Combat stats from `/statistics` (health, strength, armor, crit, ...), or `null`. Optional: best-effort. */
+  getCharacterStats?(region: Region, name: string, surname: string): Promise<StatisticMap | null>;
 }
+
+/** Statistic name → value. */
+export type StatisticMap = Record<string, number>;
 
 export class BlizzardError extends Error {
   constructor(
@@ -307,6 +317,55 @@ export function parseAchievements(json: Json): CompletedAchievement[] {
   return out;
 }
 
+function num(value: unknown): number | null {
+  const n = typeof value === 'number' ? value : typeof value === 'string' && value.trim() !== '' ? Number(value) : NaN;
+  return Number.isFinite(n) ? n : null;
+}
+
+/**
+ * `/achievements/statistics`: `{ categories: [{ name, statistics: [{ id, name, quantity }], sub_categories: [...] }] }`.
+ * Flattened to name → quantity, walking every level of nesting (the Forever shape isn't documented).
+ * The first occurrence of a name wins. `null` when there are no statistics at all.
+ */
+export function parseAchievementStatistics(json: Json): StatisticMap | null {
+  const out: StatisticMap = {};
+  const walk = (node: unknown) => {
+    if (!node || typeof node !== 'object') return;
+    if (Array.isArray(node)) return node.forEach(walk);
+    const obj = node as Json;
+    if (Array.isArray(obj.statistics)) {
+      for (const st of obj.statistics as Json[]) {
+        const name = st && typeof st === 'object' ? text(st.name) : null;
+        const value = st && typeof st === 'object' ? (num(st.quantity) ?? num(st.value)) : null;
+        if (name && value != null && !(name in out)) out[name] = value;
+      }
+    }
+    walk(obj.categories);
+    walk(obj.sub_categories);
+    walk(obj.subcategories);
+  };
+  walk(json);
+  return Object.keys(out).length ? out : null;
+}
+
+/**
+ * `/statistics` (the character sheet): `{ health: 4200, strength: { base, effective }, melee_crit: { value }, ... }`.
+ * Flattened to field → number, preferring the effective value. `null` when there's nothing numeric.
+ */
+export function parseCharacterStats(json: Json): StatisticMap | null {
+  const out: StatisticMap = {};
+  for (const [key, value] of Object.entries(json)) {
+    if (key.startsWith('_') || key === 'character') continue;
+    const n =
+      num(value) ??
+      (value && typeof value === 'object' && !Array.isArray(value)
+        ? (num((value as Json).effective) ?? num((value as Json).value) ?? num((value as Json).rating_normalized))
+        : null);
+    if (n != null) out[key] = n;
+  }
+  return Object.keys(out).length ? out : null;
+}
+
 export function parseAccountCharacters(json: Json): AccountCharacter[] {
   const accounts = Array.isArray(json.wow_accounts) ? (json.wow_accounts as Json[]) : [];
   const out: AccountCharacter[] = [];
@@ -385,6 +444,16 @@ export function createBlizzardClient(
     async getMedia(region, name, surname) {
       const json = await getProfile(region, name, surname, '/character-media');
       return json && parseCharacterMedia(json);
+    },
+
+    async getStatistics(region, name, surname) {
+      const json = await getProfile(region, name, surname, '/achievements/statistics');
+      return json && parseAchievementStatistics(json);
+    },
+
+    async getCharacterStats(region, name, surname) {
+      const json = await getProfile(region, name, surname, '/statistics');
+      return json && parseCharacterStats(json);
     },
 
     async getAccountCharacters(region, userAccessToken) {
