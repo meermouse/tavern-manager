@@ -157,6 +157,22 @@ export function createMockBlizzardClient(): BlizzardClient {
         'Fish caught': n(30, 0.8),
       };
     },
+    async getRaw(region, name, surname, resource) {
+      if (resource === '/statistics') return client.getCharacterStats!(region, name, surname);
+      if (resource !== '/achievements/statistics') return null;
+      const stats = await client.getStatistics!(region, name, surname);
+      if (!stats) return null;
+      // Retail-shaped, so the raw view looks like the real thing.
+      return {
+        categories: [
+          {
+            id: 1,
+            name: 'Character',
+            statistics: Object.entries(stats).map(([statName, quantity], i) => ({ id: 100 + i, name: statName, quantity })),
+          },
+        ],
+      };
+    },
     async getCharacterStats(region, name, surname) {
       const profile = await client.getCharacter(region, name, surname);
       if (!profile?.level) return null;

@@ -98,6 +98,8 @@ export interface BlizzardClient {
   getStatistics?(region: Region, name: string, surname: string): Promise<StatisticMap | null>;
   /** Combat stats from `/statistics` (health, strength, armor, crit, ...), or `null`. Optional: best-effort. */
   getCharacterStats?(region: Region, name: string, surname: string): Promise<StatisticMap | null>;
+  /** The unparsed JSON of a character resource (e.g. `/achievements/statistics`), for diagnosing the parsers. */
+  getRaw?(region: Region, name: string, surname: string, resource: string): Promise<unknown>;
 }
 
 /** Statistic name → value. */
@@ -325,7 +327,7 @@ function num(value: unknown): number | null {
 /**
  * `/achievements/statistics`: `{ categories: [{ name, statistics: [{ id, name, quantity }], sub_categories: [...] }] }`.
  * Flattened to name → quantity, walking every level of nesting (the Forever shape isn't documented).
- * The first occurrence of a name wins. `null` when there are no statistics at all.
+ * A name that appears more than once keeps its largest value. `null` when there are no statistics at all.
  */
 export function parseAchievementStatistics(json: Json): StatisticMap | null {
   const out: StatisticMap = {};
@@ -337,7 +339,8 @@ export function parseAchievementStatistics(json: Json): StatisticMap | null {
       for (const st of obj.statistics as Json[]) {
         const name = st && typeof st === 'object' ? text(st.name) : null;
         const value = st && typeof st === 'object' ? (num(st.quantity) ?? num(st.value)) : null;
-        if (name && value != null && !(name in out)) out[name] = value;
+        // Some names appear in more than one category; a lifetime counter's real value is the largest.
+        if (name && value != null && !(out[name] >= value)) out[name] = value;
       }
     }
     walk(obj.categories);
@@ -444,6 +447,10 @@ export function createBlizzardClient(
     async getMedia(region, name, surname) {
       const json = await getProfile(region, name, surname, '/character-media');
       return json && parseCharacterMedia(json);
+    },
+
+    async getRaw(region, name, surname, resource) {
+      return getProfile(region, name, surname, resource);
     },
 
     async getStatistics(region, name, surname) {

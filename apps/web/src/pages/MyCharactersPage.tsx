@@ -41,6 +41,15 @@ function CharacterRow({ character }: { character: Character }) {
         <button className="ghost small" onClick={() => refresh.mutate()} disabled={refresh.isPending}>
           {refresh.isPending ? 'Refreshing…' : 'Refresh'}
         </button>
+        <a
+          className="small-text"
+          href={`/api/characters/${character.id}/blizzard-stats`}
+          target="_blank"
+          rel="noreferrer"
+          title="What Blizzard's statistics endpoints return for this character (for checking leaderboard stats)"
+        >
+          Raw stats
+        </a>
         <button
           className="ghost small danger"
           disabled={remove.isPending}

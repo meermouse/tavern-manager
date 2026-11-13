@@ -106,6 +106,35 @@ export function characterRoutes({ db, config, blizzard }: AppDeps) {
     return c.json(serializeCharacter(synced));
   });
 
+  /**
+   * Owner-only diagnostics: what Blizzard returns right now for the leaderboard's two statistics endpoints,
+   * unparsed, next to what we've saved from them. Opened from the "Raw stats" link on My characters.
+   */
+  app.get('/:id/blizzard-stats', async (c) => {
+    const user = requireUser(c);
+    const row = await ownedCharacter(user.id, uuidParam(c, 'id'));
+    const fetchRaw = async (resource: string) => {
+      if (!blizzard.getRaw) return { error: 'Not supported by this Blizzard client' };
+      try {
+        return (await blizzard.getRaw(row.region, row.name, row.surname, resource)) ?? { error: 'Not found (404)' };
+      } catch (err) {
+        return { error: err instanceof Error ? err.message : String(err) };
+      }
+    };
+    return c.json({
+      character: `${row.name} ${row.surname} (${row.region})`,
+      saved: {
+        syncedAt: row.statistics_synced_at,
+        statistics: row.statistics,
+        characterStats: row.character_stats,
+      },
+      live: {
+        '/achievements/statistics': await fetchRaw('/achievements/statistics'),
+        '/statistics': await fetchRaw('/statistics'),
+      },
+    });
+  });
+
   /** Owner-only edits. Currently just `roles`: a list of 'tank' | 'healer' | 'damage' (empty for none). */
   app.patch('/:id', async (c) => {
     const user = requireUser(c);

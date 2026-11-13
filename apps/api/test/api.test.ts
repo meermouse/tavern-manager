@@ -250,6 +250,19 @@ describe('leaderboard', () => {
     expect(after.find((e: { id: string }) => e.id === judy.id)).toMatchObject({ cheers: 1, cheersGiven: 0 });
   });
 
+  it('shows the owner the raw Blizzard statistics responses', async () => {
+    const { login } = await setup();
+    const alice = await login('Alice#1234');
+    const bob = await login('Bob#5678');
+    const judy = (await alice.post('/api/characters', { name: 'Judgement', surname: 'Judy' })).body;
+    const res = await alice.get(`/api/characters/${judy.id}/blizzard-stats`);
+    expect(res.status).toBe(200);
+    expect(res.body.live['/achievements/statistics'].categories[0].statistics.length).toBeGreaterThan(0);
+    expect(res.body.live['/statistics'].health).toBeGreaterThan(0);
+    expect(res.body.saved.statistics['Total deaths']).toBeGreaterThanOrEqual(0);
+    expect((await bob.get(`/api/characters/${judy.id}/blizzard-stats`)).status).toBe(404);
+  });
+
   it('outside a tavern, covers your characters and everyone in your taverns', async () => {
     const { login } = await setup();
     const alice = await login('Alice#1234');

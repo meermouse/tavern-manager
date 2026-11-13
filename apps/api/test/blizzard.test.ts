@@ -234,6 +234,16 @@ describe('parseAchievementStatistics', () => {
     });
   });
 
+  it('keeps the largest value when a name appears in more than one category', () => {
+    const stats = parseAchievementStatistics({
+      categories: [
+        { name: 'Arena', statistics: [{ name: 'Total deaths', quantity: 0 }] },
+        { name: 'Deaths', statistics: [{ name: 'Total deaths', quantity: 87 }] },
+      ],
+    });
+    expect(stats).toEqual({ 'Total deaths': 87 });
+  });
+
   it('returns null when there are no statistics', () => {
     expect(parseAchievementStatistics({ categories: [] })).toBeNull();
   });
