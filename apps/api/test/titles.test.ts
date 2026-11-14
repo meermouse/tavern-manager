@@ -8,7 +8,7 @@ const standings = (key: string, chars: Parameters<typeof rankTitles>[0]) =>
   rankTitles(chars).find((t) => t.key === key)!.standings;
 
 describe('awardTitles', () => {
-  it('gives each title to the leader, sharing ties and skipping empty or missing stats', () => {
+  it('gives each title to the sole leader, nobody on a tie, skipping empty or missing stats', () => {
     const badges = awardTitles([
       { id: 'a', user_id: 'u1', statistics: rolls(2, 18), professions: cooking(100) },
       { id: 'b', user_id: 'u2', statistics: JSON.stringify(rolls(9, 1)), professions: cooking(250) },
@@ -16,9 +16,14 @@ describe('awardTitles', () => {
       { id: 'd', user_id: 'u4', statistics: null },
     ]);
     expect(badges.get('a')).toBeUndefined();
-    expect(badges.get('b')!.map((x) => x.name)).toEqual(['The Ninja', 'Head Chef']);
-    expect(badges.get('b')![0].value).toBe('90.0% need rolls');
-    expect(badges.get('c')!.map((x) => x.key)).toEqual(['ninja', 'head-chef']);
+    // b and c tie on both, so nobody holds either.
+    expect(badges.get('b')).toBeUndefined();
+    expect(badges.get('c')).toBeUndefined();
+    const solo = awardTitles([
+      { id: 'a', user_id: 'u1', statistics: rolls(2, 18) },
+      { id: 'b', user_id: 'u2', statistics: JSON.stringify(rolls(9, 1)) },
+    ]);
+    expect(solo.get('b')!.map((x) => [x.name, x.value])).toEqual([['The Ninja', '90.0% need rolls']]);
     expect(badges.get('d')).toBeUndefined();
   });
 
@@ -30,19 +35,46 @@ describe('awardTitles', () => {
 });
 
 describe('rankTitles', () => {
-  it('ranks everyone eligible, best first, with tied ranks', () => {
-    const rows = standings('ninja', [
-      { id: 'a', user_id: 'u1', name: 'Ann', owner_name: 'P1', statistics: rolls(1, 9) },
-      { id: 'b', user_id: 'u2', name: 'Bob', owner_name: 'P2', statistics: rolls(5, 5) },
-      { id: 'c', user_id: 'u3', name: 'Cid', owner_name: 'P3', statistics: rolls(5, 5) },
-      { id: 'd', user_id: 'u4', name: 'Dee', owner_name: 'P4', statistics: {} },
-    ]);
-    expect(rows.map((r) => [r.character!.name, r.rank, r.holder])).toEqual([
-      ['Bob', 1, true],
-      ['Cid', 1, true],
+  const tied = [
+    { id: 'a', user_id: 'u1', name: 'Ann', owner_name: 'P1', statistics: rolls(1, 9) },
+    { id: 'b', user_id: 'u2', name: 'Bob', owner_name: 'P2', statistics: rolls(5, 5) },
+    { id: 'c', user_id: 'u3', name: 'Cid', owner_name: 'P3', statistics: rolls(5, 5) },
+    { id: 'd', user_id: 'u4', name: 'Dee', owner_name: 'P4', statistics: {} },
+  ];
+  const ninja = (incumbents?: Parameters<typeof rankTitles>[1]) => rankTitles(tied, incumbents).find((t) => t.key === 'ninja')!;
+
+  it('ranks everyone eligible with tied ranks, and a tie for the lead with no holder leaves it unheld', () => {
+    const t = ninja();
+    expect(t.standings.map((r) => [r.character!.name, r.rank, r.holder])).toEqual([
+      ['Bob', 1, false],
+      ['Cid', 1, false],
       ['Ann', 3, false],
     ]);
-    expect(rows[2].player).toEqual({ userId: 'u1', displayName: 'P1' });
+    expect(t.standings[2].player).toEqual({ userId: 'u1', displayName: 'P1' });
+    expect([t.tiedLeaders, t.holderSince]).toEqual([2, null]);
+  });
+
+  it('keeps the title with the holder on a tie, first in the standings', () => {
+    const since = new Date('2026-01-01T00:00:00Z');
+    const t = ninja(new Map([['ninja', { subjectId: 'c', since }]]));
+    expect(t.standings.map((r) => [r.character!.name, r.rank, r.holder])).toEqual([
+      ['Cid', 1, true],
+      ['Bob', 1, false],
+      ['Ann', 3, false],
+    ]);
+    expect([t.tiedLeaders, t.holderSince]).toEqual([0, since.toISOString()]);
+  });
+
+  it('passes the title on when the holder is beaten or gone', () => {
+    const since = new Date('2026-01-01T00:00:00Z');
+    // Ann held it, but Bob and Cid both beat her: nobody gets it until one of them pulls ahead.
+    expect(ninja(new Map([['ninja', { subjectId: 'a', since }]])).tiedLeaders).toBe(2);
+    // A holder who's left the tavern doesn't count.
+    expect(ninja(new Map([['ninja', { subjectId: 'gone', since }]])).tiedLeaders).toBe(2);
+    // A sole new leader takes it now.
+    const t = rankTitles(tied.slice(0, 2), new Map([['ninja', { subjectId: 'a', since }]])).find((x) => x.key === 'ninja')!;
+    expect(t.standings[0]).toEqual(expect.objectContaining({ holder: true, character: expect.objectContaining({ id: 'b' }) }));
+    expect(Date.parse(t.holderSince!)).toBeGreaterThan(since.getTime());
   });
 
   it('Head Chef goes to the best cook; characters without Cooking are left out', () => {
@@ -180,5 +212,41 @@ describe('title routes', () => {
     await bob.del(`/api/taverns/${tavern.id}/characters/${grim.id}`);
     expect((await bob.get('/api/me')).body.titles).toEqual([]);
     expect((await alice.get('/api/me')).body.titles.map((a: { key: string }) => a.key).sort()).toEqual(['head-chef', 'ninja']);
+  });
+
+  it('remembers the holder between requests, so matching their score doesn’t take the title', async () => {
+    const { login, db } = await setup();
+    const alice = await login('Alice#1234');
+    const judy = (await alice.post('/api/characters', { name: 'Judgement', surname: 'Judy' })).body;
+    const lowe = (await alice.post('/api/characters', { name: 'Lowe', surname: 'Rider' })).body;
+    const tavern = (await alice.post('/api/taverns', { name: 'The Prancing Pony' })).body;
+    await alice.put(`/api/taverns/${tavern.id}/characters/${judy.id}`);
+    await alice.put(`/api/taverns/${tavern.id}/characters/${lowe.id}`);
+    const setRolls = (id: string, need: number, greed: number) =>
+      db.query('update characters set statistics = $2::jsonb where id = $1', [id, JSON.stringify(rolls(need, greed))]);
+    const ninja = async () => {
+      const detail = (await alice.get(`/api/taverns/${tavern.id}`)).body;
+      const t = detail.titles.find((x: { key: string }) => x.key === 'ninja');
+      return { holder: t.standings.find((s: { holder: boolean }) => s.holder)?.character.id ?? null, tied: t.tiedLeaders, since: t.holderSince };
+    };
+
+    await setRolls(judy.id, 15, 5);
+    await setRolls(lowe.id, 5, 15);
+    const first = await ninja();
+    expect(first.holder).toBe(judy.id);
+    // Lowe draws level: Judy got there first, so keeps it (and her start date).
+    await setRolls(lowe.id, 15, 5);
+    expect(await ninja()).toEqual({ holder: judy.id, tied: 0, since: first.since });
+    // Lowe pulls ahead: the title moves.
+    await setRolls(lowe.id, 18, 2);
+    expect((await ninja()).holder).toBe(lowe.id);
+    // Judy draws level again, but now Lowe is the holder.
+    await setRolls(judy.id, 18, 2);
+    expect((await ninja()).holder).toBe(lowe.id);
+    // The holder leaves, so Judy takes it; when Lowe comes back level with her, she's the one who keeps it.
+    await alice.del(`/api/taverns/${tavern.id}/characters/${lowe.id}`);
+    expect((await ninja()).holder).toBe(judy.id);
+    await alice.put(`/api/taverns/${tavern.id}/characters/${lowe.id}`);
+    expect((await ninja()).holder).toBe(judy.id);
   });
 });

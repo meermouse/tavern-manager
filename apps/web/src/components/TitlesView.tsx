@@ -40,8 +40,17 @@ function TitleStandingsPanel({ title: t, onClose }: { title: TitleStandings; onC
           <span aria-hidden="true">{t.icon}</span> {t.name}
         </h2>
         <p className="muted small-text">
-          {t.description} {t.lowestWins ? 'Lowest wins.' : ''} Ties share the title.
+          {t.description} {t.lowestWins ? 'Lowest wins.' : ''} The holder keeps it until someone beats them.
         </p>
+        {t.tiedLeaders ? (
+          <p className="title-status small-text">
+            {t.tiedLeaders}-way tie for the lead: nobody holds it until someone pulls ahead.
+          </p>
+        ) : (
+          t.holderSince && (
+            <p className="title-status small-text">Held since {new Date(t.holderSince).toLocaleDateString()}</p>
+          )
+        )}
       </header>
       <div className="table-wrap">
         <table className="leaderboard">
@@ -85,18 +94,24 @@ function TitleStandingsPanel({ title: t, onClose }: { title: TitleStandings; onC
 function TitleCell({ title: t, selected, onSelect }: { title: TitleStandings; selected: boolean; onSelect: () => void }) {
   const directory = useContext(CharacterDirectory);
   const holders = holdersOf(t);
-  const vacant = holders.length === 0;
+  const tie = holders.length === 0 ? (t.tiedLeaders ?? 0) : 0;
+  // Greyed out only when nobody's in contention; a tie for the lead isn't vacant.
+  const vacant = holders.length === 0 && !tie;
   return (
     <button
       className={`title-cell${vacant ? ' vacant' : ''}${selected ? ' selected' : ''}`}
       aria-pressed={selected}
-      aria-label={`${t.name}: ${vacant ? 'unclaimed' : holders.map((h) => h.character?.name ?? h.player.displayName).join(', ')}. Show standings`}
+      aria-label={`${t.name}: ${
+        tie ? `${tie}-way tie` : vacant ? 'unclaimed' : holders.map((h) => h.character?.name ?? h.player.displayName).join(', ')
+      }. Show standings`}
       onClick={onSelect}
       title={t.description}
     >
       <span className="title-medal title-cell-medal" aria-hidden="true">{t.icon}</span>
       <span className="title-cell-name">{t.name}</span>
-      {vacant ? (
+      {tie ? (
+        <span className="title-cell-holder title-cell-tie">{tie}-way tie</span>
+      ) : vacant ? (
         <span className="title-cell-holder muted">Unclaimed</span>
       ) : (
         <span className="title-cell-holders">
@@ -116,7 +131,7 @@ function TitleCell({ title: t, selected, onSelect }: { title: TitleStandings; se
           })}
         </span>
       )}
-      {!vacant && <span className="title-cell-value muted small-text">{holders[0].value}</span>}
+      {!vacant && <span className="title-cell-value muted small-text">{(holders[0] ?? t.standings[0]).value}</span>}
     </button>
   );
 }

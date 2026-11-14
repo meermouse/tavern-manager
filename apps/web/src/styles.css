@@ -607,3 +607,6 @@ button.details-portrait.enlargeable:hover .enlarge-hint, button.details-portrait
   .title-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .title-standings td .badge.title-badge { display: none; }
 }
+.title-cell-tie { color: var(--muted); font-style: italic; }
+.title-cell:has(.title-cell-tie) .title-cell-medal { filter: saturate(0.4); }
+.title-status { margin: 0.35rem 0 0; color: var(--accent); }

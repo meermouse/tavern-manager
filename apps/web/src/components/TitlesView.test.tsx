@@ -24,6 +24,12 @@ const titles: TitleStandings[] = [
     standings: [{ rank: 1, holder: false, score: 1, value: '1 character', player: player(1), character: null }],
   }),
   title({ key: 'ninja', name: 'The Ninja' }),
+  title({
+    key: 'gravity', name: 'Gravity Tester', tiedLeaders: 3,
+    standings: [1, 2, 3].map((n) => ({
+      rank: 1, holder: false, score: 1, value: '1 fatal fall', player: player(n), character: { id: `g${n}`, name: `Faller${n}`, surname: 'X' },
+    })),
+  }),
 ];
 
 function Harness() {
@@ -56,6 +62,17 @@ describe('TitlesView', () => {
 
     fireEvent.keyDown(window, { key: 'Escape' });
     expect(screen.queryByRole('table')).toBeNull();
+  });
+
+  it('shows an N-way tie instead of names when the lead is tied and nobody holds it', () => {
+    render(<Harness />);
+    const cell = screen.getByRole('button', { name: /^Gravity Tester: 3-way tie/ });
+    expect(cell.textContent).toContain('3-way tie');
+    expect(cell.textContent).toContain('1 fatal fall');
+    expect(cell.textContent).not.toContain('Faller1');
+    expect(cell.className).not.toContain('vacant');
+    fireEvent.click(cell);
+    expect(screen.getByText(/3-way tie for the lead/)).toBeTruthy();
   });
 
   it('lists players for player titles, and says so when nobody has data', () => {

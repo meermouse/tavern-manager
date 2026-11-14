@@ -1,7 +1,7 @@
 import { randomInt } from 'node:crypto';
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
-import { awardTitles, FEED_POSTS_SQL, rankTitles } from '../titles.js';
+import { awardTitles, FEED_POSTS_SQL, tavernTitles } from '../titles.js';
 import { badRequest, jsonBody, requireUser, uuidParam, type AppDeps, type AppEnv } from '../context.js';
 import { eventVisibleInTavern, recordEvent, setCheer, tavernFeed } from '../feed.js';
 import { serializeCharacter, serializeEquipment } from '../serialize.js';
@@ -62,7 +62,7 @@ export function tavernRoutes({ db, blizzard }: AppDeps) {
        order by c.level desc nulls last, c.name`,
       [tavern.id],
     );
-    const ranked = rankTitles(characters);
+    const ranked = await tavernTitles(db, tavern.id, characters);
     const titles = awardTitles(characters, ranked);
     return {
       id: tavern.id,
