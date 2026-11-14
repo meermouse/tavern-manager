@@ -138,6 +138,16 @@ alter table characters add column if not exists statistics_synced_at timestamptz
 alter table characters add column if not exists professions jsonb;
 alter table characters add column if not exists professions_synced_at timestamptz;
 
+-- Who holds each tavern title, and since when. Holders keep a title until someone strictly beats them, so ties go
+-- to whoever got there first. subject_id is a character id, or a user id for player titles (Altaholic).
+create table if not exists tavern_title_holders (
+  tavern_id uuid not null references taverns(id) on delete cascade,
+  title_key text not null,
+  subject_id text not null,
+  since timestamptz not null default now(),
+  primary key (tavern_id, title_key)
+);
+
 select pg_advisory_unlock(727274);
 `;
 

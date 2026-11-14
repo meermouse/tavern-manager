@@ -79,8 +79,18 @@ export interface TitleStanding {
 export interface TitleStandings extends Omit<TitleBadge, 'value'> {
   subject: TitleDef['subject'];
   lowestWins: boolean;
-  /** Everyone eligible, best first. Empty when nobody has data yet. */
+  /** Everyone eligible, best first (the holder first of all). Empty when nobody has data yet. */
   standings: TitleStanding[];
+  /** When the current holder took the title; `null` when nobody holds it. */
+  holderSince: string | null;
+  /** How many share the lead when that tie leaves the title unheld (0 otherwise). */
+  tiedLeaders: number;
+}
+
+/** Who holds a title in a tavern: a character id, or a user id for player titles. */
+export interface Incumbent {
+  subjectId: string;
+  since: Date;
 }
 
 /** Feed posts for character `c`, as a select-list subquery (the same count as the leaderboard's). */
@@ -245,8 +255,12 @@ function professionList(value: unknown): CharacterProfession[] {
   return Array.isArray(raw) ? raw.filter((p): p is CharacterProfession => p && typeof p.name === 'string') : [];
 }
 
-/** Every title's standings among these characters (one tavern's roster). */
-export function rankTitles(characters: TitleCandidate[]): TitleStandings[] {
+/**
+ * Every title's standings among these characters (one tavern's roster). A title is held by the sole leader. The
+ * current holder (`incumbents`, by title key) keeps it until someone strictly beats them, so a tie goes to whoever
+ * got there first; a tie for the lead with no holder among it leaves the title unheld.
+ */
+export function rankTitles(characters: TitleCandidate[], incumbents: ReadonlyMap<string, Incumbent> = new Map()): TitleStandings[] {
   const perPlayer = new Map<string, number>();
   for (const c of characters) perPlayer.set(c.user_id, (perPlayer.get(c.user_id) ?? 0) + 1);
   const inputs = characters.map((c) => ({
@@ -286,11 +300,22 @@ export function rankTitles(characters: TitleCandidate[]): TitleStandings[] {
         a.player.displayName.localeCompare(b.player.displayName),
     );
     const holds = def.holds ?? ((s: number) => s > 0);
+    const subjectId = (r: Row) => r.character?.id ?? r.player.userId;
+    const leaders = rows.filter((r) => r.score === rows[0].score);
+    const incumbent = incumbents.get(def.key);
+    let holderId: string | null = null;
+    if (rows.length && holds(rows[0].score)) {
+      if (incumbent && leaders.some((r) => subjectId(r) === incumbent.subjectId)) holderId = incumbent.subjectId;
+      else if (leaders.length === 1) holderId = subjectId(leaders[0]);
+    }
+    // The holder is always a leader: put them first, ahead of anyone they're tied with.
+    if (holderId) rows.unshift(...rows.splice(rows.findIndex((r) => subjectId(r) === holderId), 1));
     const standings = rows.map((r, i) => {
       let rank = i + 1;
       for (let j = i; j > 0 && rows[j - 1].score === r.score; j--) rank = j;
-      return { ...r, rank, holder: rank === 1 && holds(r.score), value: def.format(r.score) };
+      return { ...r, rank, holder: subjectId(r) === holderId, value: def.format(r.score) };
     });
+    const keptSince = holderId && incumbent?.subjectId === holderId ? incumbent.since : null;
     return {
       key: def.key,
       name: def.name,
@@ -299,8 +324,45 @@ export function rankTitles(characters: TitleCandidate[]): TitleStandings[] {
       subject: def.subject,
       lowestWins: !!def.lowestWins,
       standings,
+      holderSince: holderId ? (keptSince ?? new Date()).toISOString() : null,
+      tiedLeaders: !holderId && rows.length && holds(rows[0].score) && leaders.length > 1 ? leaders.length : 0,
     };
   });
+}
+
+/** The subject id (character, or user for player titles) holding a title, if anyone. */
+const holderOf = (t: TitleStandings) => {
+  const h = t.standings.find((s) => s.holder);
+  return h ? (h.character?.id ?? h.player.userId) : null;
+};
+
+/**
+ * Rank a tavern's titles against its saved holders, and save any change of holder: a new holder starts their
+ * reign now, and a title nobody holds any more (left the tavern, tie with no holder, dropped below the bar) is
+ * cleared.
+ */
+export async function tavernTitles(db: Db, tavernId: string, characters: TitleCandidate[]): Promise<TitleStandings[]> {
+  const saved = await db.query<{ title_key: string; subject_id: string; since: Date | string }>(
+    'select title_key, subject_id, since from tavern_title_holders where tavern_id = $1',
+    [tavernId],
+  );
+  const incumbents = new Map(saved.map((r) => [r.title_key, { subjectId: r.subject_id, since: new Date(r.since) }]));
+  const ranked = rankTitles(characters, incumbents);
+  for (const t of ranked) {
+    const holder = holderOf(t);
+    const was = incumbents.get(t.key)?.subjectId ?? null;
+    if (holder === was) continue;
+    if (holder) {
+      await db.query(
+        `insert into tavern_title_holders (tavern_id, title_key, subject_id, since) values ($1, $2, $3, $4)
+         on conflict (tavern_id, title_key) do update set subject_id = excluded.subject_id, since = excluded.since`,
+        [tavernId, t.key, holder, t.holderSince],
+      );
+    } else {
+      await db.query('delete from tavern_title_holders where tavern_id = $1 and title_key = $2', [tavernId, t.key]);
+    }
+  }
+  return ranked;
 }
 
 /** The badge for a title someone holds. */
@@ -349,7 +411,7 @@ export async function userTitles(db: Db, userId: string) {
   })[] = [];
   for (const roster of byTavern.values()) {
     const { tavern_id: tavernId, tavern_name: tavernName } = roster[0];
-    for (const t of rankTitles(roster)) {
+    for (const t of await tavernTitles(db, tavernId, roster)) {
       for (const s of t.standings) {
         if (!s.holder || s.player.userId !== userId) continue;
         out.push({ ...badge(t, s), tavernId, tavernName, character: s.character });

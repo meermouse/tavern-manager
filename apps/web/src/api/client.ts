@@ -44,7 +44,12 @@ export interface TitleStanding {
 export interface TitleStandings extends Omit<TitleBadge, 'value'> {
   subject: 'character' | 'player';
   lowestWins: boolean;
+  /** Holder first, then everyone else in the running. */
   standings: TitleStanding[];
+  /** When the holder took the title (ISO); `null` when nobody holds it. Optional: older API responses lack it. */
+  holderSince?: string | null;
+  /** How many share the lead when that tie leaves the title unheld (0 otherwise). */
+  tiedLeaders?: number;
 }
 
 export interface Me {
