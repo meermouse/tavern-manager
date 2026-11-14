@@ -199,7 +199,7 @@ export const METRICS: Metric[] = [
   // ---- Adventuring & wealth ----
   {
     key: 'played', label: 'Time played', group: 'Adventuring & wealth', format: 'hours',
-    description: 'Lifetime /played. The leader holds “He Is Without Life”.',
+    description: 'Lifetime /played.',
     value: stat('Total time played', 'Time played', /time played/i, /played time/i),
   },
   { key: 'quests', label: 'Quests completed', group: 'Adventuring & wealth', description: 'Lifetime quests turned in.', value: stat('Quests completed') },

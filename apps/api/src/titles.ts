@@ -35,7 +35,7 @@ export interface TitleDef {
   description: string;
   /** `character`: each character competes. `player`: each player competes (scored from any of their characters). */
   subject: 'character' | 'player';
-  /** Lowest score wins rather than highest. */
+  /** Lowest score wins rather than highest (no title uses this yet). */
   lowestWins?: boolean;
   /** The score; `null` = not eligible (no data yet). */
   score: (input: ScoreInput) => number | null;
@@ -50,7 +50,7 @@ export interface TitleBadge {
   name: string;
   icon: string;
   description: string;
-  /** The winning score, formatted, e.g. "412 hours played". */
+  /** The winning score, formatted, e.g. "23.8% need rolls". */
   value: string;
 }
 
@@ -95,11 +95,6 @@ export function findStat(stats: Record<string, number>, ...names: (string | RegE
   return null;
 }
 
-/** Lifetime time played, in seconds. Blizzard's name for it in the Forever API isn't documented, so try a few. */
-export function secondsPlayed(stats: Record<string, number>): number | null {
-  return findStat(stats, 'Total time played', 'Time played', /time played/i, /played time/i);
-}
-
 /** Share of loot rolls that were Need (0–100), once they've made enough rolls to count. */
 export function needPercent(stats: Record<string, number>): number | null {
   const need = findStat(stats, 'Need rolls made on loot', /need rolls/i);
@@ -115,25 +110,11 @@ export function cookingSkill(professions: CharacterProfession[]): number | null 
   return cooking?.skill ?? null;
 }
 
-const formatHours = (s: number) => {
-  const hours = Math.floor(s / 3600);
-  return `${hours.toLocaleString('en')} hour${hours === 1 ? '' : 's'} played`;
-};
-
 export const TITLES: TitleDef[] = [
-  {
-    key: 'without-life',
-    name: 'He Is Without Life',
-    icon: '⏳',
-    description: 'Most hours played in the tavern.',
-    subject: 'character',
-    score: ({ stats }) => secondsPlayed(stats),
-    format: formatHours,
-  },
   {
     key: 'ninja',
     name: 'The Ninja',
-    icon: '🥷',
+    icon: '🎲',
     description: `Highest share of loot rolls made as Need in the tavern (at least ${NINJA_MIN_ROLLS} rolls).`,
     subject: 'character',
     score: ({ stats }) => needPercent(stats),
@@ -157,20 +138,6 @@ export const TITLES: TitleDef[] = [
     score: ({ playerCharacterCount }) => playerCharacterCount,
     holds: (n) => n >= ALTAHOLIC_MIN_CHARACTERS,
     format: (n) => `${n} character${n === 1 ? '' : 's'}`,
-  },
-  {
-    key: 'weak',
-    name: 'Weak',
-    icon: '🐣',
-    description: 'Least time played in the tavern.',
-    subject: 'character',
-    lowestWins: true,
-    // 0 means the stat is missing rather than a brand-new character, so it doesn't count.
-    score: ({ stats }) => {
-      const s = secondsPlayed(stats);
-      return s != null && s > 0 ? s : null;
-    },
-    format: formatHours,
   },
 ];
 

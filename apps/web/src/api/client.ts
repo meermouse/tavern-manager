@@ -18,7 +18,7 @@ export interface TitleBadge {
   name: string;
   icon: string;
   description: string;
-  /** The winning score, formatted, e.g. "412 hours played". */
+  /** The winning score, formatted, e.g. "23.8% need rolls". */
   value: string;
 }
 

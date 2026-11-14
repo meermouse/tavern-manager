@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import { awardTitles, needPercent, rankTitles } from '../src/titles.js';
 import { setup } from './helpers.js';
 
-const hours = (h: number) => h * 3600;
 const rolls = (need: number, greed: number) => ({ 'Need rolls made on loot': need, 'Greed rolls made on loot': greed });
 const cooking = (skill: number) => [{ name: 'Cooking', kind: 'secondary', skill, maxSkill: 300 }];
 const standings = (key: string, chars: Parameters<typeof rankTitles>[0]) =>
@@ -11,32 +10,31 @@ const standings = (key: string, chars: Parameters<typeof rankTitles>[0]) =>
 describe('awardTitles', () => {
   it('gives each title to the leader, sharing ties and skipping empty or missing stats', () => {
     const badges = awardTitles([
-      { id: 'a', user_id: 'u1', statistics: { 'Total time played': hours(100), ...rolls(2, 18) } },
-      { id: 'b', user_id: 'u2', statistics: JSON.stringify({ 'Total time played': hours(250), ...rolls(9, 1) }) },
-      { id: 'c', user_id: 'u3', statistics: { 'Total time played': hours(250) } },
+      { id: 'a', user_id: 'u1', statistics: rolls(2, 18), professions: cooking(100) },
+      { id: 'b', user_id: 'u2', statistics: JSON.stringify(rolls(9, 1)), professions: cooking(250) },
+      { id: 'c', user_id: 'u3', statistics: rolls(18, 2), professions: cooking(250) },
       { id: 'd', user_id: 'u4', statistics: null },
     ]);
-    expect(badges.get('a')!.map((x) => x.key)).toEqual(['weak']);
-    expect(badges.get('b')!.map((x) => x.name)).toEqual(['He Is Without Life', 'The Ninja']);
-    expect(badges.get('b')![0].value).toBe('250 hours played');
-    expect(badges.get('b')![1].value).toBe('90.0% need rolls');
-    expect(badges.get('c')!.map((x) => x.key)).toEqual(['without-life']);
+    expect(badges.get('a')).toBeUndefined();
+    expect(badges.get('b')!.map((x) => x.name)).toEqual(['The Ninja', 'Head Chef']);
+    expect(badges.get('b')![0].value).toBe('90.0% need rolls');
+    expect(badges.get('c')!.map((x) => x.key)).toEqual(['ninja', 'head-chef']);
     expect(badges.get('d')).toBeUndefined();
   });
 
   it('needs enough rolls for The Ninja, and nobody wins at zero', () => {
     expect(needPercent(rolls(1, 0))).toBeNull();
     expect(needPercent({ ...rolls(3, 5), 'Disenchant rolls made on loot': 2 })).toBe(30);
-    expect(awardTitles([{ id: 'a', user_id: 'u', statistics: { 'Total time played': 0, ...rolls(0, 20) } }]).size).toBe(0);
+    expect(awardTitles([{ id: 'a', user_id: 'u', statistics: rolls(0, 20), professions: cooking(0) }]).size).toBe(0);
   });
 });
 
 describe('rankTitles', () => {
   it('ranks everyone eligible, best first, with tied ranks', () => {
-    const rows = standings('without-life', [
-      { id: 'a', user_id: 'u1', name: 'Ann', owner_name: 'P1', statistics: { 'Total time played': hours(10) } },
-      { id: 'b', user_id: 'u2', name: 'Bob', owner_name: 'P2', statistics: { 'Total time played': hours(30) } },
-      { id: 'c', user_id: 'u3', name: 'Cid', owner_name: 'P3', statistics: { 'Total time played': hours(30) } },
+    const rows = standings('ninja', [
+      { id: 'a', user_id: 'u1', name: 'Ann', owner_name: 'P1', statistics: rolls(1, 9) },
+      { id: 'b', user_id: 'u2', name: 'Bob', owner_name: 'P2', statistics: rolls(5, 5) },
+      { id: 'c', user_id: 'u3', name: 'Cid', owner_name: 'P3', statistics: rolls(5, 5) },
       { id: 'd', user_id: 'u4', name: 'Dee', owner_name: 'P4', statistics: {} },
     ]);
     expect(rows.map((r) => [r.character!.name, r.rank, r.holder])).toEqual([
@@ -76,18 +74,6 @@ describe('rankTitles', () => {
     expect(awardTitles(roster).size).toBe(0);
     expect(standings('altaholic', roster.slice(3))[0].holder).toBe(false);
   });
-
-  it('Weak goes to the least time played, ignoring missing (zero) time', () => {
-    const rows = standings('weak', [
-      { id: 'a', user_id: 'u1', statistics: { 'Total time played': hours(100) } },
-      { id: 'b', user_id: 'u2', statistics: { 'Total time played': hours(2) } },
-      { id: 'c', user_id: 'u3', statistics: { 'Total time played': 0 } },
-    ]);
-    expect(rows.map((r) => [r.character!.id, r.rank, r.holder])).toEqual([
-      ['b', 1, true],
-      ['a', 2, false],
-    ]);
-  });
 });
 
 describe('title routes', () => {
@@ -101,17 +87,21 @@ describe('title routes', () => {
     await bob.post(`/api/invites/${tavern.inviteCode}/join`);
     await alice.put(`/api/taverns/${tavern.id}/characters/${judy.id}`);
     await bob.put(`/api/taverns/${tavern.id}/characters/${grim.id}`);
-    const setStats = (id: string, stats: Record<string, number>) =>
-      db.query('update characters set statistics = $2::jsonb, professions = null where id = $1', [id, JSON.stringify(stats)]);
-    await setStats(judy.id, { 'Total time played': hours(500), ...rolls(1, 19) });
-    await setStats(grim.id, { 'Total time played': hours(40), ...rolls(15, 5) });
+    const setStats = (id: string, stats: Record<string, number>, professions: unknown) =>
+      db.query('update characters set statistics = $2::jsonb, professions = $3::jsonb where id = $1', [
+        id,
+        JSON.stringify(stats),
+        professions && JSON.stringify(professions),
+      ]);
+    await setStats(judy.id, rolls(1, 19), cooking(200));
+    await setStats(grim.id, rolls(15, 5), null);
 
     const detail = (await alice.get(`/api/taverns/${tavern.id}`)).body;
     const byId = (id: string) => detail.characters.find((c: { id: string }) => c.id === id);
-    expect(byId(judy.id).titles.map((a: { name: string }) => a.name)).toEqual(['He Is Without Life']);
-    expect(byId(grim.id).titles.map((a: { name: string }) => a.name)).toEqual(['The Ninja', 'Weak']);
+    expect(byId(judy.id).titles.map((a: { name: string }) => a.name)).toEqual(['Head Chef']);
+    expect(byId(grim.id).titles.map((a: { name: string }) => a.name)).toEqual(['The Ninja']);
     const titleKeys = detail.titles.map((t: { key: string }) => t.key);
-    expect(titleKeys).toEqual(['without-life', 'ninja', 'head-chef', 'altaholic', 'weak']);
+    expect(titleKeys).toEqual(['ninja', 'head-chef', 'altaholic']);
     const ninja = detail.titles.find((t: { key: string }) => t.key === 'ninja');
     expect(ninja.standings).toEqual([
       expect.objectContaining({ rank: 1, holder: true, character: { id: grim.id, name: 'Grimble', surname: 'Thornwick' } }),
@@ -119,7 +109,7 @@ describe('title routes', () => {
     ]);
 
     const me = (await bob.get('/api/me')).body;
-    expect(me.titles.map((t: { key: string }) => t.key)).toEqual(['ninja', 'weak']);
+    expect(me.titles.map((t: { key: string }) => t.key)).toEqual(['ninja']);
     expect(me.titles[0]).toEqual(
       expect.objectContaining({
         tavernId: tavern.id,
@@ -131,10 +121,6 @@ describe('title routes', () => {
     // Leaving the tavern takes the title with it.
     await bob.del(`/api/taverns/${tavern.id}/characters/${grim.id}`);
     expect((await bob.get('/api/me')).body.titles).toEqual([]);
-    expect((await alice.get('/api/me')).body.titles.map((a: { key: string }) => a.key).sort()).toEqual([
-      'ninja',
-      'weak',
-      'without-life',
-    ]);
+    expect((await alice.get('/api/me')).body.titles.map((a: { key: string }) => a.key).sort()).toEqual(['head-chef', 'ninja']);
   });
 });
