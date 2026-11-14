@@ -610,3 +610,5 @@ button.details-portrait.enlargeable:hover .enlarge-hint, button.details-portrait
 .title-cell-tie { color: var(--muted); font-style: italic; }
 .title-cell:has(.title-cell-tie) .title-cell-medal { filter: saturate(0.4); }
 .title-status { margin: 0.35rem 0 0; color: var(--accent); }
+
+.title-cell-why { display: block; }

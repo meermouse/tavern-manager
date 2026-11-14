@@ -112,7 +112,13 @@ function TitleCell({ title: t, selected, onSelect }: { title: TitleStandings; se
       {tie ? (
         <span className="title-cell-holder title-cell-tie">{tie}-way tie</span>
       ) : vacant ? (
-        <span className="title-cell-holder muted">Unclaimed</span>
+        <span className="title-cell-holder muted">
+          Unclaimed
+          {/* Say why, so a missing Blizzard stat isn't mistaken for a bug. */}
+          <span className="title-cell-why small-text">
+            {t.standings.length === 0 ? 'No data from Blizzard yet' : 'Nobody has scored yet'}
+          </span>
+        </span>
       ) : (
         <span className="title-cell-holders">
           {holders.map((h) => {

@@ -48,6 +48,12 @@ describe('TitlesView', () => {
     expect(screen.getByRole('button', { name: /^The Ninja: unclaimed/ }).className).toContain('vacant');
   });
 
+  it('says why a title is unclaimed: no data at all, or nobody good enough yet', () => {
+    render(<Harness />);
+    expect(screen.getByRole('button', { name: /^The Ninja/ }).textContent).toContain('No data from Blizzard yet');
+    expect(screen.getByRole('button', { name: /^Altaholic/ }).textContent).toContain('Nobody has scored yet');
+  });
+
   it('drops the standings down when a title is clicked, holder first', () => {
     render(<Harness />);
     expect(screen.queryByRole('table')).toBeNull();
