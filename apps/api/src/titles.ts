@@ -206,7 +206,7 @@ export const TITLES: TitleDef[] = [
     ['Most gold ever owned', /most gold ever owned/i], (c) => `${Math.floor(c / 10_000).toLocaleString('en')}g at peak`),
   statTitle('one-punch', 'One Punch', '💥', 'Biggest single hit dealt in the tavern.',
     ['Largest hit dealt', /largest hit dealt/i], (n) => `${Math.round(n).toLocaleString('en')} damage`),
-  statTitle('lay-on-hands', 'Lay on Hands', '✨', 'Biggest single heal cast in the tavern.',
+  statTitle('lay-on-hands', 'Lay on Hands', '🙌', 'Biggest single heal cast in the tavern.',
     ['Largest heal cast', /largest heal cast/i], (n) => `${Math.round(n).toLocaleString('en')} healing`),
   {
     key: 'best-dressed',
