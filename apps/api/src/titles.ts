@@ -204,6 +204,10 @@ export const TITLES: TitleDef[] = [
   // Blizzard reports money in copper.
   statTitle('dragons-hoard', 'Dragon’s Hoard', '💰', 'Most gold ever owned at once, in the tavern.',
     ['Most gold ever owned', /most gold ever owned/i], (c) => `${Math.floor(c / 10_000).toLocaleString('en')}g at peak`),
+  statTitle('one-punch', 'One Punch', '💥', 'Biggest single hit dealt in the tavern.',
+    ['Largest hit dealt', /largest hit dealt/i], (n) => `${Math.round(n).toLocaleString('en')} damage`),
+  statTitle('lay-on-hands', 'Lay on Hands', '✨', 'Biggest single heal cast in the tavern.',
+    ['Largest heal cast', /largest heal cast/i], (n) => `${Math.round(n).toLocaleString('en')} healing`),
   {
     key: 'best-dressed',
     name: 'Best Dressed',

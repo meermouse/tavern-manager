@@ -127,7 +127,7 @@ describe('new titles', () => {
   it('reads Blizzard statistics for the stat titles', () => {
     const stats = {
       'Total deaths': 40, 'Deaths from falling': 1, 'Beverages consumed': 12, 'Critters killed': 300,
-      'Most gold ever owned': 1_234_5678,
+      'Most gold ever owned': 1_234_5678, 'Largest hit dealt': 1520, 'Largest heal cast': 2875,
     };
     const ranked = rankTitles([{ id: 'a', user_id: 'u', statistics: stats }]);
     const value = (key: string) => ranked.find((t) => t.key === key)!.standings[0]?.value;
@@ -136,6 +136,8 @@ describe('new titles', () => {
     expect(value('regular')).toBe('12 drinks');
     expect(value('bunny-slayer')).toBe('300 critters');
     expect(value('dragons-hoard')).toBe('1,234g at peak');
+    expect(value('one-punch')).toBe('1,520 damage');
+    expect(value('lay-on-hands')).toBe('2,875 healing');
   });
 
   it('uses item level, feed posts and last login', () => {
@@ -187,7 +189,7 @@ describe('title routes', () => {
     const titleKeys = detail.titles.map((t: { key: string }) => t.key);
     expect(titleKeys).toEqual([
       'ninja', 'head-chef', 'old-man-sea', 'field-medic', 'altaholic', 'corpse-runner', 'gravity-tester',
-      'regular', 'bunny-slayer', 'dragons-hoard', 'best-dressed', 'town-crier', 'gone-fishin',
+      'regular', 'bunny-slayer', 'dragons-hoard', 'one-punch', 'lay-on-hands', 'best-dressed', 'town-crier', 'gone-fishin',
     ]);
     // Feed posts are counted (none left), so both are in the running but nobody holds Town Crier at 0.
     const crier = detail.titles.find((t: { key: string }) => t.key === 'town-crier');
