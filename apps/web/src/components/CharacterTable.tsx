@@ -15,7 +15,7 @@ import { CharacterAvatar } from './CharacterAvatar';
 import { CharacterLink } from './CharacterLink';
 import { CharacterLevel } from './CharacterLevel';
 import { ClassName } from './ClassName';
-import { AchievementBadges } from './AchievementBadges';
+import { TitleBadges } from './TitleBadges';
 import { ROLES, ROLE_LABELS, RoleIcons } from './RoleIcons';
 import { factionOf } from '../faction';
 import { ProfessionSlots, bestProfessionSkill } from './ProfessionIcons';
@@ -82,7 +82,7 @@ export function CharacterTable({
                 <strong>{info.getValue()}</strong>
               </span>
             </CharacterLink>
-            <AchievementBadges achievements={info.row.original.achievements} />
+            <TitleBadges titles={info.row.original.titles} />
           </span>
         ),
       }),

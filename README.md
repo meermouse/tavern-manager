@@ -42,14 +42,17 @@ Players sign in with their Battle.net account, add their characters, and join a 
 - **Refresh.** Character data refreshes on a schedule and on demand.
 - **Leaderboard.** A friendly competition: a tavern's **Leaderboard** tab (and a top-level Leaderboard page covering your characters plus everyone in your taverns) ranks characters by a stat picked from a drop-down, with 🥇🥈🥉 for the podium, a highest/lowest-first toggle and a "best character per player" option. The default is **total gear item level** (all equipped item levels added up, shirt and tabard excluded). Stats come from data we already sync (gear, level, achievements, cheers) plus two best-effort Blizzard endpoints synced alongside each character: `/achievements/statistics` (lifetime counters such as total deaths, kills, deaths from falling, drinks consumed) and `/statistics` (the character sheet: health, strength, armor, crit...). Stats are only offered when someone has data for them, and any statistic Blizzard returns that isn't in the curated list still appears under "Every other statistic".
 
-- **Achievements.** Titles held by whichever character in a tavern currently leads a stat, shown as a medal next to the character (character table, details pane, hover card) and on the holder's player in the top bar. They're worked out live from synced statistics, so a title moves as soon as someone overtakes the holder, and ties share it. Nobody wins with a score of 0.
+- **Titles.** Held by whichever character (or, for player titles, player) in a tavern currently leads a stat. A tavern's **Titles** tab shows a grid of every title with its holder; unclaimed titles are greyed out. Clicking a title drops down its standings: the holder at #1, then everyone else in the running, so you can see who's about to take it. Holders also get a medal next to the character (character table, details pane, hover card) and on their player in the top bar. Titles are worked out live from synced data, so a title moves as soon as someone overtakes the holder, and ties share it. Nobody wins with a score of 0, and characters with no data for a stat are left out of its standings.
 
-  | Achievement | Awarded for |
+  | Title | Awarded for |
   |---|---|
   | ⏳ **He Is Without Life** | Most hours played (the `Total time played` statistic, in seconds) |
   | 🥷 **The Ninja** | Highest share of loot rolls that were Need (need ÷ need + greed + disenchant), at least 10 rolls |
+  | 🍳 **Head Chef** | Highest Cooking skill (from synced professions) |
+  | 👥 **Altaholic** | Player title: most characters in the tavern, at least 2 |
+  | 🐣 **Weak** | Least time played (a missing / zero time doesn't count) |
 
-  Definitions live in `apps/api/src/achievements.ts`; add an entry to `ACHIEVEMENTS` for a new one.
+  Definitions live in `apps/api/src/titles.ts`; add an entry to `TITLES` for a new one (`lowestWins` flips the order, `subject: 'player'` ranks players instead of characters).
 
 ### Ideas for later
 - Role (tank / healer / DPS) per character

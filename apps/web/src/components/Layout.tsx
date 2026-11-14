@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router';
 import { api, type Me } from '../api/client';
 import { keys } from '../api/hooks';
-import { PlayerAchievements } from './AchievementBadges';
+import { PlayerTitles } from './TitleBadges';
 
 function DisplayNameEditor({ me }: { me: Me }) {
   const qc = useQueryClient();
@@ -72,7 +72,7 @@ export function Layout({ me, children }: { me: Me; children: React.ReactNode }) 
           <NavLink to="/leaderboard">Leaderboard</NavLink>
         </nav>
         <div className="user">
-          <PlayerAchievements achievements={me.achievements} />
+          <PlayerTitles titles={me.titles} />
           <DisplayNameEditor key={me.displayName} me={me} />
           <button className="ghost small" onClick={() => logout.mutate()}>Sign out</button>
         </div>

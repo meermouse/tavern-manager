@@ -84,8 +84,9 @@ form input:not([type='checkbox']) { flex: 1 1 140px; }
 .two-col { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; }
 .three-col { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1rem; align-items: start; }
 .page-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 1rem; flex-wrap: wrap; }
-.view-tabs { display: flex; gap: 1.25rem; border-bottom: 1px solid var(--border); }
-.view-tabs button { border: 0; border-radius: 0; background: transparent; color: var(--muted); padding: 0.45rem 0.1rem; border-bottom: 2px solid transparent; }
+.view-tabs { display: flex; flex-wrap: wrap; gap: 0 1.25rem; border-bottom: 1px solid var(--border); max-width: 100%; }
+@media (max-width: 640px) { .view-tabs { column-gap: 0.9rem; } }
+.view-tabs button { flex-shrink: 0; border: 0; border-radius: 0; background: transparent; color: var(--muted); padding: 0.45rem 0.1rem; border-bottom: 2px solid transparent; }
 .view-tabs button.active { color: var(--text); border-color: var(--accent); }
 .view-tabs button:hover:not(:disabled) { color: var(--text); }
 .view-bar { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 0.5rem 1rem; border-bottom: 1px solid var(--border); }
@@ -341,10 +342,10 @@ button.cheer.cheered span[aria-hidden] { display: inline-block; animation: cheer
 .char-avatar-sm.char-avatar-initial { font-size: 0.95rem; }
 .char-avatar-md.char-avatar-initial { font-size: 1.15rem; }
 .char-cell { display: inline-flex; align-items: center; gap: 0.55rem; }
-/* Name plus any achievement medals, centred on one line. */
+/* Name plus any title medals, centred on one line. */
 .char-name-cell { display: inline-flex; align-items: center; gap: 0.4rem; vertical-align: middle; }
-.char-name-cell .achievement-badges { margin-left: 0; flex-wrap: nowrap; }
-.char-name-cell .achievement-medal { width: 1.3rem; height: 1.3rem; font-size: 0.75rem; }
+.char-name-cell .title-badges { margin-left: 0; flex-wrap: nowrap; }
+.char-name-cell .title-medal { width: 1.3rem; height: 1.3rem; font-size: 0.75rem; }
 .checklist .char-avatar { margin-left: 0.1rem; }
 
 /* ---- Character table selection + details pane ---- */
@@ -565,12 +566,43 @@ button.details-portrait.enlargeable:hover .enlarge-hint, button.details-portrait
 /* My characters has the most columns (professions, role pickers, actions): tighter cells keep it on screen. */
 .my-characters th, .my-characters td { padding-left: 0.55rem; padding-right: 0.55rem; }
 
-/* Tavern achievements */
-.achievement-badges { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0.25rem; margin-left: 0.4rem; vertical-align: middle; }
-.achievement-medal {
+
+/* Tavern titles */
+.title-badges { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0.25rem; margin-left: 0.4rem; vertical-align: middle; }
+.title-medal {
   display: inline-grid; place-items: center; width: 1.5rem; height: 1.5rem; border-radius: 50%; font-size: 0.85rem; line-height: 1;
   background: radial-gradient(circle at 35% 30%, #ffe39a, var(--accent) 60%, #8a5a14); box-shadow: 0 0 0 1px #8a5a14; cursor: default;
 }
-.badge.achievement-badge { color: var(--accent); border-color: var(--accent); margin-left: 0; text-transform: none; letter-spacing: 0; }
-.character-details .achievement-badges, .character-card .achievement-badges { display: flex; margin: 0.4rem 0 0; }
-.player-achievements { margin-left: 0; }
+.badge.title-badge { color: var(--accent); border-color: var(--accent); margin-left: 0; text-transform: none; letter-spacing: 0; }
+.character-details .title-badges, .character-card .title-badges { display: flex; margin: 0.4rem 0 0; }
+.player-titles { margin-left: 0; }
+
+/* Titles tab: a grid of titles; the picked one's standings drop down from the top. */
+.title-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 0.75rem; }
+.title-cell {
+  display: flex; flex-direction: column; align-items: center; gap: 0.4rem; padding: 1rem 0.75rem; min-width: 0; text-align: center;
+  background: var(--bg-raised); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); cursor: pointer;
+  transition: border-color 0.15s, transform 0.15s;
+}
+.title-cell:hover:not(:disabled) { border-color: var(--accent); transform: translateY(-1px); }
+.title-cell:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.title-cell.selected { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); background: rgba(224, 164, 60, 0.1); }
+.title-cell-medal { width: 2.75rem; height: 2.75rem; font-size: 1.5rem; cursor: inherit; }
+.title-cell-name { font-family: Georgia, serif; font-weight: 700; font-size: 1.05rem; }
+.title-cell-holders { display: flex; flex-direction: column; align-items: center; gap: 0.2rem; max-width: 100%; }
+.title-cell-holder { display: inline-flex; align-items: center; justify-content: center; gap: 0.35rem; font-weight: 600; max-width: 100%; overflow-wrap: anywhere; }
+.title-cell.vacant { opacity: 0.45; filter: grayscale(1); }
+.title-cell.vacant:hover { opacity: 0.7; }
+.title-cell.vacant.selected { opacity: 0.8; }
+.title-standings { position: relative; overflow: hidden; transform-origin: top; animation: title-drop 0.22s ease-out; }
+.title-standings header { padding-right: 2.5rem; margin-bottom: 0.75rem; }
+.title-standings h2 { margin: 0 0 0.2rem; }
+.title-standings header p { margin: 0; }
+.title-standings tr.title-holder td { background: rgba(224, 164, 60, 0.14); }
+.title-standings td .badge.title-badge { margin-left: 0.5rem; }
+@keyframes title-drop { from { opacity: 0; transform: translateY(-24px) scaleY(0.9); } }
+@media (prefers-reduced-motion: reduce) { .title-standings { animation: none; } .title-cell { transition: none; } }
+@media (max-width: 640px) {
+  .title-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .title-standings td .badge.title-badge { display: none; }
+}
