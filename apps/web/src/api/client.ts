@@ -12,8 +12,8 @@ export interface Profession {
   maxSkill: number | null;
 }
 
-/** A tavern achievement: a title held by whoever in the tavern currently leads a stat. */
-export interface AchievementBadge {
+/** A tavern title: held by whoever in the tavern currently leads a stat. */
+export interface TitleBadge {
   key: string;
   name: string;
   icon: string;
@@ -22,11 +22,29 @@ export interface AchievementBadge {
   value: string;
 }
 
-/** An achievement one of your characters holds, and where. */
-export interface PlayerAchievement extends AchievementBadge {
+/** A title you hold, and where. Player titles (Altaholic) have no character. */
+export interface PlayerTitle extends TitleBadge {
   tavernId: string;
   tavernName: string;
-  character: { id: string; name: string; surname: string };
+  character: { id: string; name: string; surname: string } | null;
+}
+
+/** One row of a title's standings: a character, or a player for player titles. */
+export interface TitleStanding {
+  /** 1-based; ties share a rank. */
+  rank: number;
+  holder: boolean;
+  score: number;
+  value: string;
+  player: { userId: string; displayName: string };
+  character: { id: string; name: string; surname: string } | null;
+}
+
+/** A title and everyone in the running for it, best first. */
+export interface TitleStandings extends Omit<TitleBadge, 'value'> {
+  subject: 'character' | 'player';
+  lowestWins: boolean;
+  standings: TitleStanding[];
 }
 
 export interface Me {
@@ -34,8 +52,8 @@ export interface Me {
   battletag: string;
   displayName: string;
   canImport: boolean;
-  /** Achievements your characters hold across your taverns. */
-  achievements?: PlayerAchievement[];
+  /** Titles you hold across your taverns. */
+  titles?: PlayerTitle[];
 }
 
 export interface Character {
@@ -70,8 +88,8 @@ export interface Character {
 export interface TavernCharacter extends Character {
   ownerId: string;
   ownerName: string;
-  /** Achievements this character holds in the tavern (tavern roster only). */
-  achievements?: AchievementBadge[];
+  /** Titles this character holds in the tavern (tavern roster only). */
+  titles?: TitleBadge[];
 }
 
 export interface CharacterDetails extends TavernCharacter {
@@ -124,6 +142,8 @@ export interface TavernDetail {
   createdAt: string;
   members: TavernMember[];
   characters: TavernCharacter[];
+  /** Every tavern title with its standings (Titles tab). Optional: older API responses lack it. */
+  titles?: TitleStandings[];
 }
 
 export type FeedKind = 'level_up' | 'loot' | 'achievement' | 'character_joined' | 'member_joined' | 'tavern_founded';

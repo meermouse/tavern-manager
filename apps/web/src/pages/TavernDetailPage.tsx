@@ -11,6 +11,7 @@ import { CharacterTable } from '../components/CharacterTable';
 import { DungeonTable } from '../components/DungeonTable';
 import { LeaderboardTable } from '../components/LeaderboardTable';
 import { TavernFeed } from '../components/TavernFeed';
+import { TitlesView } from '../components/TitlesView';
 import { RoleIcons } from '../components/RoleIcons';
 import { matchesFaction, useFactionFilter, type FactionFilter } from '../faction';
 
@@ -208,17 +209,19 @@ function FactionPicker({ value, onChange }: { value: FactionFilter; onChange: (f
   );
 }
 
-type View = 'feed' | 'characters' | 'dungeons' | 'leaderboard';
+type View = 'feed' | 'characters' | 'dungeons' | 'leaderboard' | 'titles';
 const VIEWS: [View, string][] = [
   ['feed', 'Feed'],
   ['characters', 'Characters'],
   ['dungeons', 'Dungeons'],
   ['leaderboard', 'Leaderboard'],
+  ['titles', 'Titles'],
 ];
 
 export function TavernDetailPage() {
   const { id = '' } = useParams();
   const [view, setView] = useState<View>('feed');
+  const [titleKey, setTitleKey] = useState<string | null>(null);
   const [faction, setFaction] = useFactionFilter(id);
   const tavern = useTavern(id);
   const me = useMe();
@@ -246,7 +249,7 @@ export function TavernDetailPage() {
       qc.setQueryData(keys.tavern(id), t);
       qc.invalidateQueries({ queryKey: keys.feed(id) });
       qc.invalidateQueries({ queryKey: keys.tavernLeaderboard(id) });
-      // Fresh stats can move achievements, which the top bar shows.
+      // Fresh stats can move titles, which the top bar shows.
       qc.invalidateQueries({ queryKey: keys.me });
     },
   });
@@ -284,7 +287,8 @@ export function TavernDetailPage() {
               </button>
             ))}
           </div>
-          <FactionPicker value={faction} onChange={setFaction} />
+          {/* Titles are tavern-wide, so the faction filter doesn't apply to them. */}
+          {view !== 'titles' && <FactionPicker value={faction} onChange={setFaction} />}
         </div>
         {view === 'feed' && (
           <TavernFeed tavernId={t.id} viewerName={me.data?.displayName} include={faction === 'both' ? undefined : includePost} />
@@ -292,6 +296,7 @@ export function TavernDetailPage() {
         {view === 'characters' && <CharacterRoster tavern={t} characters={visible} />}
         {view === 'dungeons' && <DungeonTable characters={visible} showTotals />}
         {view === 'leaderboard' && <TavernLeaderboard tavernId={t.id} visible={visible} />}
+        {view === 'titles' && <TitlesView titles={t.titles ?? []} selectedKey={titleKey} onSelect={setTitleKey} />}
 
         <div className="three-col">
           <MyCharactersPanel tavern={t} />

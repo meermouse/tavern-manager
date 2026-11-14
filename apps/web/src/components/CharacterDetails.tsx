@@ -6,7 +6,7 @@ import { ClassName, classKey } from './ClassName';
 import { ItemLink } from './ItemLink';
 import { PortraitViewer } from './PortraitViewer';
 import { ProfessionList } from './ProfessionIcons';
-import { AchievementBadges } from './AchievementBadges';
+import { TitleBadges } from './TitleBadges';
 import { RoleIcons, RolePicker } from './RoleIcons';
 import { FeedPost, timeAgo } from './TavernFeed';
 
@@ -150,7 +150,7 @@ export function CharacterDetails({
             <span className="badge">{c.region.toUpperCase()}</span>
             {!isOwner && <RoleIcons roles={c.roles} />}
           </div>
-          <AchievementBadges achievements={c.achievements} labelled />
+          <TitleBadges titles={c.titles} labelled />
           {isOwner && (
             <div className="details-roles">
               <span className="muted small-text">Your roles for this character</span>
