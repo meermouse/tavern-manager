@@ -94,6 +94,8 @@ export interface AccountCharacter {
 }
 
 export interface BlizzardClient {
+  /** Debug mode (`BLIZZARD_DEBUG`): responses are logged, and syncs refetch every endpoint instead of waiting. */
+  debug?: boolean;
   /** Returns `null` when the character isn't (yet) visible to the API, e.g. low level or never logged out. */
   getCharacter(region: Region, name: string, surname: string): Promise<CharacterProfile | null>;
   /** Characters on the signed-in user's account. Needs a user token with the `wow.profile` scope. */
@@ -440,6 +442,8 @@ export function characterSlug(name: string, surname: string): string {
 export function createBlizzardClient(
   creds: { clientId: string; clientSecret: string },
   fetchImpl: typeof fetch = fetch,
+  /** Called with one line per character request (path and HTTP status), for debug logging. */
+  log?: (line: string) => void,
 ): BlizzardClient {
   let appToken: { value: string; expiresAt: number } | null = null;
 
@@ -473,6 +477,8 @@ export function createBlizzardClient(
       appToken = null;
       res = await get(url, await getAppToken());
     }
+    // The path only: the query string is just the namespace, and the token is in a header.
+    log?.(`GET ${new URL(url).pathname} → ${res.status}${res.status === 404 ? ' (not found: treated as no data)' : ''}`);
     if (res.status === 404) return null;
     if (!res.ok) throw new BlizzardError(`Blizzard API error (${res.status})`, res.status);
     return (await res.json()) as Json;

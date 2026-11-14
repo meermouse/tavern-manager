@@ -46,6 +46,8 @@ export interface TitleDef {
   subject: 'character' | 'player';
   /** Lowest score wins rather than highest. */
   lowestWins?: boolean;
+  /** The Blizzard statistics the title reads, if any (for debug logging of missing data). */
+  statNames?: (string | RegExp)[];
   /** The score; `null` = not eligible (no data yet). */
   score: (input: ScoreInput) => number | null;
   /** Whether the leading score is good enough to hold the title. Default: above 0. */
@@ -143,7 +145,7 @@ function statTitle(
   names: (string | RegExp)[],
   format: (n: number) => string,
 ): TitleDef {
-  return { key, name, icon, description, subject: 'character', score: ({ stats }) => findStat(stats, ...names), format };
+  return { key, name, icon, description, subject: 'character', statNames: names, score: ({ stats }) => findStat(stats, ...names), format };
 }
 
 export const TITLES: TitleDef[] = [
@@ -153,6 +155,7 @@ export const TITLES: TitleDef[] = [
     icon: '🎲',
     description: `Highest share of loot rolls made as Need in the tavern (at least ${NINJA_MIN_ROLLS} rolls).`,
     subject: 'character',
+    statNames: ['Need rolls made on loot', /need rolls/i, 'Greed rolls made on loot', /greed rolls/i],
     score: ({ stats }) => needPercent(stats),
     format: (p) => `${p.toFixed(1)}% need rolls`,
   },
@@ -238,6 +241,21 @@ export const TITLES: TitleDef[] = [
     format: (d) => `${plural(Math.floor(d), 'day')} since last seen`,
   },
 ];
+
+/**
+ * Titles that read Blizzard statistics this character's map can't feed: the statistic is `missing` altogether,
+ * or present but `zero`. For debug logging.
+ */
+export function titleStatGaps(stats: Record<string, number>): { title: string; problem: 'missing' | 'zero' }[] {
+  const gaps: { title: string; problem: 'missing' | 'zero' }[] = [];
+  for (const t of TITLES) {
+    if (!t.statNames) continue;
+    const value = findStat(stats, ...t.statNames);
+    if (value == null) gaps.push({ title: t.name, problem: 'missing' });
+    else if (value === 0) gaps.push({ title: t.name, problem: 'zero' });
+  }
+  return gaps;
+}
 
 function jsonValue(value: unknown): unknown {
   return typeof value === 'string' ? JSON.parse(value) : value;

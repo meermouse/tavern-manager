@@ -58,7 +58,7 @@ export async function syncMedia(
   if (!blizzard.getMedia) return row;
   const last = row.media_synced_at?.getTime();
   const loggedIn = row.last_login_at != null && row.last_login_at.getTime() !== prevLogin?.getTime();
-  const due = last == null || Date.now() - last > MEDIA_MAX_AGE_MS || loggedIn;
+  const due = last == null || Date.now() - last > MEDIA_MAX_AGE_MS || loggedIn || !!blizzard.debug;
   if (!due) return row;
   const media = await bestEffort('Media sync', () => blizzard.getMedia!(row.region, row.name, row.surname));
   if (!media) return row;
@@ -87,7 +87,7 @@ export async function syncStatistics(
   if (!blizzard.getStatistics && !blizzard.getCharacterStats) return row;
   const last = row.statistics_synced_at?.getTime();
   const loggedIn = row.last_login_at != null && row.last_login_at.getTime() !== prevLogin?.getTime();
-  if (last != null && Date.now() - last <= STATISTICS_MAX_AGE_MS && !loggedIn) return row;
+  if (last != null && Date.now() - last <= STATISTICS_MAX_AGE_MS && !loggedIn && !blizzard.debug) return row;
   const { region, name, surname } = row;
   const statistics = await bestEffort(
     'Statistics sync',
@@ -125,7 +125,7 @@ export async function syncProfessions(
   if (!blizzard.getProfessions) return row;
   const last = row.professions_synced_at?.getTime();
   const loggedIn = row.last_login_at != null && row.last_login_at.getTime() !== prevLogin?.getTime();
-  if (last != null && Date.now() - last <= PROFESSIONS_MAX_AGE_MS && !loggedIn) return row;
+  if (last != null && Date.now() - last <= PROFESSIONS_MAX_AGE_MS && !loggedIn && !blizzard.debug) return row;
   const professions = await bestEffort('Professions sync', () =>
     blizzard.getProfessions!(row.region, row.name, row.surname),
   );

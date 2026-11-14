@@ -183,6 +183,7 @@ SESSION_SECRET=a_long_random_string
 | `DEV_LOGIN` | on when no Battle.net creds | Never enabled in production |
 | `BLIZZARD_MOCK` | on when no Battle.net creds | Fake character data |
 | `REFRESH_INTERVAL_MINUTES` | `30` | How stale a character must be before the scheduler refreshes it |
+| `BLIZZARD_DEBUG` | off | Logs every Blizzard API call: the HTTP status, what came back (flagging `NOTHING RETURNED` / `EMPTY LIST`), and which titles have no statistic to read. Syncs also refetch every endpoint instead of waiting hours. Lines start with `[blizzard-debug]`; on Netlify they're in the function logs. Turn off when done, as it makes more API calls. |
 
 In the web app, `VITE_API_URL` (see `apps/web/.env.example`) only sets where the Vite dev server proxies `/api` and `/auth`. The browser always talks to the same origin, so cookies stay first-party.
 

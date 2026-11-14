@@ -21,6 +21,8 @@ export interface Config {
   devLogin: boolean;
   /** Use fake Blizzard character data instead of calling the real API. */
   blizzardMock: boolean;
+  /** Log every Blizzard API response and refetch every endpoint on each sync (spotting missing data). */
+  blizzardDebug: boolean;
   /** How often (minutes) characters are refreshed by the scheduler. */
   refreshIntervalMinutes: number;
 }
@@ -56,6 +58,7 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     sessionSecret: sessionSecret || 'dev-only-insecure-session-secret',
     devLogin: bool(env.DEV_LOGIN, !production && !bnet),
     blizzardMock: bool(env.BLIZZARD_MOCK, !production && !bnet),
+    blizzardDebug: bool(env.BLIZZARD_DEBUG, false),
     refreshIntervalMinutes: Number(env.REFRESH_INTERVAL_MINUTES ?? 30),
   };
 }

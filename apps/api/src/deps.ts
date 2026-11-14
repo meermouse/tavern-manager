@@ -1,5 +1,6 @@
 import { createBattleNetOAuth } from './auth/oauth.js';
 import { createBlizzardClient, type BlizzardClient } from './blizzard/client.js';
+import { withDebugLogging } from './blizzard/debug.js';
 import { createMockBlizzardClient } from './blizzard/mock.js';
 import { loadConfig, type Config } from './config.js';
 import { createDb } from './db.js';
@@ -7,9 +8,12 @@ import type { AppDeps } from './context.js';
 import { migrate } from './schema.js';
 
 export function createBlizzard(config: Config): BlizzardClient {
-  if (config.blizzardMock) return createMockBlizzardClient();
-  if (!config.bnet) throw new Error('BNET_CLIENT_ID / BNET_CLIENT_SECRET are required (or set BLIZZARD_MOCK=true)');
-  return createBlizzardClient(config.bnet);
+  const log = (line: string) => console.log(`[blizzard-debug] ${line}`);
+  let client: BlizzardClient;
+  if (config.blizzardMock) client = createMockBlizzardClient();
+  else if (!config.bnet) throw new Error('BNET_CLIENT_ID / BNET_CLIENT_SECRET are required (or set BLIZZARD_MOCK=true)');
+  else client = createBlizzardClient(config.bnet, fetch, config.blizzardDebug ? log : undefined);
+  return config.blizzardDebug ? withDebugLogging(client, log) : client;
 }
 
 export async function createDeps(config: Config = loadConfig()): Promise<AppDeps> {
