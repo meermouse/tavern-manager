@@ -18,6 +18,11 @@ export interface TitleCandidate {
   owner_name?: string;
   statistics: unknown;
   professions?: unknown;
+  /** Blizzard's equipped item level. */
+  item_level?: number | null;
+  last_login_at?: Date | string | null;
+  /** Level-ups, loot and achievement posts in the feed. */
+  feed_posts?: number | null;
 }
 
 /** What a title's score function sees for one character. */
@@ -26,6 +31,10 @@ export interface ScoreInput {
   professions: CharacterProfession[];
   /** How many characters this character's player has in the tavern. */
   playerCharacterCount: number;
+  itemLevel: number | null;
+  /** Days since the character last logged in, or `null` if Blizzard hasn't said. */
+  daysSinceSeen: number | null;
+  feedPosts: number | null;
 }
 
 export interface TitleDef {
@@ -50,7 +59,7 @@ export interface TitleBadge {
   name: string;
   icon: string;
   description: string;
-  /** The winning score, formatted, e.g. "412 hours played". */
+  /** The winning score, formatted, e.g. "23.8% need rolls". */
   value: string;
 }
 
@@ -74,6 +83,10 @@ export interface TitleStandings extends Omit<TitleBadge, 'value'> {
   standings: TitleStanding[];
 }
 
+/** Feed posts for character `c`, as a select-list subquery (the same count as the leaderboard's). */
+export const FEED_POSTS_SQL = `(select count(*)::int from feed_events e
+  where e.character_id = c.id and e.kind in ('level_up', 'loot', 'achievement'))`;
+
 /** Need/greed/disenchant rolls needed before the need percentage counts, so one lucky roll isn't 100%. */
 export const NINJA_MIN_ROLLS = 10;
 /** Characters a player needs in the tavern to be an Altaholic: one main plus at least one alt. */
@@ -95,11 +108,6 @@ export function findStat(stats: Record<string, number>, ...names: (string | RegE
   return null;
 }
 
-/** Lifetime time played, in seconds. Blizzard's name for it in the Forever API isn't documented, so try a few. */
-export function secondsPlayed(stats: Record<string, number>): number | null {
-  return findStat(stats, 'Total time played', 'Time played', /time played/i, /played time/i);
-}
-
 /** Share of loot rolls that were Need (0–100), once they've made enough rolls to count. */
 export function needPercent(stats: Record<string, number>): number | null {
   const need = findStat(stats, 'Need rolls made on loot', /need rolls/i);
@@ -109,31 +117,30 @@ export function needPercent(stats: Record<string, number>): number | null {
   return total >= NINJA_MIN_ROLLS ? (need / total) * 100 : null;
 }
 
-/** Cooking skill, or `null` if the character hasn't learned Cooking (or professions haven't synced). */
-export function cookingSkill(professions: CharacterProfession[]): number | null {
-  const cooking = professions.find((p) => p.name.toLowerCase() === 'cooking');
-  return cooking?.skill ?? null;
+/** A profession's skill, or `null` if the character hasn't learned it (or professions haven't synced). */
+export function professionSkill(professions: CharacterProfession[], name: string): number | null {
+  return professions.find((p) => p.name.toLowerCase() === name.toLowerCase())?.skill ?? null;
 }
 
-const formatHours = (s: number) => {
-  const hours = Math.floor(s / 3600);
-  return `${hours.toLocaleString('en')} hour${hours === 1 ? '' : 's'} played`;
-};
+const plural = (n: number, word: string) => `${Math.round(n).toLocaleString('en')} ${word}${Math.round(n) === 1 ? '' : 's'}`;
+
+/** A title for whoever has the most of a Blizzard statistic. */
+function statTitle(
+  key: string,
+  name: string,
+  icon: string,
+  description: string,
+  names: (string | RegExp)[],
+  format: (n: number) => string,
+): TitleDef {
+  return { key, name, icon, description, subject: 'character', score: ({ stats }) => findStat(stats, ...names), format };
+}
 
 export const TITLES: TitleDef[] = [
   {
-    key: 'without-life',
-    name: 'He Is Without Life',
-    icon: '⏳',
-    description: 'Most hours played in the tavern.',
-    subject: 'character',
-    score: ({ stats }) => secondsPlayed(stats),
-    format: formatHours,
-  },
-  {
     key: 'ninja',
     name: 'The Ninja',
-    icon: '🥷',
+    icon: '🎲',
     description: `Highest share of loot rolls made as Need in the tavern (at least ${NINJA_MIN_ROLLS} rolls).`,
     subject: 'character',
     score: ({ stats }) => needPercent(stats),
@@ -145,8 +152,26 @@ export const TITLES: TitleDef[] = [
     icon: '🍳',
     description: 'Highest Cooking skill in the tavern.',
     subject: 'character',
-    score: ({ professions }) => cookingSkill(professions),
+    score: ({ professions }) => professionSkill(professions, 'Cooking'),
     format: (s) => `${s} Cooking`,
+  },
+  {
+    key: 'old-man-sea',
+    name: 'Old Man and the Sea',
+    icon: '🎣',
+    description: 'Highest Fishing skill in the tavern.',
+    subject: 'character',
+    score: ({ professions }) => professionSkill(professions, 'Fishing'),
+    format: (s) => `${s} Fishing`,
+  },
+  {
+    key: 'field-medic',
+    name: 'Field Medic',
+    icon: '🩹',
+    description: 'Highest First Aid skill in the tavern.',
+    subject: 'character',
+    score: ({ professions }) => professionSkill(professions, 'First Aid'),
+    format: (s) => `${s} First Aid`,
   },
   {
     key: 'altaholic',
@@ -158,19 +183,45 @@ export const TITLES: TitleDef[] = [
     holds: (n) => n >= ALTAHOLIC_MIN_CHARACTERS,
     format: (n) => `${n} character${n === 1 ? '' : 's'}`,
   },
+  statTitle('corpse-runner', 'Corpse Runner', '💀', 'Most deaths in the tavern.',
+    ['Total deaths', /^total deaths$/i, /^deaths$/i], (n) => plural(n, 'death')),
+  statTitle('gravity-tester', 'Gravity Tester', '🪂', 'Most deaths from falling in the tavern.',
+    ['Deaths from falling', /deaths from falling/i], (n) => `${plural(n, 'fatal fall')}`),
+  statTitle('regular', 'Regular', '🍺', 'Most drinks consumed in the tavern.',
+    ['Beverages consumed', /beverages consumed/i, /drinks consumed/i], (n) => plural(n, 'drink')),
+  statTitle('bunny-slayer', 'Bunny Slayer', '🐇', 'Most critters killed in the tavern.',
+    ['Critters killed', /critters killed/i], (n) => plural(n, 'critter')),
+  // Blizzard reports money in copper.
+  statTitle('dragons-hoard', 'Dragon’s Hoard', '💰', 'Most gold ever owned at once, in the tavern.',
+    ['Most gold ever owned', /most gold ever owned/i], (c) => `${Math.floor(c / 10_000).toLocaleString('en')}g at peak`),
   {
-    key: 'weak',
-    name: 'Weak',
-    icon: '🐣',
-    description: 'Least time played in the tavern.',
+    key: 'best-dressed',
+    name: 'Best Dressed',
+    icon: '✨',
+    description: 'Highest average item level in the tavern.',
     subject: 'character',
-    lowestWins: true,
-    // 0 means the stat is missing rather than a brand-new character, so it doesn't count.
-    score: ({ stats }) => {
-      const s = secondsPlayed(stats);
-      return s != null && s > 0 ? s : null;
-    },
-    format: formatHours,
+    score: ({ itemLevel }) => itemLevel,
+    format: (n) => `Item level ${n}`,
+  },
+  {
+    key: 'town-crier',
+    name: 'Town Crier',
+    icon: '📣',
+    description: 'Most feed posts (level-ups, loot and achievements) in the tavern.',
+    subject: 'character',
+    score: ({ feedPosts }) => feedPosts,
+    format: (n) => plural(n, 'feed post'),
+  },
+  {
+    key: 'gone-fishin',
+    name: 'Gone Fishin’',
+    icon: '👻',
+    description: 'Longest since last logging in, in the tavern.',
+    subject: 'character',
+    score: ({ daysSinceSeen }) => daysSinceSeen,
+    // Under a day away isn't really gone.
+    holds: (d) => d >= 1,
+    format: (d) => `${plural(Math.floor(d), 'day')} since last seen`,
   },
 ];
 
@@ -181,6 +232,12 @@ function jsonValue(value: unknown): unknown {
 function statMap(value: unknown): Record<string, number> {
   const raw = jsonValue(value);
   return raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as Record<string, number>) : {};
+}
+
+function daysSince(when: Date | string | null | undefined): number | null {
+  if (!when) return null;
+  const t = new Date(when).getTime();
+  return Number.isFinite(t) ? Math.max(0, (Date.now() - t) / 86_400_000) : null;
 }
 
 function professionList(value: unknown): CharacterProfession[] {
@@ -198,6 +255,9 @@ export function rankTitles(characters: TitleCandidate[]): TitleStandings[] {
       stats: statMap(c.statistics),
       professions: professionList(c.professions),
       playerCharacterCount: perPlayer.get(c.user_id) ?? 0,
+      itemLevel: c.item_level ?? null,
+      daysSinceSeen: daysSince(c.last_login_at),
+      feedPosts: c.feed_posts ?? null,
     },
   }));
 
@@ -270,7 +330,7 @@ export function awardTitles(characters: TitleCandidate[], ranked = rankTitles(ch
 export async function userTitles(db: Db, userId: string) {
   const rows = await db.query<TitleCandidate & { tavern_id: string; tavern_name: string; name: string; surname: string }>(
     `select tc.tavern_id, t.name as tavern_name, c.id, c.user_id, c.name, c.surname, c.statistics, c.professions,
-       u.display_name as owner_name
+       c.item_level, c.last_login_at, u.display_name as owner_name, ${FEED_POSTS_SQL} as feed_posts
      from tavern_members m
      join taverns t on t.id = m.tavern_id
      join tavern_characters tc on tc.tavern_id = m.tavern_id

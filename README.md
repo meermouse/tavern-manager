@@ -46,11 +46,21 @@ Players sign in with their Battle.net account, add their characters, and join a 
 
   | Title | Awarded for |
   |---|---|
-  | ⏳ **He Is Without Life** | Most hours played (the `Total time played` statistic, in seconds) |
-  | 🥷 **The Ninja** | Highest share of loot rolls that were Need (need ÷ need + greed + disenchant), at least 10 rolls |
+  | 🎲 **The Ninja** | Highest share of loot rolls that were Need (need ÷ need + greed + disenchant), at least 10 rolls |
   | 🍳 **Head Chef** | Highest Cooking skill (from synced professions) |
+  | 🎣 **Old Man and the Sea** | Highest Fishing skill |
+  | 🩹 **Field Medic** | Highest First Aid skill |
   | 👥 **Altaholic** | Player title: most characters in the tavern, at least 2 |
-  | 🐣 **Weak** | Least time played (a missing / zero time doesn't count) |
+  | 💀 **Corpse Runner** | Most total deaths |
+  | 🪂 **Gravity Tester** | Most deaths from falling |
+  | 🍺 **Regular** | Most drinks consumed |
+  | 🐇 **Bunny Slayer** | Most critters killed |
+  | 💰 **Dragon’s Hoard** | Most gold ever owned at once |
+  | ✨ **Best Dressed** | Highest average (equipped) item level |
+  | 📣 **Town Crier** | Most feed posts (level-ups, loot, achievements) |
+  | 👻 **Gone Fishin’** | Longest since last logging in, at least a day |
+
+  The statistic-based titles (deaths, falls, drinks, critters, gold) depend on Blizzard's `/achievements/statistics` returning those names; a title with no data just stays unclaimed.
 
   Definitions live in `apps/api/src/titles.ts`; add an entry to `TITLES` for a new one (`lowestWins` flips the order, `subject: 'player'` ranks players instead of characters).
 
