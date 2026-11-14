@@ -1,7 +1,7 @@
 import { randomInt } from 'node:crypto';
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
-import { awardTitles, rankTitles } from '../titles.js';
+import { awardTitles, FEED_POSTS_SQL, rankTitles } from '../titles.js';
 import { badRequest, jsonBody, requireUser, uuidParam, type AppDeps, type AppEnv } from '../context.js';
 import { eventVisibleInTavern, recordEvent, setCheer, tavernFeed } from '../feed.js';
 import { serializeCharacter, serializeEquipment } from '../serialize.js';
@@ -54,8 +54,8 @@ export function tavernRoutes({ db, blizzard }: AppDeps) {
        where m.tavern_id = $1 order by m.joined_at`,
       [tavern.id],
     );
-    const characters = await db.query<CharacterRow & { owner_name: string }>(
-      `select c.*, u.display_name as owner_name from tavern_characters tc
+    const characters = await db.query<CharacterRow & { owner_name: string; feed_posts: number }>(
+      `select c.*, u.display_name as owner_name, ${FEED_POSTS_SQL} as feed_posts from tavern_characters tc
        join characters c on c.id = tc.character_id
        join users u on u.id = c.user_id
        where tc.tavern_id = $1

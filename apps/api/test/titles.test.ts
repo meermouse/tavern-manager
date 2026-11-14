@@ -76,6 +76,55 @@ describe('rankTitles', () => {
   });
 });
 
+describe('new titles', () => {
+  const day = 86_400_000;
+  const keysHeld = (c: Parameters<typeof rankTitles>[0][number]) =>
+    (awardTitles([c, { id: 'z', user_id: 'uz', statistics: null }]).get(c.id) ?? []).map((b) => b.key);
+
+  it('scores Fishing and First Aid separately from Cooking', () => {
+    const professions = [
+      { name: 'Cooking', kind: 'secondary', skill: 50, maxSkill: 75 },
+      { name: 'Fishing', kind: 'secondary', skill: 120, maxSkill: 150 },
+      { name: 'First Aid', kind: 'secondary', skill: 80, maxSkill: 150 },
+    ];
+    const ranked = rankTitles([{ id: 'a', user_id: 'u', statistics: null, professions }]);
+    const value = (key: string) => ranked.find((t) => t.key === key)!.standings[0].value;
+    expect([value('head-chef'), value('old-man-sea'), value('field-medic')]).toEqual(['50 Cooking', '120 Fishing', '80 First Aid']);
+  });
+
+  it('reads Blizzard statistics for the stat titles', () => {
+    const stats = {
+      'Total deaths': 40, 'Deaths from falling': 1, 'Beverages consumed': 12, 'Critters killed': 300,
+      'Most gold ever owned': 1_234_5678,
+    };
+    const ranked = rankTitles([{ id: 'a', user_id: 'u', statistics: stats }]);
+    const value = (key: string) => ranked.find((t) => t.key === key)!.standings[0]?.value;
+    expect(value('corpse-runner')).toBe('40 deaths');
+    expect(value('gravity-tester')).toBe('1 fatal fall');
+    expect(value('regular')).toBe('12 drinks');
+    expect(value('bunny-slayer')).toBe('300 critters');
+    expect(value('dragons-hoard')).toBe('1,234g at peak');
+  });
+
+  it('uses item level, feed posts and last login', () => {
+    expect(keysHeld({ id: 'a', user_id: 'u', statistics: null, item_level: 62, feed_posts: 3 })).toEqual([
+      'best-dressed',
+      'town-crier',
+    ]);
+    const away = rankTitles([
+      { id: 'a', user_id: 'u1', statistics: null, last_login_at: new Date(Date.now() - 10 * day) },
+      { id: 'b', user_id: 'u2', statistics: null, last_login_at: new Date(Date.now() - 2 * day).toISOString() },
+      { id: 'c', user_id: 'u3', statistics: null, last_login_at: null },
+    ]).find((t) => t.key === 'gone-fishin')!.standings;
+    expect(away.map((s) => [s.character!.id, s.value, s.holder])).toEqual([
+      ['a', '10 days since last seen', true],
+      ['b', '2 days since last seen', false],
+    ]);
+    // Seen today: not really gone.
+    expect(keysHeld({ id: 'a', user_id: 'u', statistics: null, last_login_at: new Date() })).toEqual([]);
+  });
+});
+
 describe('title routes', () => {
   it('shows titles on tavern characters, the tavern’s standings and the holder’s profile', async () => {
     const { login, db } = await setup();
@@ -87,12 +136,15 @@ describe('title routes', () => {
     await bob.post(`/api/invites/${tavern.inviteCode}/join`);
     await alice.put(`/api/taverns/${tavern.id}/characters/${judy.id}`);
     await bob.put(`/api/taverns/${tavern.id}/characters/${grim.id}`);
-    const setStats = (id: string, stats: Record<string, number>, professions: unknown) =>
-      db.query('update characters set statistics = $2::jsonb, professions = $3::jsonb where id = $1', [
-        id,
-        JSON.stringify(stats),
-        professions && JSON.stringify(professions),
-      ]);
+    // Only the stats under test: clear the gear, logins and feed posts the mock sync filled in.
+    const setStats = async (id: string, stats: Record<string, number>, professions: unknown) => {
+      await db.query(
+        `update characters set statistics = $2::jsonb, professions = $3::jsonb, item_level = null, last_login_at = null
+         where id = $1`,
+        [id, JSON.stringify(stats), professions && JSON.stringify(professions)],
+      );
+      await db.query('delete from feed_events where character_id = $1', [id]);
+    };
     await setStats(judy.id, rolls(1, 19), cooking(200));
     await setStats(grim.id, rolls(15, 5), null);
 
@@ -101,7 +153,13 @@ describe('title routes', () => {
     expect(byId(judy.id).titles.map((a: { name: string }) => a.name)).toEqual(['Head Chef']);
     expect(byId(grim.id).titles.map((a: { name: string }) => a.name)).toEqual(['The Ninja']);
     const titleKeys = detail.titles.map((t: { key: string }) => t.key);
-    expect(titleKeys).toEqual(['ninja', 'head-chef', 'altaholic']);
+    expect(titleKeys).toEqual([
+      'ninja', 'head-chef', 'old-man-sea', 'field-medic', 'altaholic', 'corpse-runner', 'gravity-tester',
+      'regular', 'bunny-slayer', 'dragons-hoard', 'best-dressed', 'town-crier', 'gone-fishin',
+    ]);
+    // Feed posts are counted (none left), so both are in the running but nobody holds Town Crier at 0.
+    const crier = detail.titles.find((t: { key: string }) => t.key === 'town-crier');
+    expect(crier.standings.map((s: { score: number; holder: boolean }) => [s.score, s.holder])).toEqual([[0, false], [0, false]]);
     const ninja = detail.titles.find((t: { key: string }) => t.key === 'ninja');
     expect(ninja.standings).toEqual([
       expect.objectContaining({ rank: 1, holder: true, character: { id: grim.id, name: 'Grimble', surname: 'Thornwick' } }),
