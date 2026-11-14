@@ -56,11 +56,13 @@ Players sign in with their Battle.net account, add their characters, and join a 
   | 🍺 **Regular** | Most drinks consumed |
   | 🐇 **Bunny Slayer** | Most critters killed |
   | 💰 **Dragon’s Hoard** | Most gold ever owned at once |
+  | 💥 **One Punch** | Biggest single hit dealt |
+  | 🙌 **Lay on Hands** | Biggest single heal cast |
   | ✨ **Best Dressed** | Highest average (equipped) item level |
   | 📣 **Town Crier** | Most feed posts (level-ups, loot, achievements) |
   | 👻 **Gone Fishin’** | Longest since last logging in, at least a day |
 
-  The statistic-based titles (deaths, falls, drinks, critters, gold) depend on Blizzard's `/achievements/statistics` returning those names; a title with no data just stays unclaimed.
+  The statistic-based titles (deaths, falls, drinks, critters, gold, biggest hit and heal) depend on Blizzard's `/achievements/statistics` returning those names; a title with no data just stays unclaimed.
 
   Definitions live in `apps/api/src/titles.ts`; add an entry to `TITLES` for a new one (`lowestWins` flips the order, `subject: 'player'` ranks players instead of characters).
 
