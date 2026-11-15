@@ -39,6 +39,7 @@ export interface CharacterRow {
   statistics_synced_at: Date | null;
   professions: unknown;
   professions_synced_at: Date | null;
+  dungeons_completed: unknown;
   created_at: Date;
 }
 

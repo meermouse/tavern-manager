@@ -1,5 +1,6 @@
 import { Link } from 'react-router';
 import { useCharacters } from '../api/hooks';
+import { DungeonLog } from '../components/DungeonLog';
 import { DungeonTable } from '../components/DungeonTable';
 
 export function MyDungeonsPage() {
@@ -26,6 +27,19 @@ export function MyDungeonsPage() {
           <DungeonTable characters={characters.data} charactersLabel="Your characters" />
         )}
       </section>
+
+      {characters.data && characters.data.length > 0 && (
+        <section className="stack">
+          <div>
+            <h2>Dungeon log</h2>
+            <p className="muted">
+              Tick off each dungeon a character has completed. Your taverns see the ticks in their dungeon finder and
+              character details.
+            </p>
+          </div>
+          <DungeonLog characters={characters.data} />
+        </section>
+      )}
     </div>
   );
 }

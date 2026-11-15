@@ -88,6 +88,8 @@ export interface Character {
   roles?: Role[];
   /** Trained professions, primaries first; `null` before they've synced. */
   professions?: Profession[] | null;
+  /** Dungeon log: dungeon name → when the owner logged it as completed (ISO). */
+  dungeonsCompleted?: Record<string, string>;
 }
 
 export interface TavernCharacter extends Character {
@@ -151,7 +153,14 @@ export interface TavernDetail {
   titles?: TitleStandings[];
 }
 
-export type FeedKind = 'level_up' | 'loot' | 'achievement' | 'character_joined' | 'member_joined' | 'tavern_founded';
+export type FeedKind =
+  | 'level_up'
+  | 'loot'
+  | 'achievement'
+  | 'dungeon_cleared'
+  | 'character_joined'
+  | 'member_joined'
+  | 'tavern_founded';
 
 export interface FeedItem {
   id: number;
@@ -192,6 +201,8 @@ export interface FeedEvent {
     items?: FeedItem[];
     achievements?: FeedAchievement[];
     tavernName?: string;
+    /** dungeon_cleared: the dungeon's name. */
+    dungeon?: string;
   };
   cheers: Cheers;
 }
@@ -257,6 +268,8 @@ export const api = {
     request<{ found: number; imported: number; skipped: number }>('POST', '/api/characters/import'),
   refreshCharacter: (id: string) => request<Character>('POST', `/api/characters/${id}/refresh`),
   setCharacterRoles: (id: string, roles: Role[]) => request<Character>('PATCH', `/api/characters/${id}`, { roles }),
+  setDungeonCompleted: (id: string, dungeon: string, completed: boolean) =>
+    request<Character>('POST', `/api/characters/${id}/dungeons`, { dungeon, completed }),
   deleteCharacter: (id: string) => request<{ ok: true }>('DELETE', `/api/characters/${id}`),
 
   taverns: () => request<TavernSummary[]>('GET', '/api/taverns'),

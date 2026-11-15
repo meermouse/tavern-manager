@@ -124,6 +124,57 @@ describe('characters', () => {
     expect((await bob.patch(`/api/characters/${ch.id}`, { roles: ['healer'] })).status).toBe(404);
     expect((await alice.patch(`/api/characters/${ch.id}`, { roles: [] })).body.roles).toEqual([]);
   });
+
+  it('lets the owner log completed dungeons, shown to the tavern', async () => {
+    const { login } = await setup();
+    const alice = await login('Alice#1234');
+    const bob = await login('Bob#5678');
+    const ch = (await alice.post('/api/characters', { name: 'Judgement', surname: 'Judy' })).body;
+    expect(ch.dungeonsCompleted).toEqual({});
+
+    const done = await alice.post(`/api/characters/${ch.id}/dungeons`, { dungeon: 'The Deadmines', completed: true });
+    expect(done.status).toBe(200);
+    const loggedAt = done.body.dungeonsCompleted['The Deadmines'];
+    expect(new Date(loggedAt).toString()).not.toBe('Invalid Date');
+    // Logging again keeps the original date.
+    const again = await alice.post(`/api/characters/${ch.id}/dungeons`, { dungeon: 'The Deadmines', completed: true });
+    expect(again.body.dungeonsCompleted).toEqual({ 'The Deadmines': loggedAt });
+    await alice.post(`/api/characters/${ch.id}/dungeons`, { dungeon: "Zul'Farrak", completed: true });
+    expect(Object.keys((await alice.get('/api/characters')).body[0].dungeonsCompleted).sort()).toEqual([
+      'The Deadmines',
+      "Zul'Farrak",
+    ]);
+
+    const tavern = (await alice.post('/api/taverns', { name: 'The Pig' })).body;
+    await alice.put(`/api/taverns/${tavern.id}/characters/${ch.id}`);
+    expect((await alice.get(`/api/taverns/${tavern.id}`)).body.characters[0].dungeonsCompleted).toHaveProperty(
+      'The Deadmines',
+    );
+
+    // Each new tick is one feed post (logging The Deadmines twice posted once).
+    const posts = async () =>
+      (await alice.get(`/api/taverns/${tavern.id}/feed`)).body.events
+        .filter((e: { kind: string }) => e.kind === 'dungeon_cleared')
+        .map((e: { data: { dungeon: string }; character: { id: string } }) => [e.character.id, e.data.dungeon]);
+    expect(await posts()).toEqual([
+      [ch.id, "Zul'Farrak"],
+      [ch.id, 'The Deadmines'],
+    ]);
+
+    const undone = await alice.post(`/api/characters/${ch.id}/dungeons`, { dungeon: 'The Deadmines', completed: false });
+    expect(undone.body.dungeonsCompleted).toEqual({ "Zul'Farrak": expect.any(String) });
+    // Unticking takes its post down; unticking again changes nothing.
+    expect(await posts()).toEqual([[ch.id, "Zul'Farrak"]]);
+    expect(
+      (await alice.post(`/api/characters/${ch.id}/dungeons`, { dungeon: 'The Deadmines', completed: false })).status,
+    ).toBe(200);
+
+    expect((await alice.post(`/api/characters/${ch.id}/dungeons`, { dungeon: '', completed: true })).status).toBe(400);
+    expect((await alice.post(`/api/characters/${ch.id}/dungeons`, { dungeon: 'Uldaman' })).status).toBe(400);
+    expect(
+      (await bob.post(`/api/characters/${ch.id}/dungeons`, { dungeon: 'Uldaman', completed: true })).status,
+    ).toBe(404);
+  });
 });
 
 describe('taverns', () => {

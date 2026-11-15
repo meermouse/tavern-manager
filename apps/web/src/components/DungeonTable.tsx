@@ -6,7 +6,16 @@ import { ClassName } from './ClassName';
 import { RoleCounts, RoleIcons } from './RoleIcons';
 import { assignCharactersToDungeons } from '../dungeons';
 
-function CharacterNames({ characters, showRoles }: { characters: Character[]; showRoles: boolean }) {
+function CharacterNames({
+  characters,
+  showRoles,
+  dungeon,
+}: {
+  characters: Character[];
+  showRoles: boolean;
+  /** The row's dungeon, to mark characters who've logged it as completed. */
+  dungeon?: string;
+}) {
   if (!characters.length) return <span className="muted">No characters in range</span>;
 
   return (
@@ -29,6 +38,11 @@ function CharacterNames({ characters, showRoles }: { characters: Character[]; sh
             )}
             {character.class && <ClassName value={character.class} />}
             <CharacterLevel character={character} />
+            {dungeon && character.dungeonsCompleted?.[dungeon] && (
+              <span className="badge dungeon-done" title={`Logged as completed ${new Date(character.dungeonsCompleted[dungeon]).toLocaleDateString()}`}>
+                ✔ Done
+              </span>
+            )}
           </span>
         </li>
       ))}
@@ -97,7 +111,7 @@ export function DungeonTable({
               <td data-label="Players">{row.dungeon.players}</td>
               <td data-label="Faction">{row.dungeon.faction}</td>
               <td data-label={charactersLabel}>
-                <CharacterNames characters={row.characters} showRoles={showRoles} />
+                <CharacterNames characters={row.characters} showRoles={showRoles} dungeon={row.dungeon.name} />
               </td>
             </tr>
           ))}

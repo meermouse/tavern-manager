@@ -56,4 +56,14 @@ describe('DungeonTable', () => {
     const { container } = render(<DungeonTable characters={[char('Plain', 14)]} />);
     expect(container.querySelector('.dungeon-roles')).toBeNull();
   });
+
+  it('marks characters who have logged the dungeon as completed', () => {
+    const done = { ...char('Done', 14), dungeonsCompleted: { 'Ragefire Chasm': '2026-11-01T12:00:00Z' } };
+    render(<DungeonTable characters={[done, char('Fresh', 14)]} />);
+    const cells = within(row('Ragefire Chasm'));
+    expect(within(cells.getByText('Done Tester').closest('li')!).getByText('✔ Done')).toBeTruthy();
+    expect(within(cells.getByText('Fresh Tester').closest('li')!).queryByText('✔ Done')).toBeNull();
+    // Only on that dungeon's row.
+    expect(within(row('Hall of Thanes')).queryByText('✔ Done')).toBeNull();
+  });
 });

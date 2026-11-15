@@ -10,6 +10,7 @@ characters in it.
 | `level_up` | A sync sees a higher level than the one stored. Several levels at once become one post ("+3 levels"). Every 10th level and max level (60) get a highlighted post. | Character | Character summary (already synced) |
 | `loot` | A sync sees a newly equipped item of **rare** quality or better (rare, epic, legendary, artifact). All new items found in one sync go into one post. | Character | `GET /profile/wow/character/{slug}/equipment` |
 | `achievement` | A sync sees newly completed achievements. All found in one sync go into one post. | Character | `GET /profile/wow/character/{slug}/achievements` |
+| `dungeon_cleared` | The owner ticks a dungeon off in the character's dungeon log (My dungeons). Ticking the same dungeon again posts nothing; unticking it deletes the post. | Character | App (dungeon log) |
 | `character_joined` | A player adds a character to the Tavern. | Tavern | App |
 | `member_joined` | A player joins via an invite. | Tavern | App |
 | `tavern_founded` | The Tavern is created. | Tavern | App |
