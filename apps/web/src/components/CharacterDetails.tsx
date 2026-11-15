@@ -7,6 +7,8 @@ import { ItemLink } from './ItemLink';
 import { PortraitViewer } from './PortraitViewer';
 import { ProfessionList } from './ProfessionIcons';
 import { TitleBadges } from './TitleBadges';
+import { completedCount } from './DungeonLog';
+import { dungeons } from '../dungeons';
 import { RoleIcons, RolePicker } from './RoleIcons';
 import { FeedPost, timeAgo } from './TavernFeed';
 
@@ -60,6 +62,22 @@ function Portrait({ character }: { character: TavernCharacter }) {
         <PortraitViewer src={url} alt={alt} title={name} className={bg} onClose={() => setEnlarged(false)} />
       )}
     </>
+  );
+}
+
+/** The dungeons a character's owner has logged as completed, in level order. */
+function CompletedDungeons({ log }: { log: Record<string, string> | undefined }) {
+  const done = dungeons.filter((d) => log?.[d.name]);
+  if (!done.length) return <p className="muted small-text">None logged yet.</p>;
+  return (
+    <ul className="details-dungeons">
+      {done.map((d) => (
+        <li key={d.name}>
+          ✔ {d.name}{' '}
+          <time className="muted small-text" dateTime={log![d.name]}>{new Date(log![d.name]).toLocaleDateString()}</time>
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -165,6 +183,7 @@ export function CharacterDetails({
           <Stat label="Player">{c.ownerName}</Stat>
           {c.itemLevel != null && <Stat label="Item level">{c.itemLevel}</Stat>}
           {c.achievementPoints != null && <Stat label="Achievement points">{c.achievementPoints}</Stat>}
+          <Stat label="Dungeons completed">{completedCount(c)} / {dungeons.length}</Stat>
           {c.lastLoginAt && (
             <Stat label="Last seen in game">
               <time dateTime={c.lastLoginAt} title={new Date(c.lastLoginAt).toLocaleString()}>{timeAgo(c.lastLoginAt)}</time>
@@ -183,6 +202,8 @@ export function CharacterDetails({
           <div>
             <h3>Professions</h3>
             <ProfessionList professions={c.professions} />
+            <h3>Dungeons completed</h3>
+            <CompletedDungeons log={c.dungeonsCompleted} />
             <h3>Equipped</h3>
             <Gear items={details.isPending ? undefined : details.data?.equipment} syncedAt={details.data?.equipmentSyncedAt} />
           </div>

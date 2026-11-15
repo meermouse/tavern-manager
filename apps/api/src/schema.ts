@@ -148,6 +148,9 @@ create table if not exists tavern_title_holders (
   primary key (tavern_id, title_key)
 );
 
+-- Dungeon log: which dungeons the owner has marked as completed, as { "<dungeon name>": "<when logged>" }.
+alter table characters add column if not exists dungeons_completed jsonb not null default '{}';
+
 select pg_advisory_unlock(727274);
 `;
 

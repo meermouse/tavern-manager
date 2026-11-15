@@ -121,6 +121,25 @@ export function characterRoutes({ db, config, blizzard }: AppDeps) {
     return c.json(serializeCharacter(updated));
   });
 
+  /** Owner-only dungeon log: `{ dungeon, completed }` marks a dungeon done (with today's date) or clears it. */
+  app.post('/:id/dungeons', async (c) => {
+    const user = requireUser(c);
+    const row = await ownedCharacter(user.id, uuidParam(c, 'id'));
+    const body = await jsonBody(c);
+    const dungeon = typeof body.dungeon === 'string' ? body.dungeon.trim() : '';
+    if (!dungeon || dungeon.length > 80) badRequest('Pick a dungeon');
+    if (typeof body.completed !== 'boolean') badRequest('completed must be true or false');
+    const [updated] = await db.query<CharacterRow>(
+      body.completed
+        ? `update characters set dungeons_completed = case when dungeons_completed ? $2 then dungeons_completed
+             else dungeons_completed || jsonb_build_object($2::text, to_char(now() at time zone 'utc', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')) end
+           where id = $1 returning *`
+        : 'update characters set dungeons_completed = dungeons_completed - $2::text where id = $1 returning *',
+      [row.id, dungeon],
+    );
+    return c.json(serializeCharacter(updated));
+  });
+
   app.delete('/:id', async (c) => {
     const user = requireUser(c);
     const row = await ownedCharacter(user.id, uuidParam(c, 'id'));

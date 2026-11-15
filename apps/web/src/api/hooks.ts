@@ -1,4 +1,4 @@
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { api, ApiError, type Character, type Role } from './client';
 
 export const keys = {
@@ -68,15 +68,28 @@ export function useTavernFeed(id: string) {
   });
 }
 
-/** Swap in new roles for one character inside any cached tavern or character-details data. */
-function withRoles(data: unknown, characterId: string, roles: Role[]): unknown {
+/** Apply a change to one character inside any cached tavern or character-details data. */
+function withCharacter(data: unknown, characterId: string, change: (c: Character) => Character): unknown {
   if (!data || typeof data !== 'object') return data;
   const d = data as { id?: unknown; ownerId?: unknown; characters?: unknown };
   if (Array.isArray(d.characters)) {
-    return { ...d, characters: d.characters.map((c: Character) => (c.id === characterId ? { ...c, roles } : c)) };
+    return { ...d, characters: d.characters.map((c: Character) => (c.id === characterId ? change(c) : c)) };
   }
-  if (d.id === characterId && 'ownerId' in d) return { ...d, roles };
+  if (d.id === characterId && 'ownerId' in d) return change(d as Character);
   return data;
+}
+
+/** Apply a change to one character in every cached view of it (My characters, taverns, details panes). */
+function updateCachedCharacter(qc: QueryClient, characterId: string, change: (c: Character) => Character) {
+  qc.setQueryData<Character[]>(keys.characters, (list) => list?.map((c) => (c.id === characterId ? change(c) : c)));
+  qc.setQueriesData({ queryKey: keys.taverns }, (data) => withCharacter(data, characterId, change));
+}
+
+function refetchCharacters(qc: QueryClient) {
+  return Promise.all([
+    qc.invalidateQueries({ queryKey: keys.characters }),
+    qc.invalidateQueries({ queryKey: keys.taverns }),
+  ]);
 }
 
 /** Set a character's roles (owner only), updating every cached view of it straight away. */
@@ -84,17 +97,25 @@ export function useSetRoles(characterId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (roles: Role[]) => api.setCharacterRoles(characterId, roles),
-    onMutate: (roles) => {
-      qc.setQueryData<Character[]>(keys.characters, (list) =>
-        list?.map((c) => (c.id === characterId ? { ...c, roles } : c)),
-      );
-      qc.setQueriesData({ queryKey: keys.taverns }, (data) => withRoles(data, characterId, roles));
-    },
+    onMutate: (roles) => updateCachedCharacter(qc, characterId, (c) => ({ ...c, roles })),
     // Refetch either way, which also undoes the optimistic change if the save failed.
-    onSettled: () =>
-      Promise.all([
-        qc.invalidateQueries({ queryKey: keys.characters }),
-        qc.invalidateQueries({ queryKey: keys.taverns }),
-      ]),
+    onSettled: () => refetchCharacters(qc),
+  });
+}
+
+/** Tick a dungeon off in a character's dungeon log, or untick it (owner only), updating every cached view. */
+export function useSetDungeonCompleted(characterId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ dungeon, completed }: { dungeon: string; completed: boolean }) =>
+      api.setDungeonCompleted(characterId, dungeon, completed),
+    onMutate: ({ dungeon, completed }) =>
+      updateCachedCharacter(qc, characterId, (c) => {
+        const log = { ...c.dungeonsCompleted };
+        if (completed) log[dungeon] ??= new Date().toISOString();
+        else delete log[dungeon];
+        return { ...c, dungeonsCompleted: log };
+      }),
+    onSettled: () => refetchCharacters(qc),
   });
 }

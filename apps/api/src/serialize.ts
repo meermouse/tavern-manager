@@ -36,7 +36,18 @@ export function serializeCharacter(row: CharacterRow) {
     renderUrl: row.render_url,
     roles: normalizeRoles(row.roles),
     professions: serializeProfessions(row),
+    dungeonsCompleted: serializeDungeonsCompleted(row),
   };
+}
+
+/** The dungeon log: dungeon name → when it was logged (ISO). Tolerates the JSON-as-string shape. */
+export function serializeDungeonsCompleted(row: CharacterRow): Record<string, string> {
+  const raw = typeof row.dungeons_completed === 'string' ? JSON.parse(row.dungeons_completed) : row.dungeons_completed;
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
+  return Object.fromEntries(Object.entries(raw as Record<string, unknown>).filter(([, v]) => typeof v === 'string')) as Record<
+    string,
+    string
+  >;
 }
 
 /** Saved professions, primaries first; `null` before they've synced. Tolerates the JSON-as-string shape. */
