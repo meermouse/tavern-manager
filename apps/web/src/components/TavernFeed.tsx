@@ -100,6 +100,12 @@ function headline(event: FeedEvent): { icon: string; text: ReactNode; className?
         text: <><CharName event={event} /> earned {n === 1 ? 'an achievement' : plural(n, 'achievement')}</>,
       };
     }
+    case 'dungeon_cleared':
+      return {
+        icon: '🗝️',
+        className: 'dungeon-cleared',
+        text: <><CharName event={event} /> cleared <strong>{d.dungeon ?? 'a dungeon'}</strong></>,
+      };
     case 'character_joined': {
       const c = event.character;
       return {

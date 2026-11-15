@@ -3,6 +3,7 @@ import { HTTPException } from 'hono/http-exception';
 import { isRegion, type Region } from '../config.js';
 import { badRequest, jsonBody, requireUser, uuidParam, type AppDeps, type AppEnv } from '../context.js';
 import { ROLES, normalizeRoles, serializeCharacter } from '../serialize.js';
+import { recordEvent } from '../feed.js';
 import { syncCharacter, type CharacterRow } from '../sync.js';
 
 /** Don't hit Blizzard again for the same character within this window. */
@@ -121,7 +122,10 @@ export function characterRoutes({ db, config, blizzard }: AppDeps) {
     return c.json(serializeCharacter(updated));
   });
 
-  /** Owner-only dungeon log: `{ dungeon, completed }` marks a dungeon done (with today's date) or clears it. */
+  /**
+   * Owner-only dungeon log: `{ dungeon, completed }` marks a dungeon done (with today's date) or clears it.
+   * Newly ticking one posts "cleared <dungeon>" to the feed; unticking it takes that post down again.
+   */
   app.post('/:id/dungeons', async (c) => {
     const user = requireUser(c);
     const row = await ownedCharacter(user.id, uuidParam(c, 'id'));
@@ -129,15 +133,25 @@ export function characterRoutes({ db, config, blizzard }: AppDeps) {
     const dungeon = typeof body.dungeon === 'string' ? body.dungeon.trim() : '';
     if (!dungeon || dungeon.length > 80) badRequest('Pick a dungeon');
     if (typeof body.completed !== 'boolean') badRequest('completed must be true or false');
-    const [updated] = await db.query<CharacterRow>(
+    // Only touch the row when the tick actually changes, so a repeat (or double-click) posts nothing. The row lock
+    // makes a concurrent repeat re-check the condition, so a dungeon can't be posted twice.
+    const [changed] = await db.query<CharacterRow>(
       body.completed
-        ? `update characters set dungeons_completed = case when dungeons_completed ? $2 then dungeons_completed
-             else dungeons_completed || jsonb_build_object($2::text, to_char(now() at time zone 'utc', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')) end
-           where id = $1 returning *`
-        : 'update characters set dungeons_completed = dungeons_completed - $2::text where id = $1 returning *',
+        ? `update characters set dungeons_completed = dungeons_completed
+             || jsonb_build_object($2::text, to_char(now() at time zone 'utc', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'))
+           where id = $1 and not dungeons_completed ? $2 returning *`
+        : 'update characters set dungeons_completed = dungeons_completed - $2::text where id = $1 and dungeons_completed ? $2 returning *',
       [row.id, dungeon],
     );
-    return c.json(serializeCharacter(updated));
+    if (changed && body.completed) {
+      await recordEvent(db, { kind: 'dungeon_cleared', characterId: row.id, data: { dungeon } });
+    } else if (changed) {
+      await db.query(
+        `delete from feed_events where kind = 'dungeon_cleared' and character_id = $1 and data->>'dungeon' = $2`,
+        [row.id, dungeon],
+      );
+    }
+    return c.json(serializeCharacter(changed ?? row));
   });
 
   app.delete('/:id', async (c) => {

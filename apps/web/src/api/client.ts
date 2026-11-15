@@ -153,7 +153,14 @@ export interface TavernDetail {
   titles?: TitleStandings[];
 }
 
-export type FeedKind = 'level_up' | 'loot' | 'achievement' | 'character_joined' | 'member_joined' | 'tavern_founded';
+export type FeedKind =
+  | 'level_up'
+  | 'loot'
+  | 'achievement'
+  | 'dungeon_cleared'
+  | 'character_joined'
+  | 'member_joined'
+  | 'tavern_founded';
 
 export interface FeedItem {
   id: number;
@@ -194,6 +201,8 @@ export interface FeedEvent {
     items?: FeedItem[];
     achievements?: FeedAchievement[];
     tavernName?: string;
+    /** dungeon_cleared: the dungeon's name. */
+    dungeon?: string;
   };
   cheers: Cheers;
 }

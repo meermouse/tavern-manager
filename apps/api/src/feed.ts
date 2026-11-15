@@ -3,7 +3,14 @@ import type { Db } from './db.js';
 import type { CharacterRow } from './sync.js';
 
 /** Kinds of feed post. See docs/activity-feed.md. */
-export type FeedKind = 'level_up' | 'loot' | 'achievement' | 'character_joined' | 'member_joined' | 'tavern_founded';
+export type FeedKind =
+  | 'level_up'
+  | 'loot'
+  | 'achievement'
+  | 'dungeon_cleared'
+  | 'character_joined'
+  | 'member_joined'
+  | 'tavern_founded';
 
 /**
  * Bump when `parseEquipment` starts keeping more detail, so gear saved by an older version is re-fetched once

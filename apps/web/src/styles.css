@@ -209,6 +209,7 @@ td.actions { text-align: right; display: flex; gap: 0.4rem; justify-content: fle
 .feed-post.max { box-shadow: 0 0 0 1px var(--accent), 0 0 18px rgba(224, 164, 60, 0.25); }
 .feed-post.loot-epic { border-left: 3px solid var(--q-epic); }
 .feed-post.loot-legendary { border-left: 3px solid var(--q-legendary); }
+.feed-post.dungeon-cleared { border-left: 3px solid var(--role-healer); }
 .feed-post.loot-rare { border-left: 3px solid var(--q-rare); }
 .feed-actions { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; margin-top: 0.55rem; }
 button.cheer { display: inline-flex; align-items: center; gap: 0.35rem; border-radius: 999px; padding: 0.15rem 0.7rem; }

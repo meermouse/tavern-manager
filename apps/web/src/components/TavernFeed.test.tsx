@@ -51,6 +51,12 @@ describe('isMilestone', () => {
 });
 
 describe('FeedPost', () => {
+  it('renders a dungeon clear', () => {
+    const li = renderPost(post({ kind: 'dungeon_cleared', data: { dungeon: 'The Deadmines' } }));
+    expect(li.textContent).toContain('Judgement Judy cleared The Deadmines');
+    expect(li.textContent).toContain('🗝️');
+  });
+
   it('renders a multi-level level-up with owner and time', () => {
     const li = renderPost(post({ data: { from: 20, to: 23 } }));
     expect(li.textContent).toContain('Judgement Judy reached level 23');

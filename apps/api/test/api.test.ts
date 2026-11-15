@@ -151,8 +151,23 @@ describe('characters', () => {
       'The Deadmines',
     );
 
+    // Each new tick is one feed post (logging The Deadmines twice posted once).
+    const posts = async () =>
+      (await alice.get(`/api/taverns/${tavern.id}/feed`)).body.events
+        .filter((e: { kind: string }) => e.kind === 'dungeon_cleared')
+        .map((e: { data: { dungeon: string }; character: { id: string } }) => [e.character.id, e.data.dungeon]);
+    expect(await posts()).toEqual([
+      [ch.id, "Zul'Farrak"],
+      [ch.id, 'The Deadmines'],
+    ]);
+
     const undone = await alice.post(`/api/characters/${ch.id}/dungeons`, { dungeon: 'The Deadmines', completed: false });
     expect(undone.body.dungeonsCompleted).toEqual({ "Zul'Farrak": expect.any(String) });
+    // Unticking takes its post down; unticking again changes nothing.
+    expect(await posts()).toEqual([[ch.id, "Zul'Farrak"]]);
+    expect(
+      (await alice.post(`/api/characters/${ch.id}/dungeons`, { dungeon: 'The Deadmines', completed: false })).status,
+    ).toBe(200);
 
     expect((await alice.post(`/api/characters/${ch.id}/dungeons`, { dungeon: '', completed: true })).status).toBe(400);
     expect((await alice.post(`/api/characters/${ch.id}/dungeons`, { dungeon: 'Uldaman' })).status).toBe(400);
