@@ -8,7 +8,7 @@ import { CharacterAvatar } from '../components/CharacterAvatar';
 import { CharacterDirectory, CharacterLink } from '../components/CharacterLink';
 import { CharacterDetails } from '../components/CharacterDetails';
 import { CharacterTable } from '../components/CharacterTable';
-import { DungeonTable } from '../components/DungeonTable';
+import { TavernDungeons } from '../components/DungeonRuns';
 import { LeaderboardTable } from '../components/LeaderboardTable';
 import { TavernFeed } from '../components/TavernFeed';
 import { TitlesView } from '../components/TitlesView';
@@ -294,7 +294,7 @@ export function TavernDetailPage() {
           <TavernFeed tavernId={t.id} viewerName={me.data?.displayName} include={faction === 'both' ? undefined : includePost} />
         )}
         {view === 'characters' && <CharacterRoster tavern={t} characters={visible} />}
-        {view === 'dungeons' && <DungeonTable characters={visible} showTotals />}
+        {view === 'dungeons' && <TavernDungeons tavernId={t.id} characters={t.characters} visible={visible} />}
         {view === 'leaderboard' && <TavernLeaderboard tavernId={t.id} visible={visible} />}
         {view === 'titles' && <TitlesView titles={t.titles ?? []} selectedKey={titleKey} onSelect={setTitleKey} />}
 

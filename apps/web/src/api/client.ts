@@ -158,6 +158,7 @@ export type FeedKind =
   | 'loot'
   | 'achievement'
   | 'dungeon_cleared'
+  | 'dungeon_run'
   | 'character_joined'
   | 'member_joined'
   | 'tavern_founded';
@@ -201,10 +202,46 @@ export interface FeedEvent {
     items?: FeedItem[];
     achievements?: FeedAchievement[];
     tavernName?: string;
-    /** dungeon_cleared: the dungeon's name. */
+    /** dungeon_cleared and dungeon_run: the dungeon's name. */
     dungeon?: string;
+    /** dungeon_run: the run (deleting it takes the post down), its date (YYYY-MM-DD), outcome and party. */
+    runId?: string;
+    date?: string;
+    cleared?: boolean;
+    bosses?: string[];
+    characters?: Pick<Character, 'id' | 'name' | 'surname' | 'class' | 'level' | 'avatarUrl'>[];
   };
   cheers: Cheers;
+}
+
+/** A dungeon run a tavern logged. */
+export interface DungeonRun {
+  id: string;
+  dungeon: string;
+  /** The day of the run, YYYY-MM-DD. */
+  date: string;
+  /** Bosses killed. */
+  bosses: string[];
+  /** Whether they finished the dungeon (which ticks it off in everyone's dungeon log). */
+  cleared: boolean;
+  notes: string | null;
+  loggedBy: { id: string; displayName: string } | null;
+  createdAt: string;
+  characters: (Pick<Character, 'id' | 'name' | 'surname' | 'class' | 'level' | 'avatarUrl'> & {
+    ownerId: string;
+    ownerName: string;
+  })[];
+  /** Whoever logged it, or the tavern owner, can delete it. */
+  canDelete: boolean;
+}
+
+export interface NewDungeonRun {
+  dungeon: string;
+  date: string;
+  characterIds: string[];
+  bosses: string[];
+  cleared: boolean;
+  notes?: string;
 }
 
 export interface Cheers {
@@ -285,6 +322,11 @@ export const api = {
     request<Cheers>(on ? 'PUT' : 'DELETE', `/api/taverns/${tavernId}/feed/${eventId}/cheers`),
   characterDetails: (tavernId: string, characterId: string) =>
     request<CharacterDetails>('GET', `/api/taverns/${tavernId}/characters/${characterId}`),
+  dungeonRuns: (tavernId: string) => request<DungeonRun[]>('GET', `/api/taverns/${tavernId}/runs`),
+  logDungeonRun: (tavernId: string, run: NewDungeonRun) =>
+    request<DungeonRun>('POST', `/api/taverns/${tavernId}/runs`, run),
+  deleteDungeonRun: (tavernId: string, runId: string) =>
+    request<{ ok: true }>('DELETE', `/api/taverns/${tavernId}/runs/${runId}`),
   tavernLeaderboard: (id: string) => request<LeaderboardEntry[]>('GET', `/api/taverns/${id}/leaderboard`),
   leaderboard: () => request<LeaderboardEntry[]>('GET', '/api/leaderboard'),
   refreshTavern: (id: string) => request<TavernDetail>('POST', `/api/taverns/${id}/refresh`),

@@ -51,6 +51,25 @@ describe('isMilestone', () => {
 });
 
 describe('FeedPost', () => {
+  it('renders a group run', () => {
+    const party = [
+      { id: 'a', name: 'Judy', surname: 'X', class: 'Paladin', level: 15, avatarUrl: null },
+      { id: 'b', name: 'Grim', surname: 'Y', class: 'Mage', level: 16, avatarUrl: null },
+      { id: 'c', name: 'Thorn', surname: 'Z', class: 'Rogue', level: 17, avatarUrl: null },
+    ];
+    const cleared = renderPost(post({
+      kind: 'dungeon_run', character: null, data: { dungeon: 'Ragefire Chasm', cleared: true, bosses: ['Bazzalan'], characters: party },
+    }));
+    expect(cleared.textContent).toContain('Judy, Grim and Thorn cleared Ragefire Chasm');
+    expect(cleared.textContent).toContain('Bosses: Bazzalan');
+    cleanup();
+    const partial = renderPost(post({
+      kind: 'dungeon_run', character: null,
+      data: { dungeon: 'Uldaman', cleared: false, bosses: ['Revelosh', 'Ironaya'], characters: party.slice(0, 2) },
+    }));
+    expect(partial.textContent).toContain('Judy and Grim ran Uldaman (2 bosses down)');
+  });
+
   it('renders a dungeon clear', () => {
     const li = renderPost(post({ kind: 'dungeon_cleared', data: { dungeon: 'The Deadmines' } }));
     expect(li.textContent).toContain('Judgement Judy cleared The Deadmines');

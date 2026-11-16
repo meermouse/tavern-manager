@@ -333,3 +333,113 @@ describe('leaderboard', () => {
     expect((await carol.get('/api/leaderboard')).body.map((e: { name: string }) => e.name)).toEqual(['Stranger']);
   });
 });
+
+describe('dungeon runs', () => {
+  async function party() {
+    const { login } = await setup();
+    const alice = await login('Alice#1234');
+    const bob = await login('Bob#5678');
+    const carol = await login('Carol#9012');
+    const tavern = (await alice.post('/api/taverns', { name: 'The Pig' })).body;
+    await bob.post(`/api/invites/${tavern.inviteCode}/join`);
+    await carol.post(`/api/invites/${tavern.inviteCode}/join`);
+    const a = (await alice.post('/api/characters', { name: 'Judgement', surname: 'Judy' })).body;
+    const b = (await bob.post('/api/characters', { name: 'Grimble', surname: 'Thornwick' })).body;
+    const outsider = (await carol.post('/api/characters', { name: 'Loner', surname: 'Wolf' })).body;
+    await alice.put(`/api/taverns/${tavern.id}/characters/${a.id}`);
+    await bob.put(`/api/taverns/${tavern.id}/characters/${b.id}`);
+    return { alice, bob, carol, tavern, a, b, outsider };
+  }
+
+  it('logs a run for the whole group: one post, and a tick in everyone’s dungeon log', async () => {
+    const { alice, bob, tavern, a, b } = await party();
+    const res = await bob.post(`/api/taverns/${tavern.id}/runs`, {
+      dungeon: 'Ragefire Chasm',
+      date: '2026-11-15',
+      characterIds: [a.id, b.id, a.id],
+      bosses: ['Oggleflint', ' taragaman the hungerer ', 'Taragaman the Hungerer', '', 'Bazzalan'],
+      cleared: true,
+      notes: 'Wiped once on Bazzalan',
+    });
+    expect(res.status).toBe(201);
+    expect(res.body).toMatchObject({
+      dungeon: 'Ragefire Chasm',
+      date: '2026-11-15',
+      bosses: ['Oggleflint', 'taragaman the hungerer', 'Bazzalan'],
+      cleared: true,
+      notes: 'Wiped once on Bazzalan',
+      loggedBy: { displayName: 'Bob' },
+      canDelete: true,
+    });
+    expect(res.body.characters.map((c: { name: string }) => c.name)).toEqual(['Grimble', 'Judgement']);
+
+    // Bob logged Alice's character too.
+    expect((await alice.get('/api/characters')).body[0].dungeonsCompleted).toEqual({
+      'Ragefire Chasm': '2026-11-15T00:00:00Z',
+    });
+
+    const feed = (await alice.get(`/api/taverns/${tavern.id}/feed`)).body.events;
+    const posts = feed.filter((e: { kind: string }) => e.kind === 'dungeon_run');
+    expect(posts).toHaveLength(1);
+    expect(posts[0]).toMatchObject({ user: { displayName: 'Bob' }, data: { dungeon: 'Ragefire Chasm', cleared: true } });
+    expect(posts[0].data.characters.map((c: { name: string }) => c.name)).toEqual(['Grimble', 'Judgement']);
+    // No per-character "cleared" posts on top.
+    expect(feed.some((e: { kind: string }) => e.kind === 'dungeon_cleared')).toBe(false);
+
+    const runs = (await alice.get(`/api/taverns/${tavern.id}/runs`)).body;
+    expect(runs).toHaveLength(1);
+    // Alice owns the tavern, so she can delete Bob's run.
+    expect(runs[0].canDelete).toBe(true);
+  });
+
+  it('keeps an earlier tick date, and a partial run ticks nothing', async () => {
+    const { alice, tavern, a } = await party();
+    await alice.post(`/api/taverns/${tavern.id}/runs`, {
+      dungeon: 'The Deadmines', date: '2026-11-01', characterIds: [a.id], bosses: [], cleared: true,
+    });
+    await alice.post(`/api/taverns/${tavern.id}/runs`, {
+      dungeon: 'The Deadmines', date: '2026-11-10', characterIds: [a.id], bosses: [], cleared: true,
+    });
+    await alice.post(`/api/taverns/${tavern.id}/runs`, {
+      dungeon: 'Uldaman', characterIds: [a.id], bosses: ['Revelosh'], cleared: false,
+    });
+    expect((await alice.get('/api/characters')).body[0].dungeonsCompleted).toEqual({
+      'The Deadmines': '2026-11-01T00:00:00Z',
+    });
+    const runs = (await alice.get(`/api/taverns/${tavern.id}/runs`)).body;
+    expect(runs.map((r: { dungeon: string; date: string }) => [r.dungeon, r.date])).toEqual([
+      ['Uldaman', new Date().toISOString().slice(0, 10)],
+      ['The Deadmines', '2026-11-10'],
+      ['The Deadmines', '2026-11-01'],
+    ]);
+  });
+
+  it('validates the run and who can log or delete it', async () => {
+    const { alice, bob, carol, tavern, a, outsider } = await party();
+    expect(outsider.id).toBeTruthy();
+    const url = `/api/taverns/${tavern.id}/runs`;
+    const ok = { dungeon: 'Ragefire Chasm', characterIds: [a.id], bosses: [], cleared: true };
+    expect((await alice.post(url, { ...ok, characterIds: [] })).status).toBe(400);
+    expect((await alice.post(url, { ...ok, characterIds: [outsider.id] })).status).toBe(400);
+    expect((await alice.post(url, { ...ok, dungeon: '' })).status).toBe(400);
+    expect((await alice.post(url, { ...ok, cleared: undefined })).status).toBe(400);
+    expect((await alice.post(url, { ...ok, date: '2026-02-30' })).status).toBe(400);
+    expect((await alice.post(url, { ...ok, date: '2999-01-01' })).status).toBe(400);
+    expect((await alice.post(url, { ...ok, bosses: 'Oggleflint' })).status).toBe(400);
+
+    const stranger = await (await setup()).login('Dave#3456');
+    expect((await stranger.get(url)).status).toBe(404);
+
+    const run = (await carol.post(url, ok)).body;
+    expect((await bob.get(url)).body[0].canDelete).toBe(false);
+    // Bob (a member, not the logger or owner) can't delete it; the tavern owner can.
+    expect((await bob.del(`${url}/${run.id}`)).status).toBe(403);
+    expect((await alice.del(`${url}/${run.id}`)).status).toBe(200);
+    expect((await alice.get(url)).body).toEqual([]);
+    const kinds = (await alice.get(`/api/taverns/${tavern.id}/feed`)).body.events.map((e: { kind: string }) => e.kind);
+    expect(kinds).not.toContain('dungeon_run');
+    // The tick stays: the dungeon log is the character's own checklist.
+    expect((await alice.get('/api/characters')).body[0].dungeonsCompleted).toHaveProperty('Ragefire Chasm');
+    expect((await alice.del(`${url}/${run.id}`)).status).toBe(404);
+  });
+});

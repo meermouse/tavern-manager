@@ -1,5 +1,5 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
-import { api, ApiError, type Character, type Role } from './client';
+import { api, ApiError, type Character, type NewDungeonRun, type Role } from './client';
 
 export const keys = {
   me: ['me'] as const,
@@ -14,6 +14,8 @@ export const keys = {
   tavernLeaderboard: (id: string) => ['taverns', id, 'leaderboard'] as const,
   // Under `taverns` too: joining, leaving or a refresh changes who's on it.
   leaderboard: ['taverns', 'leaderboard'] as const,
+  // Nested under the tavern key, so a tavern refresh refetches it too.
+  dungeonRuns: (id: string) => ['taverns', id, 'runs'] as const,
   invite: (code: string) => ['invite', code] as const,
 };
 
@@ -118,4 +120,19 @@ export function useSetDungeonCompleted(characterId: string) {
       }),
     onSettled: () => refetchCharacters(qc),
   });
+}
+
+/** A tavern's logged dungeon runs, newest first. */
+export function useDungeonRuns(tavernId: string) {
+  return useQuery({ queryKey: keys.dungeonRuns(tavernId), queryFn: () => api.dungeonRuns(tavernId) });
+}
+
+/** Log or delete a run. Either changes the run list, the feed and (for a clear) everyone's dungeon log. */
+export function useDungeonRunMutations(tavernId: string) {
+  const qc = useQueryClient();
+  const refetch = () => refetchCharacters(qc);
+  return {
+    log: useMutation({ mutationFn: (run: NewDungeonRun) => api.logDungeonRun(tavernId, run), onSuccess: refetch }),
+    remove: useMutation({ mutationFn: (runId: string) => api.deleteDungeonRun(tavernId, runId), onSuccess: refetch }),
+  };
 }
