@@ -1,7 +1,9 @@
 /**
  * Quests that send you into a dungeon, shown as ! markers in the dungeon finder. These tend to carry the best rewards
  * for the level, so they're worth picking up before a run. Class quests are left out, as are quests that start from an
- * item dropped inside. Only the original dungeons are covered so far; the new WoW Forever ones have no list yet.
+ * item dropped inside. The new WoW Forever dungeons' quests come from the mmonster.co dungeon quest list
+ * (https://mmonster.co/wow-forever/guides/dungeons/quests); there, quests that start from an item are left out along
+ * with their follow-ups, and some givers aren't on record yet.
  */
 
 /** Which faction can pick the quest up. */
@@ -9,14 +11,14 @@ export type QuestFaction = 'Alliance' | 'Horde' | 'Both';
 
 export interface DungeonQuest {
   name: string;
-  /** Who hands the quest out. */
-  giver: string;
-  /** Where to find them: zone, then the spot within it. */
-  location: string;
+  /** Who hands the quest out; null when it isn't known yet (some of the new Forever quests). */
+  giver: string | null;
+  /** Where to find them: zone, then the spot within it; null when it isn't known yet. */
+  location: string | null;
   faction: QuestFaction;
 }
 
-const q = (name: string, giver: string, location: string, faction: QuestFaction = 'Both'): DungeonQuest => ({
+const q = (name: string, giver: string | null, location: string | null, faction: QuestFaction = 'Both'): DungeonQuest => ({
   name, giver, location, faction,
 });
 
@@ -206,6 +208,88 @@ export const DUNGEON_QUESTS: Record<string, DungeonQuest[]> = {
     q('The Matron Protectorate', 'Haleh', 'Winterspring, Mazthoril'),
     q('General Drakkisath\'s Demise', 'Marshal Maxwell', 'Burning Steppes, Morgan\'s Vigil', 'Alliance'),
     q('For The Horde!', 'Thrall', 'Orgrimmar, Grommash Hold', 'Horde'),
+  ],
+
+  // New WoW Forever dungeons.
+  'Hall of Thanes': [
+    q('A Visitor to Dun Morogh', 'Beldin Steelgrill', 'Dun Morogh', 'Alliance'),
+    q('Farsen\'s Watch', 'Earthseer Farsen', 'Dun Morogh', 'Alliance'),
+    q('Nip \'Em in the Bud', 'Earthseer Farsen', 'Dun Morogh', 'Alliance'),
+    q('An Ancient Grudge', 'Ghostly Attendant', 'Inside Hall of Thanes'),
+    q('Important Heirlooms', 'Thom Filch', 'Ironforge'),
+    q('The Restless Dead', 'Afadra Dunwall', 'Ironforge', 'Alliance'),
+  ],
+  'Ruins of Lordaeron': [
+    q('Abominable Creatures', 'Captain Truman', 'Inside Ruins of Lordaeron', 'Alliance'),
+    q('A Frightened Request', 'Tabitha Heartweaver', 'Silverpine Forest', 'Horde'),
+    q('Light\'s Justice', 'Morbin Lightbane', 'Undercity', 'Horde'),
+    q('The Wrath of Rath\'mael', 'Deathguard Kristof', 'Tirisfal Glades', 'Horde'),
+    q('The New Plague', 'Theodore Griffs', 'Undercity', 'Horde'),
+  ],
+  'Excavation Site': [
+    q('Highland Hides', 'James Halloran', 'Wetlands', 'Alliance'),
+    q('Changing Tastes', 'Borstan', 'Orgrimmar', 'Horde'),
+    q('Dragonmaw Rumors', 'Zaruk', 'Arathi Highlands', 'Horde'),
+    q('Fallen in the Fen', 'Daewyn Songblade', 'Inside Excavation Site', 'Alliance'),
+    q('Heartwoven', 'Ardin Grassman', 'Inside Excavation Site', 'Alliance'),
+    q('Horrors in the Highland', 'Rethiel the Greenwarden', 'Wetlands', 'Alliance'),
+    q('Lost in the Thicket Things', 'Caitlin Grassman', 'Wetlands', 'Alliance'),
+    q('Open the Maw', 'Deathstalker Agent', 'Wetlands', 'Horde'),
+    q('Seeking Caitlin', 'Llana', 'Ashenvale', 'Alliance'),
+    q('Songblade Search', 'Dorin Songblade', 'Redridge Mountains', 'Alliance'),
+  ],
+  'City of Dalaran': [
+    q('Prison Break In', 'Magus Wordeen Voidglare', 'Hillsbrad Foothills', 'Horde'),
+    q('A Green Sample', 'Shylamiir', 'Stormwind City', 'Alliance'),
+    q('Friend of the Kirin Tor', 'Image of Archmage Modera', 'Silverpine Forest', 'Alliance'),
+    q('Heart of Disruption', 'Image of Archmage Modera', 'Silverpine Forest', 'Alliance'),
+    q('Heart of Disruption', 'Image of Archmage Modera', 'Silverpine Forest', 'Horde'),
+    q('Opportunistic Education', 'Rexxie Copperclutch', null, 'Horde'),
+    q('Power Overwhelming', 'High Sorcerer Andromath', 'Stormwind City', 'Alliance'),
+    q('Shrewd Negotiations', 'Magus Wordeen Voidglare', 'Hillsbrad Foothills', 'Horde'),
+    q('Source of Power', 'Doctor Martin Felben', 'Undercity', 'Horde'),
+    q('Starving Arcane', 'Image of Archmage Modera', 'Silverpine Forest', 'Alliance'),
+    q('The Grave Knight', 'Melisara', 'Hillsbrad Foothills', 'Horde'),
+    q('An Alarming Request', 'Emissary Jacques', 'Hillsbrad Foothills', 'Alliance'),
+    q('Key to the City', 'Magus Wordeen Voidglare', 'Hillsbrad Foothills', 'Horde'),
+    q('Blood in the Streets', 'Magus Wordeen Voidglare', 'Hillsbrad Foothills', 'Horde'),
+  ],
+  'The Drowned City': [
+    q('The Only Good Brinescale...', null, null, 'Horde'),
+    q('Ancient Gurubashi Idol', 'Mazu\'kon', 'Mulgore', 'Horde'),
+    q('Magics of the Drowned City', null, null, 'Alliance'),
+    q('Take Two With Water', 'Loremaster Dibbs', 'Hillsbrad Foothills', 'Alliance'),
+    q('The Drowned City', null, null, 'Horde'),
+    q('Ancient Gurubashi Secrets', null, null, 'Alliance'),
+    q('Shady Saltseers', null, null),
+    q('The Saltseer Captain', null, null),
+  ],
+  'Krol’dok Stronghold': [
+    q('Key Ingredients', null, null, 'Horde'),
+    q('Key Ingredients', 'Alphonse Dumas', null, 'Alliance'),
+    q('Krol\'dok Moulding', null, null, 'Horde'),
+    q('Krol\'dok Moulding', null, null, 'Alliance'),
+    q('A Token of Vengeance', null, null, 'Horde'),
+    q('Curios of Curiosity', null, null, 'Alliance'),
+    q('Twilight Mementos', null, null, 'Alliance'),
+    q('Tome of Twilight', null, null, 'Horde'),
+    q('Tome of Twilight', null, null, 'Alliance'),
+    q('Eye of Mugg', null, null, 'Horde'),
+    q('Eye of Mugg', null, null, 'Alliance'),
+    q('Vengeance of the Highborne', null, null, 'Alliance'),
+  ],
+  'Alcaz Prison': [
+    q('The Dragon\'s Journal', null, null, 'Alliance'),
+  ],
+  'Blackmaw Hold': [
+    q('Get to the Roots of It', null, null, 'Horde'),
+    q('Get to the Roots of It', null, null, 'Alliance'),
+    q('Claws That Rend, Tusks that Gore', null, null),
+    q('Blackmaw Magic', null, null, 'Alliance'),
+    q('Blackmaw Magic', null, null, 'Horde'),
+  ],
+  'Shaper’s Terrace': [
+    q('Crystalline Elements', null, null, 'Horde'),
   ],
 };
 
