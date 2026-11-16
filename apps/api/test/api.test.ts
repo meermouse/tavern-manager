@@ -332,6 +332,31 @@ describe('leaderboard', () => {
     expect(names).toEqual(['Grimble', 'Judgement']);
     expect((await carol.get('/api/leaderboard')).body.map((e: { name: string }) => e.name)).toEqual(['Stranger']);
   });
+
+  it('shows details for anyone on your global leaderboard', async () => {
+    const { login } = await setup();
+    const alice = await login('Alice#1234');
+    const bob = await login('Bob#5678');
+    const carol = await login('Carol#0001');
+    const judy = (await alice.post('/api/characters', { name: 'Judgement', surname: 'Judy' })).body;
+    const grim = (await bob.post('/api/characters', { name: 'Grimble', surname: 'Thornwick' })).body;
+    const tavern = (await alice.post('/api/taverns', { name: 'The Prancing Pony' })).body;
+    await bob.post(`/api/invites/${tavern.inviteCode}/join`);
+    await bob.put(`/api/taverns/${tavern.id}/characters/${grim.id}`);
+
+    const own = await alice.get(`/api/leaderboard/characters/${judy.id}`);
+    expect(own.status).toBe(200); // in no tavern, but yours
+    expect(own.body).toMatchObject({ id: judy.id, ownerName: 'Alice', recent: [] });
+
+    const other = await alice.get(`/api/leaderboard/characters/${grim.id}`);
+    expect(other.status).toBe(200);
+    expect(other.body).toMatchObject({ id: grim.id, ownerName: 'Bob' });
+    expect(Array.isArray(other.body.equipment)).toBe(true);
+    expect(other.body.recent.map((e: { kind: string }) => e.kind)).toEqual(['character_joined']);
+
+    expect((await carol.get(`/api/leaderboard/characters/${grim.id}`)).status).toBe(404); // no shared tavern
+    expect((await bob.get(`/api/leaderboard/characters/${judy.id}`)).status).toBe(404); // Judy is in no tavern
+  });
 });
 
 describe('dungeon runs', () => {

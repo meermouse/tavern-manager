@@ -64,6 +64,18 @@ export function serializeEquipment(row: CharacterRow): unknown[] | null {
   return Array.isArray(raw) ? raw : null;
 }
 
+/** Everything the character details pane shows: profile, owner, saved gear and the given recent posts. */
+export function serializeCharacterDetails(row: CharacterRow & { owner_name: string }, recent: unknown[]) {
+  return {
+    ...serializeCharacter(row),
+    ownerId: row.user_id,
+    ownerName: row.owner_name,
+    equipment: serializeEquipment(row),
+    equipmentSyncedAt: row.equipment_synced_at,
+    recent,
+  };
+}
+
 export function serializeUser(row: UserRow) {
   return { id: row.id, battletag: row.battletag, displayName: row.display_name };
 }

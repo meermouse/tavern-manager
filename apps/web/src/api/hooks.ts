@@ -14,6 +14,8 @@ export const keys = {
   tavernLeaderboard: (id: string) => ['taverns', id, 'leaderboard'] as const,
   // Under `taverns` too: joining, leaving or a refresh changes who's on it.
   leaderboard: ['taverns', 'leaderboard'] as const,
+  // Under the global leaderboard, so anything that refetches it updates an open details pane too.
+  leaderboardCharacterDetails: (characterId: string) => ['taverns', 'leaderboard', 'characters', characterId] as const,
   // Nested under the tavern key, so a tavern refresh refetches it too.
   dungeonRuns: (id: string) => ['taverns', id, 'runs'] as const,
   invite: (code: string) => ['invite', code] as const,
@@ -46,10 +48,12 @@ export function useTavern(id: string) {
   return useQuery({ queryKey: keys.tavern(id), queryFn: () => api.tavern(id) });
 }
 
-export function useCharacterDetails(tavernId: string, characterId: string) {
+/** A character's details pane data, as seen from a tavern, or (no id) from the global leaderboard. */
+export function useCharacterDetails(tavernId: string | undefined, characterId: string) {
   return useQuery({
-    queryKey: keys.characterDetails(tavernId, characterId),
-    queryFn: () => api.characterDetails(tavernId, characterId),
+    queryKey: tavernId ? keys.characterDetails(tavernId, characterId) : keys.leaderboardCharacterDetails(characterId),
+    queryFn: () =>
+      tavernId ? api.characterDetails(tavernId, characterId) : api.leaderboardCharacterDetails(characterId),
   });
 }
 

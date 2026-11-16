@@ -2,11 +2,18 @@ import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { requireUser, uuidParam, type AppDeps, type AppEnv } from '../context.js';
 import type { Db } from '../db.js';
-import { serializeEquipment, serializeCharacter } from '../serialize.js';
+import { userFeed } from '../feed.js';
+import { serializeCharacterDetails, serializeEquipment, serializeCharacter } from '../serialize.js';
 import type { CharacterRow } from '../sync.js';
 
 /** Slots that don't count towards total gear item level: cosmetic, and usually item level 1. */
 const COSMETIC_SLOTS = new Set(['shirt', 'tabard']);
+
+/** Characters on your global leaderboard (`$1` is your user id): your own, plus everyone in your taverns. */
+const VISIBLE_CHARACTERS = `select id from characters where user_id = $1
+  union
+  select tc.character_id from tavern_characters tc
+    join tavern_members m on m.tavern_id = tc.tavern_id where m.user_id = $1`;
 
 type LeaderboardRow = CharacterRow & {
   owner_name: string;
@@ -94,16 +101,25 @@ export function leaderboardRoutes({ db }: AppDeps) {
   app.get('/leaderboard', async (c) => {
     const user = requireUser(c);
     return c.json(
-      await leaderboard(
-        db,
-        user.id,
-        `select id from characters where user_id = $1
-         union
-         select tc.character_id from tavern_characters tc
-           join tavern_members m on m.tavern_id = tc.tavern_id where m.user_id = $1`,
-        'select tavern_id from tavern_members where user_id = $1',
-      ),
+      await leaderboard(db, user.id, VISIBLE_CHARACTERS, 'select tavern_id from tavern_members where user_id = $1'),
     );
+  });
+
+  /**
+   * The details pane for anyone on the global leaderboard. Recent posts come from every tavern you share with them
+   * (plus tavern-less ones).
+   */
+  app.get('/leaderboard/characters/:characterId', async (c) => {
+    const user = requireUser(c);
+    const characterId = uuidParam(c, 'characterId');
+    const [row] = await db.query<CharacterRow & { owner_name: string }>(
+      `select c.*, u.display_name as owner_name from characters c join users u on u.id = c.user_id
+       where c.id = $2 and c.id in (${VISIBLE_CHARACTERS})`,
+      [user.id, characterId],
+    );
+    if (!row) throw new HTTPException(404, { message: 'Character not found' });
+    const recent = await userFeed(db, user.id, { limit: 5, characterId });
+    return c.json(serializeCharacterDetails(row, recent.events));
   });
 
   return app;

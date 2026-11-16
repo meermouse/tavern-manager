@@ -1,18 +1,18 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useMemo, useState } from 'react';
-import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router';
+import { Link, Navigate, useNavigate, useParams } from 'react-router';
 import { api, type FeedEvent, type TavernCharacter, type TavernDetail } from '../api/client';
 import { keys, useCharacters, useLeaderboard, useMe, useTavern } from '../api/hooks';
 import { AddCharacterForm } from '../components/AddCharacterForm';
 import { CharacterAvatar } from '../components/CharacterAvatar';
 import { CharacterDirectory, CharacterLink } from '../components/CharacterLink';
-import { CharacterDetails } from '../components/CharacterDetails';
 import { CharacterTable } from '../components/CharacterTable';
 import { DUNGEON_VIEWS, TavernDungeons, type DungeonView } from '../components/DungeonRuns';
 import { LeaderboardTable } from '../components/LeaderboardTable';
 import { TavernFeed } from '../components/TavernFeed';
 import { TitlesView } from '../components/TitlesView';
 import { RoleIcons } from '../components/RoleIcons';
+import { useCharacterSelection, useSearchParam } from '../characterSelection';
 import { matchesFaction, useFactionFilter, type FactionFilter } from '../faction';
 
 function InvitePanel({ tavern }: { tavern: TavernDetail }) {
@@ -155,20 +155,6 @@ function MembersPanel({ tavern }: { tavern: TavernDetail }) {
   );
 }
 
-/**
- * The selected character (from `characters`) and its details pane. The selection lives in the URL (?character=…)
- * so it survives a page refresh and carries over between the characters and leaderboard tabs.
- */
-function useCharacterSelection<T extends TavernCharacter>(tavernId: string, characters: T[]) {
-  const [selectedId, setSelectedId] = useSearchParam('character');
-  // Look the selection up in the shown characters, so the pane closes if the character leaves or is filtered out.
-  const selected = characters.find((c) => c.id === selectedId) ?? null;
-  const close = useCallback(() => setSelectedId(null), [setSelectedId]);
-  const onSelect = useCallback((c: T | null) => setSelectedId(c?.id ?? null), [setSelectedId]);
-  const details = selected && <CharacterDetails tavernId={tavernId} character={selected} onClose={close} />;
-  return { selectedId: selected?.id ?? null, onSelect, details };
-}
-
 /** The character table, with a details pane above it for the selected row. */
 function CharacterRoster({ tavern, characters }: { tavern: TavernDetail; characters: TavernCharacter[] }) {
   const { details, ...selection } = useCharacterSelection(tavern.id, characters);
@@ -223,24 +209,6 @@ function FactionPicker({ value, onChange }: { value: FactionFilter; onChange: (f
 }
 
 /** One query-string parameter as state. Changes replace the history entry rather than adding one. */
-function useSearchParam(name: string): [string | null, (value: string | null) => void] {
-  const [params, setParams] = useSearchParams();
-  const set = useCallback(
-    (value: string | null) =>
-      setParams(
-        (prev) => {
-          const next = new URLSearchParams(prev);
-          if (value === null) next.delete(name);
-          else next.set(name, value);
-          return next;
-        },
-        { replace: true },
-      ),
-    [name, setParams],
-  );
-  return [params.get(name), set];
-}
-
 type View = 'feed' | 'characters' | 'dungeons' | 'leaderboard' | 'titles';
 const VIEWS: [View, string][] = [
   ['feed', 'Feed'],
