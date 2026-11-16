@@ -122,22 +122,6 @@ export function createMockBlizzardClient(): BlizzardClient {
       if (!profile?.class || !profile.race) return null;
       return mockPortraits(profile.name, profile.class, profile.race);
     },
-    async getRawStatistics(region, name, surname) {
-      const stats = await client.getStatistics!(region, name, surname);
-      if (!stats) return null;
-      // Shaped like Blizzard's response, plus a text-only entry like the ones the real parser drops.
-      return {
-        categories: [
-          {
-            name: 'Character',
-            statistics: [
-              ...Object.entries(stats).map(([name, quantity], id) => ({ id, name, quantity })),
-              { id: 9999, name: 'Most gold ever owned', description: '27 gold' },
-            ],
-          },
-        ],
-      };
-    },
     async getStatistics(region, name, surname) {
       const profile = await client.getCharacter(region, name, surname);
       if (!profile?.level) return null;
@@ -181,6 +165,11 @@ export function createMockBlizzardClient(): BlizzardClient {
         'Greed rolls made on loot': n(29, 1.1),
         'Disenchant rolls made on loot': n(31, 0.3),
         'Fish caught': n(30, 0.8),
+        'Total facepalms': n(3, 0.1),
+        'Times camped': n(5, 0.04),
+        'Duels lost': n(6, 0.06),
+        'Elixirs consumed': n(10, 0.3),
+        'Total waves': n(11, 0.4),
       };
     },
     async getCharacterStats(region, name, surname) {

@@ -109,11 +109,6 @@ export interface BlizzardClient {
    * Blizzard's statistic name, or `null` when not available. Optional: best-effort.
    */
   getStatistics?(region: Region, name: string, surname: string): Promise<StatisticMap | null>;
-  /**
-   * The unprocessed `/achievements/statistics` response, or `null`. For debugging what Blizzard sends that
-   * `getStatistics` keeps or drops. Optional.
-   */
-  getRawStatistics?(region: Region, name: string, surname: string): Promise<unknown | null>;
   /** Combat stats from `/statistics` (health, strength, armor, crit, ...), or `null`. Optional: best-effort. */
   getCharacterStats?(region: Region, name: string, surname: string): Promise<StatisticMap | null>;
   /** Trained professions from `/professions`, or `null` when not available. Optional: best-effort. */
@@ -368,41 +363,6 @@ export function parseAchievementStatistics(json: Json): StatisticMap | null {
   return Object.keys(out).length ? out : null;
 }
 
-/** One statistic entry as Blizzard sent it, with the categories it sits under and whether `getStatistics` keeps it. */
-export interface RawStatisticEntry {
-  path: string[];
-  name: string | null;
-  kept: boolean;
-  entry: unknown;
-}
-
-/** Every statistic entry in a `/achievements/statistics` response, kept or not, for debugging. */
-export function listRawStatistics(json: unknown): RawStatisticEntry[] {
-  const out: RawStatisticEntry[] = [];
-  const kept = new Set(Object.keys(parseAchievementStatistics((json ?? {}) as Json) ?? {}));
-  const seen = new Set<string>();
-  const walk = (node: unknown, path: string[]) => {
-    if (!node || typeof node !== 'object') return;
-    if (Array.isArray(node)) return node.forEach((n) => walk(n, path));
-    const obj = node as Json;
-    const here = text(obj.name) ? [...path, text(obj.name)!] : path;
-    if (Array.isArray(obj.statistics)) {
-      for (const st of obj.statistics as unknown[]) {
-        const name = st && typeof st === 'object' ? text((st as Json).name) : null;
-        // Only the first entry of a name is kept, as in parseAchievementStatistics.
-        const isKept = !!name && kept.has(name) && !seen.has(name);
-        if (isKept) seen.add(name!);
-        out.push({ path: here, name, kept: isKept, entry: st });
-      }
-    }
-    walk(obj.categories, here);
-    walk(obj.sub_categories, here);
-    walk(obj.subcategories, here);
-  };
-  walk(json, []);
-  return out;
-}
-
 /**
  * `/statistics` (the character sheet): `{ health: 4200, strength: { base, effective }, melee_crit: { value }, ... }`.
  * Flattened to field → number, preferring the effective value. `null` when there's nothing numeric.
@@ -543,8 +503,6 @@ export function createBlizzardClient(
       const json = await getProfile(region, name, surname, '/achievements/statistics');
       return json && parseAchievementStatistics(json);
     },
-
-    getRawStatistics: (region, name, surname) => getProfile(region, name, surname, '/achievements/statistics'),
 
     async getCharacterStats(region, name, surname) {
       const json = await getProfile(region, name, surname, '/statistics');
