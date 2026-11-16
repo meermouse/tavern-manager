@@ -5,6 +5,7 @@ import { badRequest, jsonBody, requireUser, uuidParam, type AppDeps, type AppEnv
 import { ROLES, normalizeRoles, serializeCharacter } from '../serialize.js';
 import { recordEvent } from '../feed.js';
 import { syncCharacter, type CharacterRow } from '../sync.js';
+import { listRawStatistics } from '../blizzard/client.js';
 
 /** Don't hit Blizzard again for the same character within this window. */
 const MANUAL_REFRESH_COOLDOWN_MS = 2 * 60_000;
@@ -105,6 +106,37 @@ export function characterRoutes({ db, config, blizzard }: AppDeps) {
     const recent = row.last_attempt_at && Date.now() - row.last_attempt_at.getTime() < MANUAL_REFRESH_COOLDOWN_MS;
     const synced = recent ? row : await syncCharacter(db, blizzard, row);
     return c.json(serializeCharacter(synced));
+  });
+
+  /**
+   * Debugging: every statistic Blizzard's `/achievements/statistics` returns for one of your characters, fetched
+   * live, with whether the app keeps it (it keeps only numeric values). `?search=gold,hit` narrows the list to
+   * statistics or categories whose name contains any of the words; `?full=1` adds the untouched response.
+   */
+  app.get('/:id/raw-statistics', async (c) => {
+    const user = requireUser(c);
+    const row = await ownedCharacter(user.id, uuidParam(c, 'id'));
+    if (!blizzard.getRawStatistics) throw new HTTPException(501, { message: 'Not available' });
+    const raw = await blizzard.getRawStatistics(row.region, row.name, row.surname);
+    if (raw == null) throw new HTTPException(404, { message: 'Blizzard returned no statistics for this character' });
+    const words = (c.req.query('search') ?? '')
+      .split(',')
+      .map((w) => w.trim().toLowerCase())
+      .filter(Boolean);
+    const all = listRawStatistics(raw);
+    const matches = (e: (typeof all)[number]) =>
+      !words.length || words.some((w) => [e.name ?? '', ...e.path].some((n) => n.toLowerCase().includes(w)));
+    const statistics = all.filter(matches);
+    return c.json({
+      character: `${row.name} ${row.surname} (${row.region})`,
+      total: all.length,
+      kept: all.filter((e) => e.kept).length,
+      categories: [...new Set(all.map((e) => e.path.join(' > ')))],
+      search: words,
+      dropped: statistics.filter((e) => !e.kept),
+      statistics,
+      ...(c.req.query('full') ? { raw } : {}),
+    });
   });
 
   /** Owner-only edits. Currently just `roles`: a list of 'tank' | 'healer' | 'damage' (empty for none). */

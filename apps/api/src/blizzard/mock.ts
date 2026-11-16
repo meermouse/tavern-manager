@@ -122,6 +122,22 @@ export function createMockBlizzardClient(): BlizzardClient {
       if (!profile?.class || !profile.race) return null;
       return mockPortraits(profile.name, profile.class, profile.race);
     },
+    async getRawStatistics(region, name, surname) {
+      const stats = await client.getStatistics!(region, name, surname);
+      if (!stats) return null;
+      // Shaped like Blizzard's response, plus a text-only entry like the ones the real parser drops.
+      return {
+        categories: [
+          {
+            name: 'Character',
+            statistics: [
+              ...Object.entries(stats).map(([name, quantity], id) => ({ id, name, quantity })),
+              { id: 9999, name: 'Most gold ever owned', description: '27 gold' },
+            ],
+          },
+        ],
+      };
+    },
     async getStatistics(region, name, surname) {
       const profile = await client.getCharacter(region, name, surname);
       if (!profile?.level) return null;

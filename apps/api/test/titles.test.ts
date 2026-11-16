@@ -252,3 +252,29 @@ describe('title routes', () => {
     expect((await ninja()).holder).toBe(judy.id);
   });
 });
+
+describe('raw statistics debug route', () => {
+  it('shows the owner every statistic Blizzard sent, flagging the ones the app drops', async () => {
+    const { login } = await setup();
+    const alice = await login('Alice#1234');
+    const bob = await login('Bob#5678');
+    const judy = (await alice.post('/api/characters', { name: 'Judgement', surname: 'Judy' })).body;
+
+    const res = await alice.get(`/api/characters/${judy.id}/raw-statistics?search=gold,deaths`);
+    expect(res.status).toBe(200);
+    expect(res.body.kept).toBe(res.body.total - 1);
+    // The mock's text-only gold entry is reported as dropped, with Blizzard's entry as sent.
+    expect(res.body.dropped).toEqual([
+      { path: ['Character'], name: 'Most gold ever owned', kept: false, entry: { id: 9999, name: 'Most gold ever owned', description: '27 gold' } },
+    ]);
+    expect(res.body.statistics.map((s: { name: string }) => s.name)).toEqual(
+      expect.arrayContaining(['Total deaths', 'Deaths from falling', 'Most gold ever owned']),
+    );
+    expect(res.body.statistics.every((s: { name: string }) => /gold|deaths/i.test(s.name))).toBe(true);
+    expect(res.body.raw).toBeUndefined();
+    expect((await alice.get(`/api/characters/${judy.id}/raw-statistics?full=1`)).body.raw.categories).toHaveLength(1);
+
+    // Only the owner can look.
+    expect((await bob.get(`/api/characters/${judy.id}/raw-statistics`)).status).toBe(404);
+  });
+});
