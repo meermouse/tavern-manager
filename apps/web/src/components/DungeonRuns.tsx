@@ -341,8 +341,8 @@ function BossTallies({ runs }: { runs: DungeonRun[] }) {
   );
 }
 
-type DungeonView = 'finder' | 'runs' | 'bosses';
-const DUNGEON_VIEWS: [DungeonView, string][] = [
+export type DungeonView = 'finder' | 'runs' | 'bosses';
+export const DUNGEON_VIEWS: [DungeonView, string][] = [
   ['finder', 'Finder'],
   ['runs', 'Runs'],
   ['bosses', 'Bosses'],
@@ -353,14 +353,21 @@ export function TavernDungeons({
   tavernId,
   characters,
   visible,
+  view: controlledView,
+  onViewChange,
 }: {
   tavernId: string;
   /** Everyone in the tavern, to pick a group from. */
   characters: TavernCharacter[];
   /** The characters the faction filter shows, for the finder. */
   visible: TavernCharacter[];
+  /** The sub-view to show; pass it with onViewChange to keep it somewhere else (e.g. the URL). */
+  view?: DungeonView;
+  onViewChange?: (view: DungeonView) => void;
 }) {
-  const [view, setView] = useState<DungeonView>('finder');
+  const [ownView, setOwnView] = useState<DungeonView>('finder');
+  const view = controlledView ?? ownView;
+  const setView = onViewChange ?? setOwnView;
   // The dungeon the run form is open for (null = closed).
   const [logging, setLogging] = useState<string | null>(null);
   const runs = useDungeonRuns(tavernId);
