@@ -640,3 +640,47 @@ button.details-portrait.enlargeable:hover .enlarge-hint, button.details-portrait
 .details-dungeons { list-style: none; margin: 0 0 0.75rem; padding: 0; font-size: 0.9rem; }
 .details-dungeons li { padding: 0.15rem 0; }
 @media (prefers-reduced-motion: reduce) { .dungeon-log summary::after, .dungeon-log-progress span { transition: none; } }
+
+/* ---- Dungeon runs ---- */
+.sub-tabs { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.sub-tabs button.active { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+.dungeon-name .log-run { align-self: flex-start; padding: 0.1rem 0.5rem; }
+.run-form { display: flex; flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: 0.9rem; }
+.run-form input:not([type="checkbox"]) { flex: none; }
+.run-form .run-add-boss input { flex: 1 1 180px; }
+.run-form textarea { font: inherit; color: var(--text); background: var(--bg-input); border: 1px solid var(--border); border-radius: 6px; padding: 0.45rem 0.6rem; resize: vertical; }
+.run-form h3 { margin: 0; }
+.run-form label { display: flex; flex-direction: column; gap: 0.25rem; }
+.run-form-row { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+.run-form-row label:first-child { flex: 1 1 260px; }
+.run-form-row label:last-child { flex: 0 1 180px; }
+.run-form select, .run-form textarea { width: 100%; }
+.run-form fieldset { border: 1px solid var(--border); border-radius: var(--radius); padding: 0.5rem 0.9rem 0.75rem; margin: 0; min-width: 0; }
+.run-form legend { padding: 0 0.3rem; }
+.run-pick-list {
+  list-style: none; margin: 0; padding: 0;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); gap: 0.1rem 1rem;
+}
+.run-pick-list.bosses { grid-template-columns: repeat(auto-fill, minmax(min(100%, 210px), 1fr)); }
+.run-form .run-pick-list label { flex-direction: row; align-items: center; gap: 0.45rem; padding: 0.25rem 0; cursor: pointer; }
+.run-pick-list input, .run-cleared input { accent-color: var(--accent); width: 1.05rem; height: 1.05rem; flex: none; }
+.run-pick-name { min-width: 0; overflow-wrap: anywhere; }
+.run-add-boss { display: flex; gap: 0.5rem; margin-top: 0.5rem; flex-wrap: wrap; }
+.run-add-boss input { flex: 1 1 180px; min-width: 0; }
+.run-form label.run-cleared { flex-direction: row; align-items: center; gap: 0.5rem; cursor: pointer; }
+.run-form-actions { display: flex; gap: 0.5rem; }
+.run-list, .boss-tallies { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.75rem; }
+.run-card { display: flex; flex-direction: column; gap: 0.5rem; }
+.run-card.cleared { border-left: 3px solid var(--role-healer); }
+.run-head { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; flex-wrap: wrap; }
+.run-dungeon { font-size: 1.05rem; }
+.run-party { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.35rem 1rem; }
+.run-party li { display: flex; align-items: center; gap: 0.4rem; min-width: 0; }
+.run-party .hover-trigger { display: inline-flex; align-items: center; gap: 0.35rem; }
+.run-bosses, .run-notes, .feed-bosses { margin: 0; }
+.run-notes { font-style: italic; }
+.run-foot { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; }
+.boss-tallies p { margin: 0.2rem 0 0.5rem; }
+.boss-chips { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.boss-chips li { font-size: 0.85rem; padding: 0.15rem 0.55rem; border: 1px dashed var(--border); border-radius: 999px; color: var(--muted); }
+.boss-chips li.down { border-style: solid; border-color: var(--role-healer); color: var(--text); }

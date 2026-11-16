@@ -66,12 +66,15 @@ export function DungeonTable({
   characters,
   charactersLabel = 'Tavern characters',
   showTotals = false,
+  onLogRun,
 }: {
   characters: Character[];
   /** Heading for the characters column, e.g. "Tavern characters" or "Your characters". */
   charactersLabel?: string;
   /** Show each dungeon's eligible count and per-role totals (for tavern groups, not your own list). */
   showTotals?: boolean;
+  /** Offer a "Log run" button on each dungeon (tavern view). */
+  onLogRun?: (dungeon: string) => void;
 }) {
   const assignments = assignCharactersToDungeons(characters);
   // Only reserve the roles slot when someone has a role, so tables without any stay compact.
@@ -98,10 +101,19 @@ export function DungeonTable({
           ) : (
             <tr key={row.dungeon.name}>
               <td data-label="Dungeon">
-                {showTotals ? (
+                {showTotals || onLogRun ? (
                   <div className="dungeon-name">
                     <strong>{row.dungeon.name}</strong>
-                    <EligibleSummary characters={row.characters} />
+                    {showTotals && <EligibleSummary characters={row.characters} />}
+                    {onLogRun && (
+                      <button
+                        className="ghost small log-run"
+                        aria-label={`Log a ${row.dungeon.name} run`}
+                        onClick={() => onLogRun(row.dungeon.name)}
+                      >
+                        + Log run
+                      </button>
+                    )}
                   </div>
                 ) : (
                   <strong>{row.dungeon.name}</strong>

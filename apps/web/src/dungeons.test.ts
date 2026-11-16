@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Character } from './api/client';
-import { assignCharactersToDungeons, dungeons } from './dungeons';
+import { assignCharactersToDungeons, dungeons, findDungeon } from './dungeons';
 
 function character(id: string, level: number | null): Character {
   return {
@@ -66,5 +66,14 @@ describe('assignCharactersToDungeons', () => {
       ['BelowRange', 'NearRange'],
     ]);
     expect(result.pending.map((c) => c.id)).toEqual(['Pending']);
+  });
+});
+describe('dungeon bosses', () => {
+  it('only names bosses for listed dungeons, without duplicates', () => {
+    expect(findDungeon('Ragefire Chasm')?.bosses).toContain('Taragaman the Hungerer');
+    expect(findDungeon('Hall of Thanes')?.bosses).toBeUndefined();
+    for (const d of dungeons) {
+      if (d.bosses) expect(new Set(d.bosses).size).toBe(d.bosses.length);
+    }
   });
 });

@@ -8,6 +8,7 @@ export type FeedKind =
   | 'loot'
   | 'achievement'
   | 'dungeon_cleared'
+  | 'dungeon_run'
   | 'character_joined'
   | 'member_joined'
   | 'tavern_founded';

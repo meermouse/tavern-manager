@@ -6,6 +6,7 @@ import { authRoutes, hashToken, SESSION_COOKIE } from './routes/auth.js';
 import { characterRoutes } from './routes/characters.js';
 import { leaderboardRoutes } from './routes/leaderboard.js';
 import { meRoutes } from './routes/me.js';
+import { runRoutes } from './routes/runs.js';
 import { tavernRoutes } from './routes/taverns.js';
 
 export function createApp(deps: AppDeps) {
@@ -37,6 +38,7 @@ export function createApp(deps: AppDeps) {
   app.route('/api/characters', characterRoutes(deps));
   app.route('/api', tavernRoutes(deps));
   app.route('/api', leaderboardRoutes(deps));
+  app.route('/api', runRoutes(deps));
 
   app.notFound((c) => c.json({ error: 'Not found' }, 404));
   app.onError((err, c) => {

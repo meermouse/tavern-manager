@@ -11,6 +11,7 @@ characters in it.
 | `loot` | A sync sees a newly equipped item of **rare** quality or better (rare, epic, legendary, artifact). All new items found in one sync go into one post. | Character | `GET /profile/wow/character/{slug}/equipment` |
 | `achievement` | A sync sees newly completed achievements. All found in one sync go into one post. | Character | `GET /profile/wow/character/{slug}/achievements` |
 | `dungeon_cleared` | The owner ticks a dungeon off in the character's dungeon log (My dungeons). Ticking the same dungeon again posts nothing; unticking it deletes the post. | Character | App (dungeon log) |
+| `dungeon_run` | A member logs a group run (Dungeons → Runs). One post names the whole party, the dungeon, whether they cleared it and the bosses killed. Deleting the run deletes the post. | Tavern | App (run log) |
 | `character_joined` | A player adds a character to the Tavern. | Tavern | App |
 | `member_joined` | A player joins via an invite. | Tavern | App |
 | `tavern_founded` | The Tavern is created. | Tavern | App |

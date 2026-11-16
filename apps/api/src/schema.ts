@@ -151,6 +151,26 @@ create table if not exists tavern_title_holders (
 -- Dungeon log: which dungeons the owner has marked as completed, as { "<dungeon name>": "<when logged>" }.
 alter table characters add column if not exists dungeons_completed jsonb not null default '{}';
 
+-- Dungeon runs a tavern logged: who went, which bosses died, and whether they cleared it.
+create table if not exists dungeon_runs (
+  id uuid primary key default gen_random_uuid(),
+  tavern_id uuid not null references taverns(id) on delete cascade,
+  dungeon text not null,
+  run_on date not null default current_date,
+  bosses text[] not null default '{}',
+  cleared boolean not null default false,
+  notes text,
+  logged_by uuid references users(id) on delete set null,
+  created_at timestamptz not null default now()
+);
+create index if not exists dungeon_runs_tavern_idx on dungeon_runs(tavern_id, run_on desc, created_at desc);
+
+create table if not exists dungeon_run_characters (
+  run_id uuid not null references dungeon_runs(id) on delete cascade,
+  character_id uuid not null references characters(id) on delete cascade,
+  primary key (run_id, character_id)
+);
+
 select pg_advisory_unlock(727274);
 `;
 

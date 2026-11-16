@@ -106,6 +106,19 @@ function headline(event: FeedEvent): { icon: string; text: ReactNode; className?
         className: 'dungeon-cleared',
         text: <><CharName event={event} /> cleared <strong>{d.dungeon ?? 'a dungeon'}</strong></>,
       };
+    case 'dungeon_run': {
+      const party = d.characters ?? [];
+      return {
+        icon: d.cleared ? '🗝️' : '⚔️',
+        className: d.cleared ? 'dungeon-cleared' : undefined,
+        text: (
+          <>
+            <PartyNames characters={party} /> {d.cleared ? 'cleared' : 'ran'} <strong>{d.dungeon ?? 'a dungeon'}</strong>
+            {!d.cleared && d.bosses?.length ? <span className="muted"> ({d.bosses.length === 1 ? '1 boss' : `${d.bosses.length} bosses`} down)</span> : null}
+          </>
+        ),
+      };
+    }
     case 'character_joined': {
       const c = event.character;
       return {
@@ -132,7 +145,27 @@ function headline(event: FeedEvent): { icon: string; text: ReactNode; className?
   }
 }
 
+/** "Judy", "Judy and Grim", "Judy, Grim and Thorn", each linked to its hover card. */
+function PartyNames({ characters }: { characters: NonNullable<FeedEvent['data']['characters']> }) {
+  if (!characters.length) return <strong>Someone</strong>;
+  return (
+    <>
+      {characters.map((c, i) => (
+        <span key={c.id}>
+          {i > 0 && (i === characters.length - 1 ? ' and ' : ', ')}
+          <CharacterLink character={c}>
+            <strong className={classKey(c.class) ? `class-${classKey(c.class)}` : undefined}>{c.name}</strong>
+          </CharacterLink>
+        </span>
+      ))}
+    </>
+  );
+}
+
 function Details({ event }: { event: FeedEvent }) {
+  if (event.kind === 'dungeon_run' && event.data.bosses?.length) {
+    return <p className="feed-bosses small-text"><span className="muted">Bosses:</span> {event.data.bosses.join(' · ')}</p>;
+  }
   if (event.kind === 'loot' && event.data.items?.length) {
     return (
       <ul className="feed-items">
