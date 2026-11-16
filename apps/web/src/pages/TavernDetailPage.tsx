@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useMemo, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router';
+import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router';
 import { api, type FeedEvent, type TavernCharacter, type TavernDetail } from '../api/client';
 import { keys, useCharacters, useLeaderboard, useMe, useTavern } from '../api/hooks';
 import { AddCharacterForm } from '../components/AddCharacterForm';
@@ -8,7 +8,7 @@ import { CharacterAvatar } from '../components/CharacterAvatar';
 import { CharacterDirectory, CharacterLink } from '../components/CharacterLink';
 import { CharacterDetails } from '../components/CharacterDetails';
 import { CharacterTable } from '../components/CharacterTable';
-import { TavernDungeons } from '../components/DungeonRuns';
+import { DUNGEON_VIEWS, TavernDungeons, type DungeonView } from '../components/DungeonRuns';
 import { LeaderboardTable } from '../components/LeaderboardTable';
 import { TavernFeed } from '../components/TavernFeed';
 import { TitlesView } from '../components/TitlesView';
@@ -157,10 +157,11 @@ function MembersPanel({ tavern }: { tavern: TavernDetail }) {
 
 /** The character table, with a details pane above it for the selected row. */
 function CharacterRoster({ tavern, characters }: { tavern: TavernDetail; characters: TavernCharacter[] }) {
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  // The selection lives in the URL (?character=…) so it survives a page refresh.
+  const [selectedId, setSelectedId] = useSearchParam('character');
   // Look the selection up in the visible characters, so the pane closes if the character leaves or is filtered out.
   const selected = characters.find((c) => c.id === selectedId) ?? null;
-  const close = useCallback(() => setSelectedId(null), []);
+  const close = useCallback(() => setSelectedId(null), [setSelectedId]);
   return (
     <div className="stack roster">
       {selected && <CharacterDetails tavernId={tavern.id} character={selected} onClose={close} />}
@@ -209,6 +210,25 @@ function FactionPicker({ value, onChange }: { value: FactionFilter; onChange: (f
   );
 }
 
+/** One query-string parameter as state. Changes replace the history entry rather than adding one. */
+function useSearchParam(name: string): [string | null, (value: string | null) => void] {
+  const [params, setParams] = useSearchParams();
+  const set = useCallback(
+    (value: string | null) =>
+      setParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          if (value === null) next.delete(name);
+          else next.set(name, value);
+          return next;
+        },
+        { replace: true },
+      ),
+    [name, setParams],
+  );
+  return [params.get(name), set];
+}
+
 type View = 'feed' | 'characters' | 'dungeons' | 'leaderboard' | 'titles';
 const VIEWS: [View, string][] = [
   ['feed', 'Feed'],
@@ -219,9 +239,16 @@ const VIEWS: [View, string][] = [
 ];
 
 export function TavernDetailPage() {
-  const { id = '' } = useParams();
-  const [view, setView] = useState<View>('feed');
-  const [titleKey, setTitleKey] = useState<string | null>(null);
+  // The open tab (and Dungeons sub-tab) live in the path, e.g. /taverns/:id/dungeons/runs,
+  // so refreshing or sharing the link lands on the same view.
+  const { id = '', view: viewParam, sub: subParam } = useParams();
+  const navigate = useNavigate();
+  const view = VIEWS.find(([key]) => key === (viewParam ?? 'feed'))?.[0];
+  const dungeonView = DUNGEON_VIEWS.find(([key]) => key === (subParam ?? 'finder'))?.[0];
+  const setView = (next: View) => navigate(next === 'feed' ? `/taverns/${id}` : `/taverns/${id}/${next}`);
+  const setDungeonView = (next: DungeonView) =>
+    navigate(next === 'finder' ? `/taverns/${id}/dungeons` : `/taverns/${id}/dungeons/${next}`);
+  const [titleKey, setTitleKey] = useSearchParam('title');
   const [faction, setFaction] = useFactionFilter(id);
   const tavern = useTavern(id);
   const me = useMe();
@@ -254,6 +281,8 @@ export function TavernDetailPage() {
     },
   });
 
+  // Unknown tab in the URL (or a sub-tab on a tab without any): fall back to the tavern's front page.
+  if (!view || (subParam && (view !== 'dungeons' || !dungeonView))) return <Navigate to={`/taverns/${id}`} replace />;
   if (tavern.isPending) return <p className="muted">Loading…</p>;
   if (tavern.error) {
     return (
@@ -294,7 +323,15 @@ export function TavernDetailPage() {
           <TavernFeed tavernId={t.id} viewerName={me.data?.displayName} include={faction === 'both' ? undefined : includePost} />
         )}
         {view === 'characters' && <CharacterRoster tavern={t} characters={visible} />}
-        {view === 'dungeons' && <TavernDungeons tavernId={t.id} characters={t.characters} visible={visible} />}
+        {view === 'dungeons' && (
+          <TavernDungeons
+            tavernId={t.id}
+            characters={t.characters}
+            visible={visible}
+            view={dungeonView}
+            onViewChange={setDungeonView}
+          />
+        )}
         {view === 'leaderboard' && <TavernLeaderboard tavernId={t.id} visible={visible} />}
         {view === 'titles' && <TitlesView titles={t.titles ?? []} selectedKey={titleKey} onSelect={setTitleKey} />}
 

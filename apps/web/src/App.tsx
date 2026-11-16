@@ -27,7 +27,7 @@ export function App() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/join/:code" element={<JoinPage />} />
       <Route path="/" element={<RequireAuth><TavernsPage /></RequireAuth>} />
-      <Route path="/taverns/:id" element={<RequireAuth><TavernDetailPage /></RequireAuth>} />
+      <Route path="/taverns/:id/:view?/:sub?" element={<RequireAuth><TavernDetailPage /></RequireAuth>} />
       <Route path="/characters" element={<RequireAuth><MyCharactersPage /></RequireAuth>} />
       <Route path="/dungeons" element={<RequireAuth><MyDungeonsPage /></RequireAuth>} />
       <Route path="/leaderboard" element={<RequireAuth><LeaderboardPage /></RequireAuth>} />
