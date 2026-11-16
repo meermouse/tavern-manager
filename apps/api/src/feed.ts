@@ -181,13 +181,45 @@ export async function eventVisibleInTavern(db: Db, tavernId: string, eventId: st
   return !!row;
 }
 
-export async function tavernFeed(
+export function tavernFeed(
   db: Db,
   tavernId: string,
   viewerId: string,
   opts: { before?: string | null; limit: number; characterId?: string },
 ) {
-  const params: unknown[] = [tavernId, opts.limit + 1, viewerId];
+  return feedEvents(db, { param: tavernId, visible: VISIBLE_IN_TAVERN, cheerTaverns: 'select $1::uuid' }, viewerId, opts);
+}
+
+/** Posts a player can see outside any one tavern: those in taverns they belong to, plus tavern-less ones. */
+const VISIBLE_TO_USER = `(
+  e.tavern_id is null or e.tavern_id in (select tavern_id from tavern_members where user_id = $1)
+)`;
+
+/** Feed posts across all the viewer's taverns, with cheers from any of them (as on the global leaderboard). */
+export function userFeed(
+  db: Db,
+  viewerId: string,
+  opts: { before?: string | null; limit: number; characterId?: string },
+) {
+  return feedEvents(
+    db,
+    { param: viewerId, visible: VISIBLE_TO_USER, cheerTaverns: 'select tavern_id from tavern_members where user_id = $1' },
+    viewerId,
+    opts,
+  );
+}
+
+/**
+ * Feed posts matching `scope.visible` (a condition on `e`), newest first. Cheers count only reactions in
+ * `scope.cheerTaverns` (a subquery of tavern ids). Both may use `$1`, which is `scope.param`.
+ */
+async function feedEvents(
+  db: Db,
+  scope: { param: string; visible: string; cheerTaverns: string },
+  viewerId: string,
+  opts: { before?: string | null; limit: number; characterId?: string },
+) {
+  const params: unknown[] = [scope.param, opts.limit + 1, viewerId];
   let cursor = '';
   if (opts.before) {
     params.push(opts.before);
@@ -204,12 +236,12 @@ export async function tavernFeed(
        u.id as owner_id, u.display_name as owner_name,
        (select coalesce(json_agg(ru.display_name order by r.created_at), '[]'::json)
           from feed_reactions r join users ru on ru.id = r.user_id
-          where r.event_id = e.id and r.tavern_id = $1) as cheer_names,
-       exists(select 1 from feed_reactions r where r.event_id = e.id and r.tavern_id = $1 and r.user_id = $3) as cheered
+          where r.event_id = e.id and r.tavern_id in (${scope.cheerTaverns})) as cheer_names,
+       exists(select 1 from feed_reactions r where r.event_id = e.id and r.tavern_id in (${scope.cheerTaverns}) and r.user_id = $3) as cheered
      from feed_events e
      left join characters c on c.id = e.character_id
      left join users u on u.id = coalesce(e.user_id, c.user_id)
-     where ${VISIBLE_IN_TAVERN} ${cursor}
+     where ${scope.visible} ${cursor}
      order by e.id desc
      limit $2`,
     params,

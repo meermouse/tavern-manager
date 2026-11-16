@@ -322,6 +322,9 @@ export const api = {
     request<Cheers>(on ? 'PUT' : 'DELETE', `/api/taverns/${tavernId}/feed/${eventId}/cheers`),
   characterDetails: (tavernId: string, characterId: string) =>
     request<CharacterDetails>('GET', `/api/taverns/${tavernId}/characters/${characterId}`),
+  /** Details for anyone on the global leaderboard: recent posts from every tavern you share with them. */
+  leaderboardCharacterDetails: (characterId: string) =>
+    request<CharacterDetails>('GET', `/api/leaderboard/characters/${characterId}`),
   dungeonRuns: (tavernId: string) => request<DungeonRun[]>('GET', `/api/taverns/${tavernId}/runs`),
   logDungeonRun: (tavernId: string, run: NewDungeonRun) =>
     request<DungeonRun>('POST', `/api/taverns/${tavernId}/runs`, run),

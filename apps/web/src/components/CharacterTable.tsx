@@ -19,6 +19,7 @@ import { TitleBadges } from './TitleBadges';
 import { ROLES, ROLE_LABELS, RoleIcons } from './RoleIcons';
 import { factionOf } from '../faction';
 import { ProfessionSlots, bestProfessionSkill } from './ProfessionIcons';
+import { selectableRowProps } from './selectableRow';
 
 const col = createColumnHelper<TavernCharacter>();
 
@@ -238,36 +239,15 @@ export function CharacterTable({
             ))}
           </thead>
           <tbody>
-            {rows.map((row) => {
-              const selected = row.original.id === selectedId;
-              const select = () => onSelect?.(selected ? null : row.original);
-              return (
-              <tr
-                key={row.id}
-                className={onSelect ? `selectable${selected ? ' selected' : ''}` : undefined}
-                aria-selected={onSelect ? selected : undefined}
-                tabIndex={onSelect ? 0 : undefined}
-                title={onSelect ? `Show details for ${row.original.name} ${row.original.surname}` : undefined}
-                onClick={onSelect ? select : undefined}
-                onKeyDown={
-                  onSelect
-                    ? (e) => {
-                        if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) {
-                          e.preventDefault();
-                          select();
-                        }
-                      }
-                    : undefined
-                }
-              >
+            {rows.map((row) => (
+              <tr key={row.id} {...selectableRowProps(row.original, selectedId, onSelect)}>
                 {row.getVisibleCells().map((cell) => (
                   <td key={cell.id} data-label={String(cell.column.columnDef.header)}>
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </td>
                 ))}
               </tr>
-              );
-            })}
+            ))}
             {rows.length === 0 && (
               <tr>
                 <td colSpan={columns.length} className="muted center">

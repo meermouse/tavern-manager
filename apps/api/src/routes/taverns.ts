@@ -4,7 +4,7 @@ import { HTTPException } from 'hono/http-exception';
 import { awardTitles, FEED_POSTS_SQL, tavernTitles } from '../titles.js';
 import { badRequest, jsonBody, requireUser, uuidParam, type AppDeps, type AppEnv } from '../context.js';
 import { eventVisibleInTavern, recordEvent, setCheer, tavernFeed } from '../feed.js';
-import { serializeCharacter, serializeEquipment } from '../serialize.js';
+import { serializeCharacter, serializeCharacterDetails } from '../serialize.js';
 import { refreshStale, type CharacterRow } from '../sync.js';
 
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -218,14 +218,7 @@ export function tavernRoutes({ db, blizzard }: AppDeps) {
     );
     if (!row) throw new HTTPException(404, { message: 'Character not found' });
     const recent = await tavernFeed(db, tavern.id, user.id, { limit: 5, characterId });
-    return c.json({
-      ...serializeCharacter(row),
-      ownerId: row.user_id,
-      ownerName: row.owner_name,
-      equipment: serializeEquipment(row),
-      equipmentSyncedAt: row.equipment_synced_at,
-      recent: recent.events,
-    });
+    return c.json(serializeCharacterDetails(row, recent.events));
   });
 
   app.put('/taverns/:id/characters/:characterId', async (c) => {

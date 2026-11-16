@@ -116,7 +116,8 @@ export function CharacterDetails({
   character,
   onClose,
 }: {
-  tavernId: string;
+  /** The tavern it's seen from; leave out on the global leaderboard. */
+  tavernId?: string;
   character: TavernCharacter;
   onClose: () => void;
 }) {

@@ -1,18 +1,18 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useMemo, useState } from 'react';
-import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router';
+import { Link, Navigate, useNavigate, useParams } from 'react-router';
 import { api, type FeedEvent, type TavernCharacter, type TavernDetail } from '../api/client';
 import { keys, useCharacters, useLeaderboard, useMe, useTavern } from '../api/hooks';
 import { AddCharacterForm } from '../components/AddCharacterForm';
 import { CharacterAvatar } from '../components/CharacterAvatar';
 import { CharacterDirectory, CharacterLink } from '../components/CharacterLink';
-import { CharacterDetails } from '../components/CharacterDetails';
 import { CharacterTable } from '../components/CharacterTable';
 import { DUNGEON_VIEWS, TavernDungeons, type DungeonView } from '../components/DungeonRuns';
 import { LeaderboardTable } from '../components/LeaderboardTable';
 import { TavernFeed } from '../components/TavernFeed';
 import { TitlesView } from '../components/TitlesView';
 import { RoleIcons } from '../components/RoleIcons';
+import { useCharacterSelection, useSearchParam } from '../characterSelection';
 import { matchesFaction, useFactionFilter, type FactionFilter } from '../faction';
 
 function InvitePanel({ tavern }: { tavern: TavernDetail }) {
@@ -157,33 +157,31 @@ function MembersPanel({ tavern }: { tavern: TavernDetail }) {
 
 /** The character table, with a details pane above it for the selected row. */
 function CharacterRoster({ tavern, characters }: { tavern: TavernDetail; characters: TavernCharacter[] }) {
-  // The selection lives in the URL (?character=…) so it survives a page refresh.
-  const [selectedId, setSelectedId] = useSearchParam('character');
-  // Look the selection up in the visible characters, so the pane closes if the character leaves or is filtered out.
-  const selected = characters.find((c) => c.id === selectedId) ?? null;
-  const close = useCallback(() => setSelectedId(null), [setSelectedId]);
+  const { details, ...selection } = useCharacterSelection(tavern.id, characters);
   return (
     <div className="stack roster">
-      {selected && <CharacterDetails tavernId={tavern.id} character={selected} onClose={close} />}
-      <CharacterTable
-        characters={characters}
-        selectedId={selected?.id ?? null}
-        onSelect={(c: TavernCharacter | null) => setSelectedId(c?.id ?? null)}
-      />
+      {details}
+      <CharacterTable characters={characters} {...selection} />
     </div>
   );
 }
 
-/** The tavern's leaderboard, limited to the characters the faction filter shows. */
+/** The tavern's leaderboard, limited to the characters the faction filter shows, with a details pane like the roster's. */
 function TavernLeaderboard({ tavernId, visible }: { tavernId: string; visible: TavernCharacter[] }) {
   const board = useLeaderboard(tavernId);
   const entries = useMemo(() => {
     const ids = new Set(visible.map((c) => c.id));
     return (board.data ?? []).filter((e) => ids.has(e.id));
   }, [board.data, visible]);
+  const { details, ...selection } = useCharacterSelection(tavernId, entries);
   if (board.isPending) return <p className="muted">Loading…</p>;
   if (board.error) return <p className="error">{board.error.message}</p>;
-  return <LeaderboardTable entries={entries} emptyText="No characters in this tavern yet." />;
+  return (
+    <div className="stack roster">
+      {details}
+      <LeaderboardTable entries={entries} emptyText="No characters in this tavern yet." {...selection} />
+    </div>
+  );
 }
 
 const FACTIONS: [FactionFilter, string][] = [
@@ -211,24 +209,6 @@ function FactionPicker({ value, onChange }: { value: FactionFilter; onChange: (f
 }
 
 /** One query-string parameter as state. Changes replace the history entry rather than adding one. */
-function useSearchParam(name: string): [string | null, (value: string | null) => void] {
-  const [params, setParams] = useSearchParams();
-  const set = useCallback(
-    (value: string | null) =>
-      setParams(
-        (prev) => {
-          const next = new URLSearchParams(prev);
-          if (value === null) next.delete(name);
-          else next.set(name, value);
-          return next;
-        },
-        { replace: true },
-      ),
-    [name, setParams],
-  );
-  return [params.get(name), set];
-}
-
 type View = 'feed' | 'characters' | 'dungeons' | 'leaderboard' | 'titles';
 const VIEWS: [View, string][] = [
   ['feed', 'Feed'],
