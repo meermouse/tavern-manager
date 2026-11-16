@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ComponentProps } from 'react';
 import type { LeaderboardEntry } from '../api/client';
 import { availableMetrics, DEFAULT_METRIC, formatMetric, metricByKey, rankBy, useMetricChoice } from '../leaderboard';
 import { CharacterAvatar } from './CharacterAvatar';
@@ -6,11 +6,23 @@ import { CharacterLevel } from './CharacterLevel';
 import { CharacterLink } from './CharacterLink';
 import { ClassName } from './ClassName';
 import { ProfessionSlots } from './ProfessionIcons';
+import { selectableRowProps } from './selectableRow';
 
 const MEDALS = ['🥇', '🥈', '🥉'];
 
 /** Characters ranked by one stat, picked from a drop-down. */
-export function LeaderboardTable({ entries, emptyText }: { entries: LeaderboardEntry[]; emptyText: string }) {
+export function LeaderboardTable({
+  entries,
+  emptyText,
+  selectedId,
+  onSelect,
+}: {
+  entries: LeaderboardEntry[];
+  emptyText: string;
+  selectedId?: string | null;
+  /** Called with the clicked character, or `null` when the selected row is clicked again. */
+  onSelect?: (character: LeaderboardEntry | null) => void;
+}) {
   const [chosen, setChosen] = useMetricChoice();
   const [ascending, setAscending] = useState(false);
   const [onePerPlayer, setOnePerPlayer] = useState(false);
@@ -78,12 +90,13 @@ export function LeaderboardTable({ entries, emptyText }: { entries: LeaderboardE
           </thead>
           <tbody>
             {rows.map(({ entry, value, rank }) => (
-              <tr key={entry.id} className={rank != null && rank <= 3 ? `podium podium-${rank}` : undefined}>
+              <PodiumRow key={entry.id} rank={rank} {...selectableRowProps(entry, selectedId, onSelect)}>
                 <td data-label="Rank" className="rank">
                   {rank == null ? <span className="muted">—</span> : !ascending && rank <= 3 ? <span title={`#${rank}`}>{MEDALS[rank - 1]}</span> : rank}
                 </td>
                 <td data-label="Character">
-                  <CharacterLink character={entry}>
+                  {/* Selectable rows are already a tab stop, so the name needn't be one too. */}
+                  <CharacterLink character={entry} focusable={!onSelect}>
                     <span className="char-cell">
                       <CharacterAvatar character={entry} size="xs" />
                       <strong>{entry.name} {entry.surname}</strong>
@@ -97,7 +110,7 @@ export function LeaderboardTable({ entries, emptyText }: { entries: LeaderboardE
                 <td data-label={metric.label} className="num">
                   {value == null ? <span className="muted">—</span> : <strong>{formatMetric(value, metric.format)}</strong>}
                 </td>
-              </tr>
+              </PodiumRow>
             ))}
             {rows.length === 0 && (
               <tr>
@@ -115,4 +128,10 @@ export function LeaderboardTable({ entries, emptyText }: { entries: LeaderboardE
       )}
     </div>
   );
+}
+
+/** A leaderboard row, highlighted for the top three. */
+function PodiumRow({ rank, className, ...props }: { rank: number | null } & ComponentProps<'tr'>) {
+  const podium = rank != null && rank <= 3 ? `podium podium-${rank}` : '';
+  return <tr className={[podium, className].filter(Boolean).join(' ') || undefined} {...props} />;
 }

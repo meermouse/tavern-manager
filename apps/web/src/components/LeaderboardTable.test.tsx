@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { LeaderboardEntry } from '../api/client';
 import { LeaderboardTable } from './LeaderboardTable';
 
@@ -49,5 +49,19 @@ describe('LeaderboardTable', () => {
     render(<LeaderboardTable entries={data} emptyText="none" />);
     fireEvent.click(screen.getByRole('checkbox', { name: /Best character per player/ }));
     expect(names()).toEqual(['Grimble Thornwick', 'Judgement Judy']);
+  });
+
+  it('selects a character when its row is clicked, and deselects on a second click', () => {
+    const onSelect = vi.fn();
+    const { rerender } = render(<LeaderboardTable entries={data} emptyText="none" onSelect={onSelect} />);
+    const row = screen.getByText('Grimble Thornwick').closest('tr')!;
+    fireEvent.click(row);
+    expect(onSelect).toHaveBeenLastCalledWith(data[1]);
+    rerender(<LeaderboardTable entries={data} emptyText="none" selectedId={data[1].id} onSelect={onSelect} />);
+    const selected = screen.getByText('Grimble Thornwick').closest('tr')!;
+    expect(selected.getAttribute('aria-selected')).toBe('true');
+    expect(selected.className).toContain('podium-1');
+    fireEvent.keyDown(selected, { key: 'Enter' });
+    expect(onSelect).toHaveBeenLastCalledWith(null);
   });
 });

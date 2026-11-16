@@ -155,35 +155,47 @@ function MembersPanel({ tavern }: { tavern: TavernDetail }) {
   );
 }
 
-/** The character table, with a details pane above it for the selected row. */
-function CharacterRoster({ tavern, characters }: { tavern: TavernDetail; characters: TavernCharacter[] }) {
-  // The selection lives in the URL (?character=…) so it survives a page refresh.
+/**
+ * The selected character (from `characters`) and its details pane. The selection lives in the URL (?character=…)
+ * so it survives a page refresh and carries over between the characters and leaderboard tabs.
+ */
+function useCharacterSelection<T extends TavernCharacter>(tavernId: string, characters: T[]) {
   const [selectedId, setSelectedId] = useSearchParam('character');
-  // Look the selection up in the visible characters, so the pane closes if the character leaves or is filtered out.
+  // Look the selection up in the shown characters, so the pane closes if the character leaves or is filtered out.
   const selected = characters.find((c) => c.id === selectedId) ?? null;
   const close = useCallback(() => setSelectedId(null), [setSelectedId]);
+  const onSelect = useCallback((c: T | null) => setSelectedId(c?.id ?? null), [setSelectedId]);
+  const details = selected && <CharacterDetails tavernId={tavernId} character={selected} onClose={close} />;
+  return { selectedId: selected?.id ?? null, onSelect, details };
+}
+
+/** The character table, with a details pane above it for the selected row. */
+function CharacterRoster({ tavern, characters }: { tavern: TavernDetail; characters: TavernCharacter[] }) {
+  const { details, ...selection } = useCharacterSelection(tavern.id, characters);
   return (
     <div className="stack roster">
-      {selected && <CharacterDetails tavernId={tavern.id} character={selected} onClose={close} />}
-      <CharacterTable
-        characters={characters}
-        selectedId={selected?.id ?? null}
-        onSelect={(c: TavernCharacter | null) => setSelectedId(c?.id ?? null)}
-      />
+      {details}
+      <CharacterTable characters={characters} {...selection} />
     </div>
   );
 }
 
-/** The tavern's leaderboard, limited to the characters the faction filter shows. */
+/** The tavern's leaderboard, limited to the characters the faction filter shows, with a details pane like the roster's. */
 function TavernLeaderboard({ tavernId, visible }: { tavernId: string; visible: TavernCharacter[] }) {
   const board = useLeaderboard(tavernId);
   const entries = useMemo(() => {
     const ids = new Set(visible.map((c) => c.id));
     return (board.data ?? []).filter((e) => ids.has(e.id));
   }, [board.data, visible]);
+  const { details, ...selection } = useCharacterSelection(tavernId, entries);
   if (board.isPending) return <p className="muted">Loading…</p>;
   if (board.error) return <p className="error">{board.error.message}</p>;
-  return <LeaderboardTable entries={entries} emptyText="No characters in this tavern yet." />;
+  return (
+    <div className="stack roster">
+      {details}
+      <LeaderboardTable entries={entries} emptyText="No characters in this tavern yet." {...selection} />
+    </div>
+  );
 }
 
 const FACTIONS: [FactionFilter, string][] = [
