@@ -328,6 +328,7 @@ export function TavernDetailPage() {
             tavernId={t.id}
             characters={t.characters}
             visible={visible}
+            questFaction={faction === 'horde' ? 'Horde' : faction === 'alliance' ? 'Alliance' : null}
             view={dungeonView}
             onViewChange={setDungeonView}
           />
