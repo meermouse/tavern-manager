@@ -96,8 +96,23 @@ describe('Dungeon quest markers', () => {
     expect(within(smQuests).queryByText(/Into the Scarlet Monastery/)).toBeNull();
   });
 
-  it('shows no markers for dungeons without a quest list', () => {
+  it('covers the new Forever dungeons', () => {
     render(<DungeonTable characters={[]} />);
-    expect(within(row('Hall of Thanes')).queryByRole('list', { name: /quests? for/ })).toBeNull();
+    const thanes = within(row('Hall of Thanes')).getByRole('list', { name: /quests for Hall of Thanes/ });
+    expect(within(thanes).getByText('Important Heirlooms: Thom Filch, Ironforge')).toBeTruthy();
+  });
+
+  it('says when a quest giver is not on record yet', () => {
+    render(<DungeonTable characters={[]} />);
+    const marker = within(row('Alcaz Prison')).getByText(/The Dragon's Journal/).closest('.quest-marker') as HTMLElement;
+    expect(marker.textContent).toContain('quest giver not on record yet');
+    fireEvent.focus(marker);
+    act(() => { vi.runAllTimers(); });
+    expect(within(screen.getByRole('tooltip')).getByText('Quest giver not on record yet')).toBeTruthy();
+  });
+
+  it('shows no markers when the faction filter leaves no quests', () => {
+    render(<DungeonTable characters={[]} questFaction="Alliance" />);
+    expect(within(row('Shaper’s Terrace')).queryByRole('list', { name: /quests? for/ })).toBeNull();
   });
 });

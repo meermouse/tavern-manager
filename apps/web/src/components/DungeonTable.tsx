@@ -15,10 +15,10 @@ export function QuestMarkers({ dungeon, faction }: { dungeon: string; faction?: 
   return (
     <ul className="quest-markers" aria-label={`${quests.length} ${quests.length === 1 ? 'quest' : 'quests'} for ${dungeon}`}>
       {quests.map((quest) => (
-        <li key={`${quest.name}-${quest.giver}`}>
+        <li key={`${quest.name}-${quest.faction}-${quest.giver}`}>
           <HoverCard className={`quest-marker ${quest.faction.toLowerCase()}`} content={() => <QuestCard quest={quest} />}>
             <span aria-hidden="true">!</span>
-            <span className="sr-only">{quest.name}: {quest.giver}, {quest.location}</span>
+            <span className="sr-only">{quest.name}: {questGiverText(quest)}</span>
           </HoverCard>
         </li>
       ))}
@@ -26,12 +26,18 @@ export function QuestMarkers({ dungeon, faction }: { dungeon: string; faction?: 
   );
 }
 
+/** Who gives the quest and where, for screen readers; some new Forever quests have no giver on record yet. */
+function questGiverText(quest: DungeonQuest): string {
+  if (!quest.giver) return 'quest giver not on record yet';
+  return quest.location ? `${quest.giver}, ${quest.location}` : quest.giver;
+}
+
 function QuestCard({ quest }: { quest: DungeonQuest }) {
   return (
     <div className="quest-card">
       <div className="qc-name">{quest.name}</div>
-      <div>{quest.giver}</div>
-      <div className="qc-location">{quest.location}</div>
+      {quest.giver ? <div>{quest.giver}</div> : <div className="muted">Quest giver not on record yet</div>}
+      {quest.location && <div className="qc-location">{quest.location}</div>}
       {quest.faction !== 'Both' && <div className={`faction ${quest.faction.toLowerCase()}`}>{quest.faction} only</div>}
     </div>
   );
