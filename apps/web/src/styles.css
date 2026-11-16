@@ -684,3 +684,26 @@ button.details-portrait.enlargeable:hover .enlarge-hint, button.details-portrait
 .boss-chips { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.35rem; }
 .boss-chips li { font-size: 0.85rem; padding: 0.15rem 0.55rem; border: 1px dashed var(--border); border-radius: 999px; color: var(--muted); }
 .boss-chips li.down { border-style: solid; border-color: var(--role-healer); color: var(--text); }
+
+/* ---- Dungeon quest markers ---- */
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden;
+  clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+.quest-markers {
+  list-style: none; margin: 0.1rem 0; padding: 0;
+  display: grid; grid-template-columns: repeat(auto-fill, 1.35rem); gap: 0.25rem; max-width: 220px;
+}
+.quest-marker {
+  display: grid; place-items: center; width: 1.35rem; height: 1.35rem; border-radius: 4px; cursor: help;
+  font-family: Georgia, serif; font-weight: 900; font-size: 1rem; line-height: 1;
+  color: #ffd100; background: rgba(255, 209, 0, 0.1); border: 1px solid rgba(255, 209, 0, 0.45);
+  text-shadow: 0 0 3px rgba(0, 0, 0, 0.9);
+}
+.quest-marker.alliance { color: #6fa0ec; background: rgba(111, 160, 236, 0.12); border-color: rgba(111, 160, 236, 0.5); }
+.quest-marker.horde { color: #e2685a; background: rgba(226, 104, 90, 0.12); border-color: rgba(226, 104, 90, 0.5); }
+.quest-marker:hover, .quest-marker:focus-visible { border-color: currentColor; outline: none; }
+.quest-card { display: grid; gap: 0.1rem; min-width: 200px; }
+.quest-card .qc-name { color: #ffd100; font-weight: 700; font-size: 0.98rem; }
+.quest-card .qc-location { color: #9aa3b5; }
+.quest-card .faction { font-size: 0.8rem; margin-top: 0.15rem; }

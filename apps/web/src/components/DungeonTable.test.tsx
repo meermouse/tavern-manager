@@ -1,10 +1,11 @@
-import { cleanup, render, screen, within } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Character, Role } from '../api/client';
 import { DungeonTable } from './DungeonTable';
 import { countRoles } from './RoleIcons';
 
-afterEach(cleanup);
+beforeEach(() => { vi.useFakeTimers(); });
+afterEach(() => { cleanup(); vi.useRealTimers(); });
 
 function char(name: string, level: number | null, roles: Role[] = []): Character {
   return {
@@ -65,5 +66,38 @@ describe('DungeonTable', () => {
     expect(within(cells.getByText('Fresh Tester').closest('li')!).queryByText('✔ Done')).toBeNull();
     // Only on that dungeon's row.
     expect(within(row('Hall of Thanes')).queryByText('✔ Done')).toBeNull();
+  });
+});
+
+describe('Dungeon quest markers', () => {
+  it('shows a ! for each quest, naming the quest and where its giver is', () => {
+    render(<DungeonTable characters={[]} />);
+    const list = within(row('The Deadmines')).getByRole('list', { name: /quests for The Deadmines/ });
+    expect(within(list).getAllByText('!').length).toBeGreaterThan(1);
+    expect(within(list).getByText(/The Defias Brotherhood: Gryan Stoutmantle, Westfall, Sentinel Hill/)).toBeTruthy();
+  });
+
+  it('opens a card with the quest details on focus', () => {
+    render(<DungeonTable characters={[]} />);
+    const marker = within(row('Ragefire Chasm')).getByText(/Hidden Enemies/).closest('.quest-marker') as HTMLElement;
+    fireEvent.focus(marker);
+    act(() => { vi.runAllTimers(); });
+    const card = screen.getByRole('tooltip');
+    expect(within(card).getByText('Hidden Enemies')).toBeTruthy();
+    expect(within(card).getByText('Orgrimmar, Grommash Hold')).toBeTruthy();
+    expect(within(card).getByText('Horde only')).toBeTruthy();
+  });
+
+  it('hides the other faction\'s quests when a faction is chosen', () => {
+    render(<DungeonTable characters={[]} questFaction="Alliance" />);
+    expect(within(row('Ragefire Chasm')).queryByRole('list', { name: /quests? for/ })).toBeNull();
+    const smQuests = within(row('Scarlet Monastery: Cathedral')).getByRole('list', { name: /quests? for/ });
+    expect(within(smQuests).getByText(/In the Name of the Light/)).toBeTruthy();
+    expect(within(smQuests).queryByText(/Into the Scarlet Monastery/)).toBeNull();
+  });
+
+  it('shows no markers for dungeons without a quest list', () => {
+    render(<DungeonTable characters={[]} />);
+    expect(within(row('Hall of Thanes')).queryByRole('list', { name: /quests? for/ })).toBeNull();
   });
 });

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Character } from './api/client';
 import { assignCharactersToDungeons, dungeons, findDungeon } from './dungeons';
+import { DUNGEON_QUESTS } from './dungeonQuests';
 
 function character(id: string, level: number | null): Character {
   return {
@@ -75,5 +76,11 @@ describe('dungeon bosses', () => {
     for (const d of dungeons) {
       if (d.bosses) expect(new Set(d.bosses).size).toBe(d.bosses.length);
     }
+  });
+});
+
+describe('dungeon quests', () => {
+  it('only lists quests for dungeons that exist', () => {
+    for (const name of Object.keys(DUNGEON_QUESTS)) expect(findDungeon(name), name).toBeDefined();
   });
 });

@@ -353,6 +353,7 @@ export function TavernDungeons({
   tavernId,
   characters,
   visible,
+  questFaction = null,
   view: controlledView,
   onViewChange,
 }: {
@@ -361,6 +362,8 @@ export function TavernDungeons({
   characters: TavernCharacter[];
   /** The characters the faction filter shows, for the finder. */
   visible: TavernCharacter[];
+  /** The faction filter's faction, so the finder only shows quests that side can pick up. */
+  questFaction?: 'Alliance' | 'Horde' | null;
   /** The sub-view to show; pass it with onViewChange to keep it somewhere else (e.g. the URL). */
   view?: DungeonView;
   onViewChange?: (view: DungeonView) => void;
@@ -393,7 +396,7 @@ export function TavernDungeons({
         ))}
       </div>
 
-      {view === 'finder' && <DungeonTable characters={visible} showTotals onLogRun={startLog} />}
+      {view === 'finder' && <DungeonTable characters={visible} showTotals onLogRun={startLog} questFaction={questFaction} />}
 
       {view !== 'finder' && runs.isPending && <p className="muted">Loading…</p>}
       {view !== 'finder' && runs.error && <p className="error">{runs.error.message}</p>}

@@ -5,6 +5,37 @@ import { CharacterLink } from './CharacterLink';
 import { ClassName } from './ClassName';
 import { RoleCounts, RoleIcons } from './RoleIcons';
 import { assignCharactersToDungeons } from '../dungeons';
+import { questsFor, type DungeonQuest } from '../dungeonQuests';
+import { HoverCard } from './HoverCard';
+
+/** A grid of ! markers, one per quest that leads into the dungeon; hover or focus one for its details. */
+export function QuestMarkers({ dungeon, faction }: { dungeon: string; faction?: 'Alliance' | 'Horde' | null }) {
+  const quests = questsFor(dungeon, faction ?? null);
+  if (!quests.length) return null;
+  return (
+    <ul className="quest-markers" aria-label={`${quests.length} ${quests.length === 1 ? 'quest' : 'quests'} for ${dungeon}`}>
+      {quests.map((quest) => (
+        <li key={`${quest.name}-${quest.giver}`}>
+          <HoverCard className={`quest-marker ${quest.faction.toLowerCase()}`} content={() => <QuestCard quest={quest} />}>
+            <span aria-hidden="true">!</span>
+            <span className="sr-only">{quest.name}: {quest.giver}, {quest.location}</span>
+          </HoverCard>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function QuestCard({ quest }: { quest: DungeonQuest }) {
+  return (
+    <div className="quest-card">
+      <div className="qc-name">{quest.name}</div>
+      <div>{quest.giver}</div>
+      <div className="qc-location">{quest.location}</div>
+      {quest.faction !== 'Both' && <div className={`faction ${quest.faction.toLowerCase()}`}>{quest.faction} only</div>}
+    </div>
+  );
+}
 
 function CharacterNames({
   characters,
@@ -67,6 +98,7 @@ export function DungeonTable({
   charactersLabel = 'Tavern characters',
   showTotals = false,
   onLogRun,
+  questFaction = null,
 }: {
   characters: Character[];
   /** Heading for the characters column, e.g. "Tavern characters" or "Your characters". */
@@ -75,6 +107,8 @@ export function DungeonTable({
   showTotals?: boolean;
   /** Offer a "Log run" button on each dungeon (tavern view). */
   onLogRun?: (dungeon: string) => void;
+  /** Only show quests this faction can pick up (null shows both factions' quests). */
+  questFaction?: 'Alliance' | 'Horde' | null;
 }) {
   const assignments = assignCharactersToDungeons(characters);
   // Only reserve the roles slot when someone has a role, so tables without any stay compact.
@@ -101,23 +135,20 @@ export function DungeonTable({
           ) : (
             <tr key={row.dungeon.name}>
               <td data-label="Dungeon">
-                {showTotals || onLogRun ? (
-                  <div className="dungeon-name">
-                    <strong>{row.dungeon.name}</strong>
-                    {showTotals && <EligibleSummary characters={row.characters} />}
-                    {onLogRun && (
-                      <button
-                        className="ghost small log-run"
-                        aria-label={`Log a ${row.dungeon.name} run`}
-                        onClick={() => onLogRun(row.dungeon.name)}
-                      >
-                        + Log run
-                      </button>
-                    )}
-                  </div>
-                ) : (
+                <div className="dungeon-name">
                   <strong>{row.dungeon.name}</strong>
-                )}
+                  <QuestMarkers dungeon={row.dungeon.name} faction={questFaction} />
+                  {showTotals && <EligibleSummary characters={row.characters} />}
+                  {onLogRun && (
+                    <button
+                      className="ghost small log-run"
+                      aria-label={`Log a ${row.dungeon.name} run`}
+                      onClick={() => onLogRun(row.dungeon.name)}
+                    >
+                      + Log run
+                    </button>
+                  )}
+                </div>
               </td>
               <td data-label="Recommended level">{row.dungeon.minLevel}–{row.dungeon.maxLevel}</td>
               <td data-label="Players">{row.dungeon.players}</td>
