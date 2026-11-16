@@ -5,10 +5,10 @@ import { CharacterLink } from './CharacterLink';
 import { ClassName } from './ClassName';
 import { RoleCounts, RoleIcons } from './RoleIcons';
 import { assignCharactersToDungeons } from '../dungeons';
-import { questsFor, type DungeonQuest } from '../dungeonQuests';
+import { questsFor, wowheadQuestUrl, type DungeonQuest, type QuestRef } from '../dungeonQuests';
 import { HoverCard } from './HoverCard';
 
-/** A grid of ! markers, one per quest that leads into the dungeon; hover or focus one for its details. */
+/** A grid of ! markers, one per quest that leads into the dungeon; hover or focus one for its details, click it for Wowhead. */
 export function QuestMarkers({ dungeon, faction }: { dungeon: string; faction?: 'Alliance' | 'Horde' | null }) {
   const quests = questsFor(dungeon, faction ?? null);
   if (!quests.length) return null;
@@ -16,9 +16,15 @@ export function QuestMarkers({ dungeon, faction }: { dungeon: string; faction?: 
     <ul className="quest-markers" aria-label={`${quests.length} ${quests.length === 1 ? 'quest' : 'quests'} for ${dungeon}`}>
       {quests.map((quest) => (
         <li key={`${quest.name}-${quest.faction}-${quest.giver}`}>
-          <HoverCard className={`quest-marker ${quest.faction.toLowerCase()}`} content={() => <QuestCard quest={quest} />}>
-            <span aria-hidden="true">!</span>
-            <span className="sr-only">{quest.name}: {questGiverText(quest)}</span>
+          <HoverCard
+            className={`quest-marker ${quest.faction.toLowerCase()}`}
+            content={() => <QuestCard quest={quest} />}
+            focusable={false}
+          >
+            <a href={wowheadQuestUrl(quest)} target="_blank" rel="noreferrer">
+              <span aria-hidden="true">!</span>
+              <span className="sr-only">{quest.name}: {questGiverText(quest)}{questTagText(quest)}</span>
+            </a>
           </HoverCard>
         </li>
       ))}
@@ -32,6 +38,23 @@ function questGiverText(quest: DungeonQuest): string {
   return quest.location ? `${quest.giver}, ${quest.location}` : quest.giver;
 }
 
+/** ", shareable, chain quest" and the like, for screen readers. */
+function questTagText(quest: DungeonQuest): string {
+  const tags = [];
+  if (quest.shareable !== undefined) tags.push(quest.shareable ? 'shareable' : 'not shareable');
+  if (quest.chain) tags.push(`chain quest, ${quest.chain.first.name} to ${quest.chain.last.name}`);
+  return tags.map((tag) => `, ${tag}`).join('');
+}
+
+function QuestLink({ quest, current }: { quest: QuestRef; current: DungeonQuest }) {
+  return (
+    <>
+      <a href={wowheadQuestUrl(quest)} target="_blank" rel="noreferrer">{quest.name}</a>
+      {quest.id === current.id && <span className="muted"> (this quest)</span>}
+    </>
+  );
+}
+
 function QuestCard({ quest }: { quest: DungeonQuest }) {
   return (
     <div className="quest-card">
@@ -39,6 +62,27 @@ function QuestCard({ quest }: { quest: DungeonQuest }) {
       {quest.giver ? <div>{quest.giver}</div> : <div className="muted">Quest giver not on record yet</div>}
       {quest.location && <div className="qc-location">{quest.location}</div>}
       {quest.faction !== 'Both' && <div className={`faction ${quest.faction.toLowerCase()}`}>{quest.faction} only</div>}
+      {(quest.shareable !== undefined || quest.chain) && (
+        <div className="qc-tags">
+          {quest.shareable !== undefined && (
+            <span className={`qc-tag ${quest.shareable ? 'shareable' : 'not-shareable'}`}>
+              {quest.shareable ? 'Shareable' : 'Not shareable'}
+            </span>
+          )}
+          {quest.chain && <span className="qc-tag chain">Chain quest · {quest.chain.length} steps</span>}
+        </div>
+      )}
+      {quest.chain && (
+        <dl className="qc-chain">
+          <dt>Starts</dt>
+          <dd><QuestLink quest={quest.chain.first} current={quest} /></dd>
+          <dt>Ends</dt>
+          <dd><QuestLink quest={quest.chain.last} current={quest} /></dd>
+        </dl>
+      )}
+      <a className="qc-wowhead" href={wowheadQuestUrl(quest)} target="_blank" rel="noreferrer">
+        {quest.id ? 'View on Wowhead ↗' : 'Search Wowhead ↗'}
+      </a>
     </div>
   );
 }

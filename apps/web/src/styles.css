@@ -702,8 +702,23 @@ button.details-portrait.enlargeable:hover .enlarge-hint, button.details-portrait
 }
 .quest-marker.alliance { color: #6fa0ec; background: rgba(111, 160, 236, 0.12); border-color: rgba(111, 160, 236, 0.5); }
 .quest-marker.horde { color: #e2685a; background: rgba(226, 104, 90, 0.12); border-color: rgba(226, 104, 90, 0.5); }
-.quest-marker:hover, .quest-marker:focus-visible { border-color: currentColor; outline: none; }
+.quest-marker:hover, .quest-marker:focus-within { border-color: currentColor; }
+.quest-marker a {
+  display: grid; place-items: center; width: 100%; height: 100%; color: inherit; text-decoration: none; cursor: pointer;
+}
+.quest-marker a:focus-visible { outline: none; }
 .quest-card { display: grid; gap: 0.1rem; min-width: 200px; }
 .quest-card .qc-name { color: #ffd100; font-weight: 700; font-size: 0.98rem; }
 .quest-card .qc-location { color: #9aa3b5; }
 .quest-card .faction { font-size: 0.8rem; margin-top: 0.15rem; }
+.quest-card .qc-tags { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.3rem; }
+.quest-card .qc-tag {
+  font-size: 0.75rem; padding: 0.05rem 0.45rem; border-radius: 999px; border: 1px solid var(--border); color: var(--muted);
+}
+.quest-card .qc-tag.shareable { color: #7fd17f; border-color: rgba(127, 209, 127, 0.5); }
+.quest-card .qc-tag.not-shareable { color: #e2685a; border-color: rgba(226, 104, 90, 0.5); }
+.quest-card .qc-tag.chain { color: #ffd100; border-color: rgba(255, 209, 0, 0.45); }
+.quest-card .qc-chain { display: grid; grid-template-columns: auto 1fr; gap: 0.1rem 0.5rem; margin: 0.3rem 0 0; font-size: 0.85rem; }
+.quest-card .qc-chain dt { color: #9aa3b5; }
+.quest-card .qc-chain dd { margin: 0; }
+.quest-card .qc-wowhead { font-size: 0.8rem; margin-top: 0.35rem; }

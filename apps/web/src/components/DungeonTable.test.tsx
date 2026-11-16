@@ -83,7 +83,7 @@ describe('Dungeon quest markers', () => {
     fireEvent.focus(marker);
     act(() => { vi.runAllTimers(); });
     const card = screen.getByRole('tooltip');
-    expect(within(card).getByText('Hidden Enemies')).toBeTruthy();
+    expect(within(card).getByText('Hidden Enemies', { selector: '.qc-name' })).toBeTruthy();
     expect(within(card).getByText('Orgrimmar, Grommash Hold')).toBeTruthy();
     expect(within(card).getByText('Horde only')).toBeTruthy();
   });
@@ -109,6 +109,48 @@ describe('Dungeon quest markers', () => {
     fireEvent.focus(marker);
     act(() => { vi.runAllTimers(); });
     expect(within(screen.getByRole('tooltip')).getByText('Quest giver not on record yet')).toBeTruthy();
+  });
+
+  it('links each marker to the quest on Wowhead, or to a search when its ID isn\'t known', () => {
+    render(<DungeonTable characters={[]} />);
+    const vanCleef = within(row('The Deadmines')).getByText(/^The Defias Brotherhood:/).closest('a')!;
+    expect(vanCleef.getAttribute('href')).toBe('https://www.wowhead.com/classic/quest=166');
+    const journal = within(row('Alcaz Prison')).getByText(/The Dragon's Journal/).closest('a')!;
+    expect(journal.getAttribute('href')).toBe('https://www.wowhead.com/classic/search?q=The%20Dragon\'s%20Journal');
+  });
+
+  it('shows whether a quest is shareable and where its chain starts and ends', () => {
+    render(<DungeonTable characters={[]} />);
+    const marker = within(row('Ragefire Chasm')).getByText(/Hidden Enemies/).closest('.quest-marker') as HTMLElement;
+    expect(marker.textContent).toContain('shareable, chain quest');
+    fireEvent.focus(marker);
+    act(() => { vi.runAllTimers(); });
+    const card = within(screen.getByRole('tooltip'));
+    expect(card.getByText('Shareable')).toBeTruthy();
+    expect(card.getByText('Chain quest · 5 steps')).toBeTruthy();
+    const links = card.getAllByRole('link', { name: 'Hidden Enemies' }).map((a) => a.getAttribute('href'));
+    expect(links).toEqual(['https://www.wowhead.com/classic/quest=5726', 'https://www.wowhead.com/classic/quest=5730']);
+    expect(card.getByRole('link', { name: /View on Wowhead/ }).getAttribute('href')).toBe('https://www.wowhead.com/classic/quest=5728');
+  });
+
+  it('marks quests that can\'t be shared', () => {
+    render(<DungeonTable characters={[]} />);
+    const marker = within(row('Gnomeregan')).getByText(/A Fine Mess/).closest('.quest-marker') as HTMLElement;
+    fireEvent.focus(marker);
+    act(() => { vi.runAllTimers(); });
+    const card = within(screen.getByRole('tooltip'));
+    expect(card.getByText('Not shareable')).toBeTruthy();
+    expect(card.queryByText(/Chain quest/)).toBeNull();
+  });
+
+  it('leaves out sharing and chain details for the new Forever quests', () => {
+    render(<DungeonTable characters={[]} />);
+    const marker = within(row('Hall of Thanes')).getByText(/Important Heirlooms/).closest('.quest-marker') as HTMLElement;
+    fireEvent.focus(marker);
+    act(() => { vi.runAllTimers(); });
+    const card = within(screen.getByRole('tooltip'));
+    expect(card.queryByText(/shareable/i)).toBeNull();
+    expect(card.getByRole('link', { name: /Search Wowhead/ })).toBeTruthy();
   });
 
   it('shows no markers when the faction filter leaves no quests', () => {
