@@ -127,7 +127,7 @@ describe('new titles', () => {
   it('reads Blizzard statistics for the stat titles', () => {
     const stats = {
       'Total deaths': 40, 'Deaths from falling': 1, 'Beverages consumed': 12, 'Critters killed': 300,
-      'Most gold ever owned': 1_234_5678, 'Largest hit dealt': 1520, 'Largest heal cast': 2875,
+      'Total facepalms': 3, 'Times camped': 1, 'Duels lost': 2, 'Elixirs consumed': 14, 'Total waves': 21,
     };
     const ranked = rankTitles([{ id: 'a', user_id: 'u', statistics: stats }]);
     const value = (key: string) => ranked.find((t) => t.key === key)!.standings[0]?.value;
@@ -135,9 +135,11 @@ describe('new titles', () => {
     expect(value('gravity-tester')).toBe('1 fatal fall');
     expect(value('regular')).toBe('12 drinks');
     expect(value('bunny-slayer')).toBe('300 critters');
-    expect(value('dragons-hoard')).toBe('1,234g at peak');
-    expect(value('one-punch')).toBe('1,520 damage');
-    expect(value('lay-on-hands')).toBe('2,875 healing');
+    expect(value('unimpressed')).toBe('3 facepalms');
+    expect(value('happy-camper')).toBe('Camped 1 time');
+    expect(value('punching-bag')).toBe('2 duels lost');
+    expect(value('juiced')).toBe('14 elixirs');
+    expect(value('hello-there')).toBe('21 waves');
   });
 
   it('uses item level, feed posts and last login', () => {
@@ -189,7 +191,7 @@ describe('title routes', () => {
     const titleKeys = detail.titles.map((t: { key: string }) => t.key);
     expect(titleKeys).toEqual([
       'ninja', 'head-chef', 'old-man-sea', 'field-medic', 'altaholic', 'corpse-runner', 'gravity-tester',
-      'regular', 'bunny-slayer', 'dragons-hoard', 'one-punch', 'lay-on-hands', 'best-dressed', 'town-crier', 'gone-fishin',
+      'regular', 'bunny-slayer', 'unimpressed', 'happy-camper', 'punching-bag', 'juiced', 'hello-there', 'best-dressed', 'town-crier', 'gone-fishin',
     ]);
     // Feed posts are counted (none left), so both are in the running but nobody holds Town Crier at 0.
     const crier = detail.titles.find((t: { key: string }) => t.key === 'town-crier');
@@ -250,31 +252,5 @@ describe('title routes', () => {
     expect((await ninja()).holder).toBe(judy.id);
     await alice.put(`/api/taverns/${tavern.id}/characters/${lowe.id}`);
     expect((await ninja()).holder).toBe(judy.id);
-  });
-});
-
-describe('raw statistics debug route', () => {
-  it('shows the owner every statistic Blizzard sent, flagging the ones the app drops', async () => {
-    const { login } = await setup();
-    const alice = await login('Alice#1234');
-    const bob = await login('Bob#5678');
-    const judy = (await alice.post('/api/characters', { name: 'Judgement', surname: 'Judy' })).body;
-
-    const res = await alice.get(`/api/characters/${judy.id}/raw-statistics?search=gold,deaths`);
-    expect(res.status).toBe(200);
-    expect(res.body.kept).toBe(res.body.total - 1);
-    // The mock's text-only gold entry is reported as dropped, with Blizzard's entry as sent.
-    expect(res.body.dropped).toEqual([
-      { path: ['Character'], name: 'Most gold ever owned', kept: false, entry: { id: 9999, name: 'Most gold ever owned', description: '27 gold' } },
-    ]);
-    expect(res.body.statistics.map((s: { name: string }) => s.name)).toEqual(
-      expect.arrayContaining(['Total deaths', 'Deaths from falling', 'Most gold ever owned']),
-    );
-    expect(res.body.statistics.every((s: { name: string }) => /gold|deaths/i.test(s.name))).toBe(true);
-    expect(res.body.raw).toBeUndefined();
-    expect((await alice.get(`/api/characters/${judy.id}/raw-statistics?full=1`)).body.raw.categories).toHaveLength(1);
-
-    // Only the owner can look.
-    expect((await bob.get(`/api/characters/${judy.id}/raw-statistics`)).status).toBe(404);
   });
 });
