@@ -440,6 +440,53 @@ describe('dungeon runs', () => {
     ]);
   });
 
+  it('filters the feed by character, owner, post type and text', async () => {
+    const { alice, bob, tavern, a, b } = await party();
+    await bob.post(`/api/taverns/${tavern.id}/runs`, {
+      dungeon: 'Ragefire Chasm', characterIds: [a.id, b.id], bosses: ['Bazzalan'], cleared: true,
+    });
+    await bob.post(`/api/taverns/${tavern.id}/runs`, {
+      dungeon: 'Wailing Caverns', characterIds: [b.id], bosses: [], cleared: false,
+    });
+    const feed = async (who: typeof alice, query: string) => {
+      const res = await who.get(`/api/taverns/${tavern.id}/feed?${query}`);
+      expect(res.status).toBe(200);
+      return res.body.events as { kind: string; character: { id: string } | null; data: { dungeon?: string } }[];
+    };
+    const runs = (events: Awaited<ReturnType<typeof feed>>) =>
+      events.filter((e) => e.kind === 'dungeon_run').map((e) => e.data.dungeon);
+
+    // Post type.
+    const onlyRuns = await feed(alice, 'kinds=dungeon_run');
+    expect(onlyRuns.every((e) => e.kind === 'dungeon_run')).toBe(true);
+    expect(runs(onlyRuns)).toEqual(['Wailing Caverns', 'Ragefire Chasm']);
+    expect((await alice.get(`/api/taverns/${tavern.id}/feed?kinds=nonsense`)).status).toBe(400);
+
+    // A character: their own posts plus group runs they were in.
+    const judys = await feed(alice, `characters=${a.id}`);
+    expect(runs(judys)).toEqual(['Ragefire Chasm']);
+    expect(judys.filter((e) => e.kind !== 'dungeon_run').every((e) => e.character?.id === a.id)).toBe(true);
+    expect(judys.some((e) => e.kind === 'character_joined')).toBe(true);
+    expect(runs(await feed(alice, `characters=${a.id},${b.id}`))).toEqual(['Wailing Caverns', 'Ragefire Chasm']);
+
+    // Just my characters: no member/founding posts, and only runs my characters were in.
+    const mine = await feed(alice, 'mine=1');
+    expect(runs(mine)).toEqual(['Ragefire Chasm']);
+    expect(mine.some((e) => e.kind === 'member_joined' || e.kind === 'tavern_founded')).toBe(false);
+    expect(runs(await feed(bob, 'mine=1'))).toEqual(['Wailing Caverns', 'Ragefire Chasm']);
+
+    // Text: dungeon, boss, character and player names, case-insensitively; wildcards are literal.
+    expect(runs(await feed(alice, 'q=wailing'))).toEqual(['Wailing Caverns']);
+    expect(runs(await feed(alice, 'q=bazzalan'))).toEqual(['Ragefire Chasm']);
+    expect((await feed(alice, 'q=judgement')).length).toBeGreaterThan(0);
+    expect((await feed(alice, 'q=bob')).some((e) => e.kind === 'member_joined')).toBe(true);
+    expect(await feed(alice, 'q=%25')).toEqual([]);
+
+    // Filters combine.
+    expect(runs(await feed(alice, `kinds=dungeon_run&mine=1&q=chasm`))).toEqual(['Ragefire Chasm']);
+    expect(await feed(alice, `kinds=dungeon_run&mine=1&q=wailing`)).toEqual([]);
+  });
+
   it('validates the run and who can log or delete it', async () => {
     const { alice, bob, carol, tavern, a, outsider } = await party();
     expect(outsider.id).toBeTruthy();

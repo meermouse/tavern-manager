@@ -277,6 +277,18 @@ export interface Cheers {
   cheeredByMe: boolean;
 }
 
+/** Narrow a tavern feed down. Empty fields don't filter; set fields combine (all must match). */
+export interface FeedFilters {
+  /** Only these kinds of post. */
+  kinds?: FeedKind[];
+  /** Only posts about any of these characters (group runs and paintings they're in count). */
+  characterIds?: string[];
+  /** Only posts about the viewer's own characters. */
+  mine?: boolean;
+  /** Only posts mentioning this text (names, items, dungeons, bosses, achievements, captions). */
+  search?: string;
+}
+
 export interface FeedPage {
   events: FeedEvent[];
   nextCursor: string | null;
@@ -343,8 +355,16 @@ export const api = {
   deleteTavern: (id: string) => request<{ ok: true }>('DELETE', `/api/taverns/${id}`),
   leaveTavern: (id: string) => request<{ ok: true }>('POST', `/api/taverns/${id}/leave`),
   regenerateInvite: (id: string) => request<TavernDetail>('POST', `/api/taverns/${id}/invite-code`),
-  tavernFeed: (id: string, before?: string | null) =>
-    request<FeedPage>('GET', `/api/taverns/${id}/feed${before ? `?before=${encodeURIComponent(before)}` : ''}`),
+  tavernFeed: (id: string, before?: string | null, filters?: FeedFilters) => {
+    const q = new URLSearchParams();
+    if (before) q.set('before', before);
+    if (filters?.kinds?.length) q.set('kinds', filters.kinds.join(','));
+    if (filters?.characterIds?.length) q.set('characters', filters.characterIds.join(','));
+    if (filters?.mine) q.set('mine', '1');
+    if (filters?.search?.trim()) q.set('q', filters.search.trim());
+    const qs = q.toString();
+    return request<FeedPage>('GET', `/api/taverns/${id}/feed${qs ? `?${qs}` : ''}`);
+  },
   setCheer: (tavernId: string, eventId: string, on: boolean) =>
     request<Cheers>(on ? 'PUT' : 'DELETE', `/api/taverns/${tavernId}/feed/${eventId}/cheers`),
   /** Admin only: commission a painting of a feed post. It's painted in the background. */

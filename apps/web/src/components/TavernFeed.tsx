@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient, type InfiniteData } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
-import { api, type Cheers, type FeedEvent, type FeedPage } from '../api/client';
-import { keys, useGeneratedImages, useIsTavernAdmin, useTavernFeed } from '../api/hooks';
+import { api, type Cheers, type FeedEvent, type FeedFilters, type FeedPage } from '../api/client';
+import { feedKey, keys, useGeneratedImages, useIsTavernAdmin, useTavernFeed } from '../api/hooks';
 import { CharacterAvatar } from './CharacterAvatar';
 import { CharacterLink } from './CharacterLink';
 import { ItemLink } from './ItemLink';
@@ -283,9 +283,9 @@ export function CheerButton({ cheers, onToggle, pending }: { cheers: Cheers; onT
 }
 
 /** Toggle the viewer's cheer, updating the cached feed immediately and rolling back on error. */
-function useCheer(tavernId: string, viewerName: string | undefined) {
+function useCheer(tavernId: string, viewerName: string | undefined, filters: FeedFilters) {
   const qc = useQueryClient();
-  const key = keys.feed(tavernId);
+  const key = feedKey(tavernId, filters);
   const patch = (eventId: string, fn: (c: Cheers) => Cheers) =>
     qc.setQueryData<InfiniteData<FeedPage>>(key, (data) =>
       data && {
@@ -310,6 +310,8 @@ function useCheer(tavernId: string, viewerName: string | undefined) {
     },
     onError: (_err, _vars, ctx) => ctx?.previous && qc.setQueryData(key, ctx.previous),
     onSuccess: (cheers, { eventId }) => patch(eventId, () => cheers),
+    // The post may also be cached under other filters; let those catch up when they're next shown.
+    onSettled: () => qc.invalidateQueries({ queryKey: keys.feed(tavernId), refetchType: 'none' }),
   });
 }
 
@@ -384,18 +386,23 @@ export function FeedPost({
   );
 }
 
+const NO_FILTERS: FeedFilters = {};
+
 export function TavernFeed({
   tavernId,
   viewerName,
   include,
+  filters = NO_FILTERS,
 }: {
   tavernId: string;
   viewerName?: string;
   /** Optional filter, e.g. the tavern's faction filter; posts it rejects are hidden. */
   include?: (event: FeedEvent) => boolean;
+  /** Server-side filters (post type, characters, text). */
+  filters?: FeedFilters;
 }) {
-  const feed = useTavernFeed(tavernId);
-  const cheer = useCheer(tavernId, viewerName);
+  const feed = useTavernFeed(tavernId, filters);
+  const cheer = useCheer(tavernId, viewerName, filters);
   const isAdmin = useIsTavernAdmin(tavernId);
   const images = useGeneratedImages(tavernId);
   const imageActions: ImageActions | undefined = isAdmin
@@ -435,7 +442,8 @@ export function TavernFeed({
     };
   };
   const imageError = images.generate.error ?? images.retry.error ?? images.remove.error;
-  if (!all.length) {
+  const filtered = !!(filters.kinds || filters.characterIds || filters.mine || filters.search);
+  if (!all.length && !filtered) {
     return (
       <div className="card feed-empty">
         <p>Nothing has happened here yet.</p>
@@ -448,9 +456,13 @@ export function TavernFeed({
   }
 
   return (
-    <div className="feed">
+    <div className={`feed${feed.isPlaceholderData ? ' refreshing' : ''}`} aria-busy={feed.isPlaceholderData}>
       {imageError && <p className="error small-text">{imageError.message}</p>}
-      {!events.length && <p className="muted">No posts from characters of this faction yet.</p>}
+      {!events.length && !feed.isPlaceholderData && (
+        <p className="muted">
+          {filtered ? 'No posts match these filters.' : 'No posts from characters of this faction yet.'}
+        </p>
+      )}
       <ol className="feed-list">
         {events.map((e) => (
           <FeedPost

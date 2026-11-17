@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import { Link, Navigate, useNavigate, useParams } from 'react-router';
-import { api, type FeedEvent, type TavernCharacter, type TavernDetail } from '../api/client';
+import { api, type FeedEvent, type Me, type TavernCharacter, type TavernDetail } from '../api/client';
 import { keys, useCharacters, useLeaderboard, useMe, useTavern } from '../api/hooks';
 import { AddCharacterForm } from '../components/AddCharacterForm';
 import { CharacterAvatar } from '../components/CharacterAvatar';
@@ -9,6 +9,7 @@ import { CharacterDirectory, CharacterLink, CharacterSelect } from '../component
 import { CharacterTable } from '../components/CharacterTable';
 import { DUNGEON_VIEWS, TavernDungeons, type DungeonView } from '../components/DungeonRuns';
 import { LeaderboardTable } from '../components/LeaderboardTable';
+import { FeedFilterBar, toFeedFilters, useFeedFilters } from '../components/FeedFilters';
 import { TavernFeed } from '../components/TavernFeed';
 import { TitlesView } from '../components/TitlesView';
 import { RoleIcons } from '../components/RoleIcons';
@@ -256,6 +257,28 @@ const VIEWS: [View, string][] = [
   ['titles', 'Titles'],
 ];
 
+/** The feed with its filter bar; the filters live in the URL. */
+function FeedView({
+  tavernId,
+  characters,
+  viewer,
+  include,
+}: {
+  tavernId: string;
+  characters: TavernCharacter[];
+  viewer: Me | null | undefined;
+  include?: (e: FeedEvent) => boolean;
+}) {
+  const [filters, setFilters] = useFeedFilters();
+  const apiFilters = useMemo(() => toFeedFilters(filters), [filters]);
+  return (
+    <div className="stack feed-view">
+      <FeedFilterBar value={filters} onChange={setFilters} characters={characters} viewerId={viewer?.id} />
+      <TavernFeed tavernId={tavernId} viewerName={viewer?.displayName} include={include} filters={apiFilters} />
+    </div>
+  );
+}
+
 export function TavernDetailPage() {
   // The open tab (and Dungeons sub-tab) live in the path, e.g. /taverns/:id/dungeons/runs,
   // so refreshing or sharing the link lands on the same view.
@@ -339,7 +362,12 @@ export function TavernDetailPage() {
         </div>
         {view === 'feed' && (
           <WithCharacterDetails tavernId={t.id} characters={t.characters}>
-            <TavernFeed tavernId={t.id} viewerName={me.data?.displayName} include={faction === 'both' ? undefined : includePost} />
+            <FeedView
+              tavernId={t.id}
+              characters={visible}
+              viewer={me.data}
+              include={faction === 'both' ? undefined : includePost}
+            />
           </WithCharacterDetails>
         )}
         {view === 'characters' && <CharacterRoster tavern={t} characters={visible} />}

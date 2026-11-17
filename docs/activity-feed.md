@@ -104,6 +104,15 @@ name, class and owner are joined in when the feed is read, so renames show up ev
 Each event also has `"cheers": { "count": 2, "names": ["Bob", "Alice"], "cheeredByMe": true }`.
 Newest first. `nextCursor` is `null` when there are no older posts.
 
+Optional filters, which combine (a post must match all of them), and page with `before` as usual:
+
+| Parameter | Keeps posts… |
+| --- | --- |
+| `kinds=level_up,loot` | of these kinds (an unknown kind is a 400) |
+| `characters=<id>,<id>` | about any of these characters, including group runs and paintings they're in |
+| `mine=1` | about your own characters (so no "joined the tavern" or "founded" posts) |
+| `q=<text>` | mentioning the text, case-insensitively: character and player names, item names and qualities, achievements, dungeons, bosses, painting captions. Up to 100 characters. |
+
 `PUT` / `DELETE /api/taverns/:id/feed/:eventId/cheers` (members only, and only for posts visible in that Tavern)
 adds or removes your cheer and returns the post's updated `cheers`. Both are idempotent.
 
@@ -116,6 +125,10 @@ adds or removes your cheer and returns the post's updated `cheers`. Both are ide
 - "Load older posts" pages through the history. The feed refetches after **Refresh levels** or after a character is
   added.
 - The empty state explains what will appear and that updates arrive when characters log out.
+- A filter bar above the feed: a search box, a character picker, **Just my characters**, and post-type toggles
+  (Level ups, Loot, Achievements, Dungeons, Paintings, Arrivals). Filters live in the URL (`?q=`, `?chars=`,
+  `?mine=1`, `?types=`), so a refresh or shared link keeps them, and they're applied by the API so older pages are
+  filtered too. The faction picker still applies on top.
 
 ## Ideas for later
 
