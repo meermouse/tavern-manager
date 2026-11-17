@@ -264,6 +264,7 @@ describe('taverns', () => {
     expect(details.body).toMatchObject({ id: ch.id, ownerName: 'Alice', avatarUrl: ch.avatarUrl });
     expect(Array.isArray(details.body.equipment)).toBe(true);
     expect(details.body.equipment.length).toBeGreaterThan(0);
+    expect(details.body.gearItemLevel).toBeGreaterThan(0);
     expect(details.body.recent.map((e: { kind: string }) => e.kind)).toEqual(['character_joined']);
     expect(details.body.recent[0].character.avatarUrl).toBe(ch.avatarUrl);
 

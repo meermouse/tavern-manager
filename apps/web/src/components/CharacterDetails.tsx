@@ -182,7 +182,7 @@ export function CharacterDetails({
 
         <dl className="details-stats">
           <Stat label="Player">{c.ownerName}</Stat>
-          {c.itemLevel != null && <Stat label="Item level">{c.itemLevel}</Stat>}
+          {details.data?.gearItemLevel != null && <Stat label="Total item level">{details.data.gearItemLevel}</Stat>}
           {c.achievementPoints != null && <Stat label="Achievement points">{c.achievementPoints}</Stat>}
           <Stat label="Dungeons completed">{completedCount(c)} / {dungeons.length}</Stat>
           {c.lastLoginAt && (

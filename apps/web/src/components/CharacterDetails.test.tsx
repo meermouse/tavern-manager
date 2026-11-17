@@ -87,6 +87,7 @@ describe('CharacterDetails', () => {
       itemLevel: 44,
       achievementPoints: 40,
       equipment: [{ id: 9, name: 'Hearthfire Greatblade', quality: 'EPIC', slot: 'Main Hand', itemLevel: 57 }],
+      gearItemLevel: 57,
       equipmentSyncedAt: '2026-11-12T09:00:00Z',
       recent: [
         {
@@ -114,6 +115,8 @@ describe('CharacterDetails', () => {
     expect(screen.getByText('Judgement the Explorer')).toBeTruthy();
     expect(screen.getByText('<Last Orders>')).toBeTruthy();
     expect(screen.getByText('Alliance')).toBeTruthy();
+    expect(screen.getByText('Total item level')).toBeTruthy();
+    expect(screen.queryByText('Item level')).toBeNull();
     expect(screen.getByText(/reached level/)).toBeTruthy();
 
     fireEvent.keyDown(window, { key: 'Escape' });
@@ -137,7 +140,7 @@ describe('CharacterDetails', () => {
       calls.push([url, init]);
       if (url === '/api/me') return new Response(JSON.stringify({ id: 'u1', battletag: 'Alice#1', displayName: 'Alice', canImport: true }));
       if (init?.method === 'PATCH') saved = JSON.parse(String(init.body)).roles;
-      return new Response(JSON.stringify({ ...judy, roles: saved, equipment: [], equipmentSyncedAt: null, recent: [] }));
+      return new Response(JSON.stringify({ ...judy, roles: saved, equipment: [], gearItemLevel: 0, equipmentSyncedAt: null, recent: [] }));
     }));
     renderWithQuery(<CharacterDetails tavernId="t1" character={judy} onClose={() => {}} />);
 

@@ -64,13 +64,33 @@ export function serializeEquipment(row: CharacterRow): unknown[] | null {
   return Array.isArray(raw) ? raw : null;
 }
 
+/** Slots that don't count towards total gear item level: cosmetic, and usually item level 1. */
+const COSMETIC_SLOTS = new Set(['shirt', 'tabard']);
+
+/** Sum of equipped item levels (cosmetic slots excluded), and how many items of each quality are worn. */
+export function gearSummary(equipment: unknown[] | null) {
+  if (!equipment) return { gearItemLevel: null, gearQualities: null };
+  let total = 0;
+  const qualities: Record<string, number> = {};
+  for (const raw of equipment) {
+    const item = raw as { slot?: string | null; itemLevel?: number | null; quality?: string };
+    const slot = (item.slot ?? '').toLowerCase();
+    if (COSMETIC_SLOTS.has(slot)) continue;
+    if (typeof item.itemLevel === 'number') total += item.itemLevel;
+    if (item.quality) qualities[item.quality] = (qualities[item.quality] ?? 0) + 1;
+  }
+  return { gearItemLevel: total, gearQualities: qualities };
+}
+
 /** Everything the character details pane shows: profile, owner, saved gear and the given recent posts. */
 export function serializeCharacterDetails(row: CharacterRow & { owner_name: string }, recent: unknown[]) {
+  const equipment = serializeEquipment(row);
   return {
     ...serializeCharacter(row),
     ownerId: row.user_id,
     ownerName: row.owner_name,
-    equipment: serializeEquipment(row),
+    equipment,
+    gearItemLevel: gearSummary(equipment).gearItemLevel,
     equipmentSyncedAt: row.equipment_synced_at,
     recent,
   };

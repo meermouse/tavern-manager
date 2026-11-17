@@ -3,11 +3,8 @@ import { HTTPException } from 'hono/http-exception';
 import { requireUser, uuidParam, type AppDeps, type AppEnv } from '../context.js';
 import type { Db } from '../db.js';
 import { userFeed } from '../feed.js';
-import { serializeCharacterDetails, serializeEquipment, serializeCharacter } from '../serialize.js';
+import { gearSummary, serializeCharacterDetails, serializeEquipment, serializeCharacter } from '../serialize.js';
 import type { CharacterRow } from '../sync.js';
-
-/** Slots that don't count towards total gear item level: cosmetic, and usually item level 1. */
-const COSMETIC_SLOTS = new Set(['shirt', 'tabard']);
 
 /** Characters on your global leaderboard (`$1` is your user id): your own, plus everyone in your taverns. */
 const VISIBLE_CHARACTERS = `select id from characters where user_id = $1
@@ -27,21 +24,6 @@ type LeaderboardRow = CharacterRow & {
 function statMap(value: unknown): Record<string, number> | null {
   const raw = typeof value === 'string' ? JSON.parse(value) : value;
   return raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as Record<string, number>) : null;
-}
-
-/** Sum of equipped item levels (cosmetic slots excluded), and how many items of each quality are worn. */
-export function gearSummary(equipment: unknown[] | null) {
-  if (!equipment) return { gearItemLevel: null, gearQualities: null };
-  let total = 0;
-  const qualities: Record<string, number> = {};
-  for (const raw of equipment) {
-    const item = raw as { slot?: string | null; itemLevel?: number | null; quality?: string };
-    const slot = (item.slot ?? '').toLowerCase();
-    if (COSMETIC_SLOTS.has(slot)) continue;
-    if (typeof item.itemLevel === 'number') total += item.itemLevel;
-    if (item.quality) qualities[item.quality] = (qualities[item.quality] ?? 0) + 1;
-  }
-  return { gearItemLevel: total, gearQualities: qualities };
 }
 
 /**
