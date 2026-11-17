@@ -352,6 +352,11 @@ export function FeedPost({
   const showOwner = !!event.character && event.kind !== 'character_joined';
   return (
     <li className={`feed-post card ${className ?? ''}`} data-kind={event.kind}>
+      {onDelete && (
+        <button type="button" className="feed-delete" aria-label="Delete this post" title="Delete this post" onClick={onDelete}>
+          <span aria-hidden="true">×</span>
+        </button>
+      )}
       <Avatar event={event} />
       <div className="feed-body">
         <div className="feed-meta small-text muted">
@@ -364,7 +369,7 @@ export function FeedPost({
           <span className="feed-icon" aria-hidden="true">{icon}</span> {text}
         </p>
         <Details event={event} imageActions={imageActions} />
-        {((onCheer && event.cheers) || commission || onDelete) && (
+        {((onCheer && event.cheers) || commission) && (
           <div className="feed-actions">
             {onCheer && event.cheers && <CheerButton cheers={event.cheers} onToggle={onCheer} />}
             {commission && (
@@ -380,11 +385,6 @@ export function FeedPost({
             )}
             {onCheer && event.cheers && event.cheers.count > 0 && (
               <span className="muted small-text cheer-names">{cheersLabel(event.cheers)}</span>
-            )}
-            {onDelete && (
-              <button type="button" className="ghost small danger feed-delete" title="Delete this post" onClick={onDelete}>
-                Delete
-              </button>
             )}
           </div>
         )}

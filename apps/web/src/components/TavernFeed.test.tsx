@@ -237,15 +237,15 @@ describe('Commission painting', () => {
 });
 
 describe('deleting a post', () => {
-  it('offers admins a Delete button', () => {
+  it('offers admins a delete (×) button', () => {
     const onDelete = vi.fn();
     render(<ul><FeedPost event={post({})} now={NOW} onDelete={onDelete} /></ul>);
-    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Delete this post' }));
     expect(onDelete).toHaveBeenCalledTimes(1);
   });
 
   it('is absent by default (non-admins)', () => {
     renderPost(post({}));
-    expect(screen.queryByRole('button', { name: 'Delete' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Delete this post' })).toBeNull();
   });
 });
