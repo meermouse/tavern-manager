@@ -3,7 +3,7 @@ import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { awardTitles, FEED_POSTS_SQL, tavernTitles } from '../titles.js';
 import { badRequest, jsonBody, requireUser, uuidParam, type AppDeps, type AppEnv } from '../context.js';
-import { eventVisibleInTavern, FEED_KINDS, recordEvent, setCheer, tavernFeed, type FeedKind } from '../feed.js';
+import { deleteTavernPost, eventVisibleInTavern, FEED_KINDS, recordEvent, setCheer, tavernFeed, type FeedKind } from '../feed.js';
 import { serializeCharacter, serializeCharacterDetails } from '../serialize.js';
 import { refreshStale, type CharacterRow } from '../sync.js';
 import { IRL_NAME_SQL, adminTavern, tavernMembership, type TavernAccess } from '../tavernAccess.js';
@@ -163,6 +163,17 @@ export function tavernRoutes({ db, blizzard }: AppDeps) {
       return c.json(await setCheer(db, tavern.id, eventId, user.id, method === 'put'));
     });
   }
+
+  /** Admin-only: delete a post from the tavern's feed (a character's post is only hidden from this tavern). */
+  app.delete('/taverns/:id/feed/:eventId', async (c) => {
+    const user = requireUser(c);
+    const tavern = await adminTavern(db, uuidParam(c, 'id'), user.id);
+    const eventId = c.req.param('eventId');
+    if (!/^\d{1,18}$/.test(eventId) || !(await deleteTavernPost(db, tavern.id, eventId, user.id))) {
+      throw new HTTPException(404, { message: 'Post not found' });
+    }
+    return c.json({ ok: true });
+  });
 
   app.patch('/taverns/:id', async (c) => {
     const user = requireUser(c);

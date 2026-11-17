@@ -235,10 +235,14 @@ export function likePattern(text: string): string {
   return `%${text.replace(/[\\%_]/g, (ch) => `\\${ch}`)}%`;
 }
 
-/** Which events a tavern can see: its own posts, plus posts about characters currently in it. */
+/**
+ * Which events a tavern can see: its own posts, plus posts about characters currently in it that an admin hasn't
+ * deleted from its feed.
+ */
 const VISIBLE_IN_TAVERN = `(
   e.tavern_id = $1
-  or (e.tavern_id is null and e.character_id in (select character_id from tavern_characters where tavern_id = $1))
+  or (e.tavern_id is null and e.character_id in (select character_id from tavern_characters where tavern_id = $1)
+      and not exists (select 1 from feed_hidden_events h where h.tavern_id = $1 and h.event_id = e.id))
 )`;
 
 export async function eventVisibleInTavern(db: Db, tavernId: string, eventId: string): Promise<boolean> {
@@ -247,6 +251,29 @@ export async function eventVisibleInTavern(db: Db, tavernId: string, eventId: st
     eventId,
   ]);
   return !!row;
+}
+
+/**
+ * Delete a post from a tavern's feed (admins only; the caller checks). The tavern's own posts are deleted outright,
+ * along with their cheers and any painting on them. A character's posts are shared by every tavern the character
+ * is in, so those are only hidden from this tavern. Returns false if the tavern can't see the post.
+ */
+export async function deleteTavernPost(db: Db, tavernId: string, eventId: string, userId: string): Promise<boolean> {
+  const [row] = await db.query<{ tavern_id: string | null }>(
+    `select e.tavern_id from feed_events e where e.id = $2::bigint and ${VISIBLE_IN_TAVERN}`,
+    [tavernId, eventId],
+  );
+  if (!row) return false;
+  if (row.tavern_id === tavernId) {
+    await db.query('delete from feed_events where id = $1::bigint', [eventId]);
+  } else {
+    await db.query(
+      `insert into feed_hidden_events (tavern_id, event_id, hidden_by) values ($1, $2::bigint, $3) on conflict do nothing`,
+      [tavernId, eventId, userId],
+    );
+    await db.query('delete from feed_reactions where event_id = $1::bigint and tavern_id = $2', [eventId, tavernId]);
+  }
+  return true;
 }
 
 export function tavernFeed(

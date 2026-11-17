@@ -57,6 +57,14 @@ it. Cheers are **scoped per Tavern**: the same character post shown in two Taver
 nobody sees names from a Tavern they're not in. Leaving a Tavern removes your cheers there. The button updates
 instantly (optimistically) and rolls back if the request fails.
 
+## Deleting posts
+
+Tavern admins can delete any post they see in the tavern's feed (a confirmation dialog asks first). A post that
+belongs to the tavern (`tavern_id` set: joins, dungeon runs, paintings, ...) is deleted outright, with its cheers and
+any painting on it. A character's post (`tavern_id` null) is shared by every tavern the character is in, so it's only
+hidden from this tavern (`feed_hidden_events`) and its cheers here are dropped; other taverns still see it.
+`DELETE /api/taverns/:id/feed/:eventId` (admins only; 404 if the tavern can't see the post).
+
 ## Data model
 
 ```

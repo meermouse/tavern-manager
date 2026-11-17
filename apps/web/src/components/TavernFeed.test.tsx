@@ -51,6 +51,12 @@ describe('isMilestone', () => {
 });
 
 describe('FeedPost', () => {
+  it('shows nothing for a kind it does not know', () => {
+    const { container } = render(<ul><FeedPost event={post({ kind: 'secret_admin_thing' as FeedEvent['kind'] })} now={NOW} /></ul>);
+    expect(container.querySelector('li')).toBeNull();
+    expect(container.textContent).not.toMatch(/Something happened/);
+  });
+
   it('renders a group run', () => {
     const party = [
       { id: 'a', name: 'Judy', surname: 'X', class: 'Paladin', level: 15, avatarUrl: null },
@@ -233,5 +239,19 @@ describe('Commission painting', () => {
   it('is absent by default (non-admins)', () => {
     renderPost(post({}));
     expect(screen.queryByText(/Commission painting/)).toBeNull();
+  });
+});
+
+describe('deleting a post', () => {
+  it('offers admins a delete (×) button', () => {
+    const onDelete = vi.fn();
+    render(<ul><FeedPost event={post({})} now={NOW} onDelete={onDelete} /></ul>);
+    fireEvent.click(screen.getByRole('button', { name: 'Delete this post' }));
+    expect(onDelete).toHaveBeenCalledTimes(1);
+  });
+
+  it('is absent by default (non-admins)', () => {
+    renderPost(post({}));
+    expect(screen.queryByRole('button', { name: 'Delete this post' })).toBeNull();
   });
 });

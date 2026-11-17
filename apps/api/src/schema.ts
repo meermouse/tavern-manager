@@ -205,6 +205,16 @@ alter table generated_images add column if not exists source_event_id bigint ref
 create index if not exists generated_images_source_idx on generated_images(source_event_id);
 create index if not exists generated_images_tavern_idx on generated_images(tavern_id, created_at desc);
 
+-- Character posts an admin deleted from one tavern's feed. A character's posts (tavern_id null) show in every tavern
+-- it's in, so deleting one there only hides it in that tavern; the tavern's own posts are deleted outright.
+create table if not exists feed_hidden_events (
+  tavern_id uuid not null references taverns(id) on delete cascade,
+  event_id bigint not null references feed_events(id) on delete cascade,
+  hidden_by uuid references users(id) on delete set null,
+  hidden_at timestamptz not null default now(),
+  primary key (tavern_id, event_id)
+);
+
 select pg_advisory_unlock(727274);
 `;
 
