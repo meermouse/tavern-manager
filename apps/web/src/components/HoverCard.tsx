@@ -1,10 +1,21 @@
-import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 
 const OPEN_DELAY_MS = 120;
 const CLOSE_DELAY_MS = 100;
 const GAP = 8;
 const MARGIN = 8;
+
+/**
+ * Whether this pointer event is a real hover: not a finger, on a device whose main input can hover. Phones and
+ * tablets report `(hover: none)`; checking it as well as the pointer type matters because iOS Safari cancels the
+ * click on a tap that makes hover content appear, so a card opened by a tap would swallow the tap (e.g. a table
+ * row's click that opens the character details pane).
+ */
+export function isHover(e: Pick<ReactPointerEvent, 'pointerType'>): boolean {
+  if (e.pointerType === 'touch') return false;
+  return typeof window === 'undefined' || typeof window.matchMedia !== 'function' || window.matchMedia('(hover: hover)').matches;
+}
 
 /** Where to put a card of `card` size next to `trigger`: below if it fits, else above; kept inside the viewport. */
 export function placeCard(
@@ -22,7 +33,7 @@ export function placeCard(
 
 /**
  * Shows `content` in a floating card while the pointer is over `children` or they have keyboard focus.
- * Touch input is ignored (there's no hover), so taps keep doing whatever they did before, unless `openOnClick` is set:
+ * Touch input, and any pointer on a device that can't hover, is ignored (see `isHover`), so taps keep doing whatever they did before, unless `openOnClick` is set:
  * then a click or tap toggles the card, and it stays open until a click outside it, Escape, or another click.
  */
 export function HoverCard({
@@ -106,8 +117,8 @@ export function HoverCard({
       className={`hover-trigger ${className}`.trim()}
       tabIndex={focusable ? 0 : undefined}
       aria-describedby={open ? id : undefined}
-      onPointerEnter={(e) => e.pointerType !== 'touch' && schedule(true, OPEN_DELAY_MS)}
-      onPointerLeave={(e) => e.pointerType !== 'touch' && schedule(false, CLOSE_DELAY_MS)}
+      onPointerEnter={(e) => isHover(e) && schedule(true, OPEN_DELAY_MS)}
+      onPointerLeave={(e) => isHover(e) && schedule(false, CLOSE_DELAY_MS)}
       onFocus={() => schedule(true, 0)}
       onBlur={() => schedule(false, 0)}
       onClick={openOnClick ? (e) => {
