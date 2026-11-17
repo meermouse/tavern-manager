@@ -38,31 +38,18 @@ export function imageRoutes(deps: AppDeps) {
     return !!row;
   }
 
-  /**
-   * `{ eventId }`: commission a painting of one feed post, e.g. a dungeon run. Only posts with characters in them can
-   * be painted, and each post once (unless its painting failed or was removed). Returns the new post's id.
-   */
-  app.post('/taverns/:id/images', async (c) => {
-    const user = requireUser(c);
-    const tavern = await adminTavern(db, uuidParam(c, 'id'), user.id);
-    if (!deps.images) throw new HTTPException(503, { message: 'Image generation is not set up on this server' });
-    const body = await jsonBody(c);
+  /** The longest prompt an admin may send (the image API's own limit is 32,000 characters). */
+  const MAX_PROMPT = 32_000;
+
+  /** The post `body.eventId` names, checked to be paintable, and the scene that would be painted of it. */
+  async function sceneOf(tavern: { id: string; name: string }, userId: string, body: Record<string, unknown>) {
     const eventId = typeof body.eventId === 'string' && /^\d{1,18}$/.test(body.eventId) ? body.eventId : null;
     if (!eventId) badRequest('eventId must be a post id');
 
-    const { events: posts } = await tavernFeed(db, tavern.id, user.id, { limit: 1, eventId });
+    const { events: posts } = await tavernFeed(db, tavern.id, userId, { limit: 1, eventId });
     const post = posts[0];
     if (!post) throw new HTTPException(404, { message: 'Post not found' });
     if (!PAINTABLE_KINDS.has(post.kind)) badRequest('That post has nothing to paint');
-    const [existing] = await db.query(
-      `select 1 from generated_images gi where gi.tavern_id = $1 and gi.source_event_id = $2::bigint
-         and ${IMAGE_STATUS_SQL} <> 'failed'`,
-      [tavern.id, eventId],
-    );
-    if (existing) throw new HTTPException(409, { message: 'That post already has a painting' });
-    if (await inFlight(tavern.id)) {
-      throw new HTTPException(409, { message: 'A picture is already being painted — wait for it to finish' });
-    }
 
     const ids = new Set<string>();
     for (const p of posts) {
@@ -76,6 +63,48 @@ export function imageRoutes(deps: AppDeps) {
     );
     const scene = buildScene(posts, characters, tavern.name);
     const cast = scene.characterIds.map((id) => characters.find((ch) => ch.id === id)!);
+    return { eventId, scene, cast };
+  }
+
+  /**
+   * `{ eventId }`: the prompt a painting of this post would be painted from, so an admin can read and edit it before
+   * commissioning. Nothing is saved.
+   */
+  app.post('/taverns/:id/images/preview', async (c) => {
+    const user = requireUser(c);
+    const tavern = await adminTavern(db, uuidParam(c, 'id'), user.id);
+    if (!deps.images) throw new HTTPException(503, { message: 'Image generation is not set up on this server' });
+    const { scene } = await sceneOf(tavern, user.id, await jsonBody(c));
+    return c.json({ prompt: scene.prompt });
+  });
+
+  /**
+   * `{ eventId, prompt? }`: commission a painting of one feed post, e.g. a dungeon run. Only posts with characters in
+   * them can be painted, and each post once (unless its painting failed or was removed). `prompt` replaces the one
+   * built from the post (see the preview route); the characters' renders are still sent as references. Returns the
+   * new post's id.
+   */
+  app.post('/taverns/:id/images', async (c) => {
+    const user = requireUser(c);
+    const tavern = await adminTavern(db, uuidParam(c, 'id'), user.id);
+    if (!deps.images) throw new HTTPException(503, { message: 'Image generation is not set up on this server' });
+    const body = await jsonBody(c);
+    let prompt: string | null = null;
+    if (body.prompt !== undefined && body.prompt !== null) {
+      if (typeof body.prompt !== 'string' || !body.prompt.trim()) badRequest('prompt must be some text');
+      prompt = (body.prompt as string).trim();
+      if (prompt.length > MAX_PROMPT) badRequest(`prompt can be at most ${MAX_PROMPT} characters`);
+    }
+    const { eventId, scene, cast } = await sceneOf(tavern, user.id, body);
+    const [existing] = await db.query(
+      `select 1 from generated_images gi where gi.tavern_id = $1 and gi.source_event_id = $2::bigint
+         and ${IMAGE_STATUS_SQL} <> 'failed'`,
+      [tavern.id, eventId],
+    );
+    if (existing) throw new HTTPException(409, { message: 'That post already has a painting' });
+    if (await inFlight(tavern.id)) {
+      throw new HTTPException(409, { message: 'A picture is already being painted — wait for it to finish' });
+    }
 
     const [event] = await db.query<{ id: string }>(
       `insert into feed_events (kind, tavern_id, user_id, data) values ('generated_image', $1, $2, $3)
@@ -96,7 +125,7 @@ export function imageRoutes(deps: AppDeps) {
     const [image] = await db.query<{ id: string }>(
       `insert into generated_images (tavern_id, event_id, source_event_id, requested_by, prompt, "references")
        values ($1, $2::bigint, $3::bigint, $4, $5, $6) returning id`,
-      [tavern.id, event.id, eventId, user.id, scene.prompt, JSON.stringify(scene.references)],
+      [tavern.id, event.id, eventId, user.id, prompt ?? scene.prompt, JSON.stringify(scene.references)],
     );
     await dispatch(image.id, new URL(c.req.url).origin);
     return c.json({ eventId: event.id, imageId: image.id }, 202);

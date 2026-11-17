@@ -11,7 +11,10 @@ inside that dungeon, each character drawn from their Blizzard render.
 1. On a tavern's **Feed** tab, admins see a **🎨 Commission painting** button next to **Cheers** on every post with
    characters in it: dungeon runs and clears, loot, level-ups, achievements and characters joining. (Not on members
    joining, the tavern's founding, or paintings themselves.)
-2. Pressing it asks for confirmation, then adds a 🎨 post that only admins see for now: "Alice commissioned a painting:
+2. Pressing it opens a dialog showing the **prompt** the picture will be painted from, in a box you can edit (add
+   weather, change the mood, cut a line you don't like; **Reset** puts the suggested prompt back). The characters'
+   renders are still sent as reference images, so keep the "Match reference image N" lines if you want their looks
+   kept. **Paint it** then adds a 🎨 post that only admins see for now: "Alice commissioned a painting:
    *The Deadmines with Judy, Grim and Thorn*". While it's being painted, the post shows a placeholder, and the feed
    checks back every 5 seconds.
 3. After a minute or two, the picture appears in the post and it is **posted to the feed for everyone** in the tavern,

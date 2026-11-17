@@ -368,8 +368,11 @@ export const api = {
   setCheer: (tavernId: string, eventId: string, on: boolean) =>
     request<Cheers>(on ? 'PUT' : 'DELETE', `/api/taverns/${tavernId}/feed/${eventId}/cheers`),
   /** Admin only: commission a painting of a feed post. It's painted in the background. */
-  generateImage: (tavernId: string, eventId: string) =>
-    request<{ eventId: string; imageId: string }>('POST', `/api/taverns/${tavernId}/images`, { eventId }),
+  generateImage: (tavernId: string, eventId: string, prompt?: string) =>
+    request<{ eventId: string; imageId: string }>('POST', `/api/taverns/${tavernId}/images`, { eventId, prompt }),
+  /** Admin only: the prompt a painting of this post would be painted from (nothing is saved). */
+  imagePrompt: (tavernId: string, eventId: string) =>
+    request<{ prompt: string }>('POST', `/api/taverns/${tavernId}/images/preview`, { eventId }),
   retryImage: (tavernId: string, imageId: string) =>
     request<{ ok: true }>('POST', `/api/taverns/${tavernId}/images/${imageId}/retry`),
   /** Admin only: delete a post from the tavern's feed (a character's post is only hidden from this tavern). */

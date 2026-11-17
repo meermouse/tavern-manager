@@ -109,6 +109,34 @@ describe('generated images', () => {
     expect((await w.commission(post.id)).status).toBe(400);
   });
 
+  it('shows admins the prompt first, and paints the one they edited', async () => {
+    const w = await world();
+    const joined = await w.postOf('character_joined');
+    const preview = (as = w.alice) => as.post(`/api/taverns/${w.tavern.id}/images/preview`, { eventId: joined });
+    expect((await preview(w.bob)).status).toBe(403);
+    expect((await w.alice.post(`/api/taverns/${w.tavern.id}/images/preview`, { eventId: await w.postOf('tavern_founded') })).status).toBe(400);
+
+    const res = await preview();
+    expect(res.status).toBe(200);
+    expect(res.body.prompt).toContain('World of Warcraft art style');
+    // Previewing saves and paints nothing.
+    expect(w.calls).toHaveLength(0);
+    expect((await w.feed()).map((e: { kind: string }) => e.kind)).not.toContain('generated_image');
+
+    const send = (prompt: unknown) => w.alice.post(`/api/taverns/${w.tavern.id}/images`, { eventId: joined, prompt });
+    expect((await send('   ')).status).toBe(400);
+    expect((await send(42)).status).toBe(400);
+    expect((await send('x'.repeat(32_001))).status).toBe(400);
+    expect(w.calls).toHaveLength(0);
+
+    const edited = `${res.body.prompt}\nMake it raining.`;
+    expect((await send(`  ${edited}  `)).status).toBe(202);
+    expect(w.calls).toHaveLength(1);
+    expect(w.calls[0].prompt).toBe(edited);
+    // The renders still go along as references.
+    expect(w.calls[0].references.length).toBeGreaterThan(0);
+  });
+
   it('paints one picture at a time per tavern', async () => {
     const w = await world({ dispatch: 'never' });
     const [judyJoined, grimJoined] = (await w.feed())

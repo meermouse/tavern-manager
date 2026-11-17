@@ -128,10 +128,26 @@ export function useGeneratedImages(tavernId: string) {
   const qc = useQueryClient();
   const refetch = () => qc.invalidateQueries({ queryKey: keys.feed(tavernId) });
   return {
-    generate: useMutation({ mutationFn: (eventId: string) => api.generateImage(tavernId, eventId), onSuccess: refetch }),
+    generate: useMutation({
+      mutationFn: ({ eventId, prompt }: { eventId: string; prompt?: string }) =>
+        api.generateImage(tavernId, eventId, prompt),
+      onSuccess: refetch,
+    }),
     retry: useMutation({ mutationFn: (imageId: string) => api.retryImage(tavernId, imageId), onSuccess: refetch }),
     remove: useMutation({ mutationFn: (imageId: string) => api.deleteImage(tavernId, imageId), onSuccess: refetch }),
   };
+}
+
+/** Admin only: the prompt a painting of this post would be painted from, fetched fresh each time it's asked for. */
+export function useImagePrompt(tavernId: string, eventId: string) {
+  return useQuery({
+    queryKey: ['imagePrompt', tavernId, eventId],
+    queryFn: () => api.imagePrompt(tavernId, eventId),
+    staleTime: 0,
+    gcTime: 0,
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
 }
 
 /** Apply a change to one character inside any cached tavern or character-details data. */

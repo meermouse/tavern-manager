@@ -228,6 +228,9 @@ button.feed-delete:hover, button.feed-delete:focus-visible { color: var(--danger
 .confirm-dialog::backdrop { background: rgba(0, 0, 0, 0.65); }
 .confirm-dialog h3 { margin: 0 0 0.5rem; font-family: Georgia, serif; }
 .confirm-body { color: var(--muted); }
+.commission-dialog { width: min(720px, calc(100vw - 2rem)); }
+.commission-prompt-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin: 0.5rem 0 0.25rem; color: var(--text); font-weight: 600; }
+textarea.commission-prompt { display: block; box-sizing: border-box; width: 100%; min-height: 12rem; max-height: 60vh; font: 0.85rem/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--text); background: var(--bg-input); border: 1px solid var(--border); border-radius: 6px; padding: 0.5rem 0.6rem; resize: vertical; }
 .confirm-body p { margin: 0 0 0.5rem; }
 .confirm-actions { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1rem; flex-wrap: wrap; }
 @media (prefers-reduced-motion: reduce) { button.cheer.cheered span[aria-hidden] { animation: none; } }
