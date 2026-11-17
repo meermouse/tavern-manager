@@ -104,7 +104,7 @@ export const FEED_POSTS_SQL = `(select count(*)::int from feed_events e
 /** Need/greed/disenchant rolls needed before the need percentage counts, so one lucky roll isn't 100%. */
 export const NINJA_MIN_ROLLS = 10;
 /** Kills needed before the kill/death ratio counts, so a fresh character's handful of kills doesn't top it. */
-export const KD_MIN_KILLS = 10;
+export const KD_MIN_KILLS = 100;
 /** Characters a player needs in the tavern to be an Altaholic: one main plus at least one alt. */
 export const ALTAHOLIC_MIN_CHARACTERS = 2;
 

@@ -151,8 +151,8 @@ describe('new titles', () => {
     const kd = (kills: number) =>
       rankTitles([{ id: 'a', user_id: 'u', statistics: { 'Creatures killed': kills, 'Total deaths': 0 } }])
         .find((t) => t.key === 'half-decent')!.standings[0]?.value;
-    expect(kd(9)).toBeUndefined();
-    expect(kd(10)).toBe('10 K/D');
+    expect(kd(99)).toBeUndefined();
+    expect(kd(100)).toBe('100 K/D');
   });
 
   it('uses item level, feed posts and last login', () => {
