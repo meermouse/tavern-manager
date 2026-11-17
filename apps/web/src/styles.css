@@ -219,7 +219,9 @@ button.cheer.cheered span[aria-hidden] { display: inline-block; animation: cheer
 .cheer-count { font-variant-numeric: tabular-nums; font-weight: 700; }
 .cheer-names { overflow-wrap: anywhere; }
 @keyframes cheer-clink { 40% { transform: rotate(-18deg) scale(1.25); } }
-.feed-delete { margin-left: auto; }
+.feed-post:has(.feed-delete) { position: relative; padding-right: 2.4rem; }
+button.feed-delete { position: absolute; top: 0.4rem; right: 0.4rem; width: 1.75rem; height: 1.75rem; padding: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; background: transparent; border-color: transparent; color: var(--muted); font-size: 1.25rem; line-height: 1; font-weight: 400; }
+button.feed-delete:hover, button.feed-delete:focus-visible { color: var(--danger); border-color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, transparent); }
 
 .confirm-dialog { width: min(420px, calc(100vw - 2rem)); color: var(--text); padding: 1.25rem; }
 .confirm-dialog:not([open]) { display: none; }
