@@ -235,6 +235,8 @@ create table if not exists auction_snapshots (
   items integer not null default 0,
   error text
 );
+-- Every request the last fetch made (AuctionTraceStep[]), for the debug view.
+alter table auction_snapshots add column if not exists trace jsonb;
 
 select pg_advisory_unlock(727274);
 `;

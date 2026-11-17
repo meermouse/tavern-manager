@@ -1,3 +1,4 @@
+import type { AuctionTraceStep } from './blizzard/auctions.js';
 import type { BlizzardClient } from './blizzard/client.js';
 import type { Db } from './db.js';
 
@@ -40,12 +41,17 @@ export async function refreshAuctionPrices(
     [region, !!opts.force, maxAge],
   );
   if (!claimed) return 0;
+  const trace: AuctionTraceStep[] = [];
   try {
-    const snapshot = await blizzard.getAuctionPrices(region as never, { deadline: opts.deadline });
+    const snapshot = await blizzard.getAuctionPrices(region as never, {
+      deadline: opts.deadline,
+      trace: (step) => trace.push(step),
+    });
     if (!snapshot || snapshot.prices.size === 0) {
-      await db.query(`update auction_snapshots set error = $2 where region = $1`, [
+      await db.query(`update auction_snapshots set error = $2, trace = $3 where region = $1`, [
         region,
-        'The auction house API returned nothing',
+        snapshot ? `${snapshot.houses} auction house(s) answered, but with no priced listings` : 'No auction house answered',
+        JSON.stringify(trace),
       ]);
       return 0;
     }
@@ -62,13 +68,17 @@ export async function refreshAuctionPrices(
       );
     }
     await db.query(
-      `update auction_snapshots set fetched_at = now(), houses = $2, items = $3, error = null where region = $1`,
-      [region, snapshot.houses, entries.length],
+      `update auction_snapshots set fetched_at = now(), houses = $2, items = $3, error = null, trace = $4 where region = $1`,
+      [region, snapshot.houses, entries.length, JSON.stringify(trace)],
     );
     return entries.length;
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    await db.query(`update auction_snapshots set error = $2 where region = $1`, [region, message]);
+    await db.query(`update auction_snapshots set error = $2, trace = $3 where region = $1`, [
+      region,
+      message,
+      JSON.stringify(trace),
+    ]);
     console.error('Auction price refresh failed', err);
     return 0;
   }
@@ -84,4 +94,53 @@ export async function refreshAllAuctionPrices(
   let total = 0;
   for (const { region } of regions) total += await refreshAuctionPrices(db, blizzard, region, opts);
   return total;
+}
+
+export interface AuctionStatus {
+  region: string;
+  /** When the last fetch started. */
+  attemptedAt: string | null;
+  /** When prices were last saved. */
+  fetchedAt: string | null;
+  houses: number;
+  items: number;
+  error: string | null;
+  /** Items with a saved price (including older ones not listed in the last fetch). */
+  priced: number;
+  trace: AuctionTraceStep[];
+}
+
+const iso = (d: Date | string | null) => (d ? new Date(d).toISOString() : null);
+
+/** How each region's auction price fetch is doing, for the debug view. */
+export async function auctionStatus(db: Db): Promise<AuctionStatus[]> {
+  const rows = await db.query<{
+    region: string;
+    attempted_at: Date | string | null;
+    fetched_at: Date | string | null;
+    houses: number | null;
+    items: number | null;
+    error: string | null;
+    trace: unknown;
+    priced: number;
+  }>(
+    `select r.region, s.attempted_at, s.fetched_at, s.houses, s.items, s.error, s.trace,
+       (select count(*)::int from auction_prices p where p.region = r.region) as priced
+     from (select distinct region from characters union select region from auction_snapshots) r
+       left join auction_snapshots s on s.region = r.region
+     order by r.region`,
+  );
+  return rows.map((r) => {
+    const trace = typeof r.trace === 'string' ? JSON.parse(r.trace) : r.trace;
+    return {
+      region: r.region,
+      attemptedAt: iso(r.attempted_at),
+      fetchedAt: iso(r.fetched_at),
+      houses: r.houses ?? 0,
+      items: r.items ?? 0,
+      error: r.error,
+      priced: r.priced,
+      trace: Array.isArray(trace) ? trace : [],
+    };
+  });
 }

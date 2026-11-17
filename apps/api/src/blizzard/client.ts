@@ -1,5 +1,12 @@
 import type { Region } from '../config.js';
-import { cheapestByItem, combineHouses, idsIn, KNOWN_AUCTION_HOUSES, type AuctionSnapshot } from './auctions.js';
+import {
+  cheapestByItem,
+  combineHouses,
+  idsIn,
+  KNOWN_AUCTION_HOUSES,
+  type AuctionSnapshot,
+  type AuctionTraceStep,
+} from './auctions.js';
 
 export const RULESETS = ['Normal', 'PvP', 'Roleplay', 'Roleplay PvP'] as const;
 
@@ -116,9 +123,13 @@ export interface BlizzardClient {
   getProfessions?(region: Region, name: string, surname: string): Promise<CharacterProfession[] | null>;
   /**
    * The going price of every item listed on the region's auction houses, or `null` when the auction API isn't
-   * available. Stops starting new houses after `deadline` (ms since epoch). Optional: best-effort.
+   * available. Stops starting new houses after `deadline` (ms since epoch), and gives up on requests still running
+   * then. `trace` hears about every request made. Optional: best-effort.
    */
-  getAuctionPrices?(region: Region, opts?: { deadline?: number }): Promise<AuctionSnapshot | null>;
+  getAuctionPrices?(
+    region: Region,
+    opts?: { deadline?: number; trace?: (step: AuctionTraceStep) => void },
+  ): Promise<AuctionSnapshot | null>;
 }
 
 /** Statistic name → value. */
@@ -484,17 +495,54 @@ export function createBlizzardClient(
     return (await res.json()) as Json;
   }
 
-  /** GET game data in the Forever dynamic namespace (auction houses). `null` on 404. */
-  async function getData(region: Region, path: string): Promise<Json | null> {
+  /** Longest any one auction request may take (Netlify stops scheduled functions at 30s). */
+  const DATA_TIMEOUT_MS = 15_000;
+
+  /**
+   * GET game data in the Forever dynamic namespace (auction houses). `null` on 404; throws on other errors and on
+   * timeouts. Reports every request to `trace`.
+   */
+  async function getData(
+    region: Region,
+    path: string,
+    opts: { deadline?: number; trace?: (step: AuctionTraceStep) => void; item?: boolean } = {},
+  ): Promise<Json | null> {
     const url = `https://${region}.api.blizzard.com${path}?namespace=dynamic-forever-${region}&locale=en_US`;
-    let res = await get(url, await getAppToken());
-    if (res.status === 401) {
-      appToken = null;
-      res = await get(url, await getAppToken());
+    const started = Date.now();
+    const budget = Math.max(1_000, Math.min(DATA_TIMEOUT_MS, opts.deadline ? opts.deadline + 5_000 - started : DATA_TIMEOUT_MS));
+    const step: AuctionTraceStep = { path, status: null, ms: 0 };
+    try {
+      const signal = AbortSignal.timeout(budget);
+      const fetchOnce = async () =>
+        fetchImpl(url, { headers: { Authorization: `Bearer ${await getAppToken()}` }, signal });
+      let res = await fetchOnce();
+      if (res.status === 401) {
+        appToken = null;
+        res = await fetchOnce();
+      }
+      step.status = res.status;
+      const body = await res.text();
+      step.bytes = body.length;
+      if (res.status === 404) return null;
+      if (!res.ok) {
+        step.error = body.slice(0, 200);
+        throw new BlizzardError(`Blizzard API error (${res.status}) for ${path}`, res.status);
+      }
+      const json = JSON.parse(body) as Json;
+      step.keys = Object.keys(json).slice(0, 12);
+      if (Array.isArray(json.auctions)) step.auctions = json.auctions.length;
+      if (opts.item) step.priced = cheapestByItem(json).size;
+      return json;
+    } catch (err) {
+      if (!step.error) {
+        const timedOut = err instanceof Error && (err.name === 'TimeoutError' || err.name === 'AbortError');
+        step.error = timedOut ? `Timed out after ${Math.round(budget / 1000)}s` : err instanceof Error ? err.message : String(err);
+      }
+      throw err instanceof BlizzardError ? err : new BlizzardError(`${step.error} (${path})`);
+    } finally {
+      step.ms = Date.now() - started;
+      opts.trace?.(step);
     }
-    if (res.status === 404) return null;
-    if (!res.ok) throw new BlizzardError(`Blizzard API error (${res.status})`, res.status);
-    return (await res.json()) as Json;
   }
 
   return {
@@ -534,19 +582,26 @@ export function createBlizzardClient(
     },
 
     async getAuctionPrices(region, opts = {}) {
-      const data = (path: string) => getData(region, path);
-      const ruleset = idsIn(await data('/data/wow/ruleset/index')).sort((a, b) => a - b)[0] ?? 1;
+      const data = (path: string, item = false) => getData(region, path, { ...opts, item });
+      // The index calls are just for discovery: fall back to known ids if they fail.
+      const rulesets = idsIn(await data('/data/wow/ruleset/index').catch(() => null));
+      const ruleset = rulesets.sort((a, b) => a - b)[0] ?? 1;
       const base = `/data/wow/ruleset/${ruleset}/auctions`;
-      const listed = idsIn(await data(`${base}/index`));
+      const listed = idsIn(await data(`${base}/index`).catch(() => null));
       const houses = listed.length ? listed : KNOWN_AUCTION_HOUSES;
       const results: ReturnType<typeof cheapestByItem>[] = [];
+      const failures: string[] = [];
       // A few houses at a time: gentle on rate limits, quick enough for a scheduled function.
       let next = 0;
       const worker = async () => {
         while (next < houses.length && !(opts.deadline && Date.now() > opts.deadline)) {
           const house = houses[next++];
-          const listings = await data(`${base}/${house}`).catch(() => null);
-          const commodities = await data(`${base}/${house}/commodities`).catch(() => null);
+          const fail = (err: unknown) => {
+            failures.push(err instanceof Error ? err.message : String(err));
+            return null;
+          };
+          const listings = await data(`${base}/${house}`, true).catch(fail);
+          const commodities = await data(`${base}/${house}/commodities`, true).catch(fail);
           if (!listings && !commodities) continue;
           const merged = cheapestByItem(listings);
           for (const [id, c] of cheapestByItem(commodities)) {
@@ -557,6 +612,8 @@ export function createBlizzardClient(
         }
       };
       await Promise.all([worker(), worker(), worker()]);
+      // Nothing answered: say why, rather than "nothing came back".
+      if (!results.length && failures.length) throw new BlizzardError(failures[0]);
       return results.length ? { houses: results.length, prices: combineHouses(results) } : null;
     },
 
