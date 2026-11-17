@@ -8,7 +8,10 @@ import { assignCharactersToDungeons } from '../dungeons';
 import { questsFor, wowheadQuestUrl, type DungeonQuest, type QuestRef } from '../dungeonQuests';
 import { HoverCard } from './HoverCard';
 
-/** A grid of ! markers, one per quest that leads into the dungeon; hover, focus or click one for its details and Wowhead links. */
+/**
+ * A grid of ! markers, one per quest that leads into the dungeon; hover, focus or click one for its details and Wowhead
+ * links. Class quests are orange; the rest take their faction's colour.
+ */
 export function QuestMarkers({ dungeon, faction }: { dungeon: string; faction?: 'Alliance' | 'Horde' | null }) {
   const quests = questsFor(dungeon, faction ?? null);
   if (!quests.length) return null;
@@ -17,7 +20,7 @@ export function QuestMarkers({ dungeon, faction }: { dungeon: string; faction?: 
       {quests.map((quest) => (
         <li key={`${quest.name}-${quest.faction}-${quest.giver}`}>
           <HoverCard
-            className={`quest-marker ${quest.faction.toLowerCase()}`}
+            className={`quest-marker ${quest.classes ? 'class-quest' : quest.faction.toLowerCase()}`}
             content={() => <QuestCard quest={quest} />}
             openOnClick
           >
@@ -36,9 +39,10 @@ function questGiverText(quest: DungeonQuest): string {
   return quest.location ? `${quest.giver}, ${quest.location}` : quest.giver;
 }
 
-/** ", shareable, chain quest" and the like, for screen readers. */
+/** ", Paladin class quest, shareable, chain quest" and the like, for screen readers. */
 function questTagText(quest: DungeonQuest): string {
   const tags = [];
+  if (quest.classes) tags.push(`${quest.classes.join(' and ')} class quest`);
   if (quest.shareable !== undefined) tags.push(quest.shareable ? 'shareable' : 'not shareable');
   if (quest.chain) tags.push(`chain quest, ${quest.chain.first.name} to ${quest.chain.last.name}`);
   return tags.map((tag) => `, ${tag}`).join('');
@@ -59,6 +63,14 @@ function QuestCard({ quest }: { quest: DungeonQuest }) {
       <div className="qc-name">{quest.name}</div>
       {quest.giver ? <div>{quest.giver}</div> : <div className="muted">Quest giver not on record yet</div>}
       {quest.location && <div className="qc-location">{quest.location}</div>}
+      {quest.classes && (
+        <div className="qc-classes">
+          {quest.classes.map((c, i) => (
+            <span key={c}>{i > 0 && ', '}<ClassName value={c} /></span>
+          ))}{' '}
+          class quest
+        </div>
+      )}
       {quest.faction !== 'Both' && <div className={`faction ${quest.faction.toLowerCase()}`}>{quest.faction} only</div>}
       {(quest.shareable !== undefined || quest.chain) && (
         <div className="qc-tags">
