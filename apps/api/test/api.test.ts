@@ -494,6 +494,36 @@ describe('tavern admins', () => {
     return { db, alice, bob, carol, tavern, a, b, cc, ids };
   }
 
+  it("lets admins delete feed posts: the tavern's own outright, a character's only from this tavern", async () => {
+    const { db, alice, bob, tavern, a } = await tavernWithFriends();
+    const feed = async () => (await alice.get(`/api/taverns/${tavern.id}/feed`)).body.events as { id: string; kind: string }[];
+    const joined = (await feed()).find((e) => e.kind === 'member_joined')!;
+    await bob.put(`/api/taverns/${tavern.id}/feed/${joined.id}/cheers`);
+
+    // Members can't delete posts; admins can.
+    expect((await bob.call('DELETE', `/api/taverns/${tavern.id}/feed/${joined.id}`)).status).toBe(403);
+    expect((await alice.call('DELETE', `/api/taverns/${tavern.id}/feed/${joined.id}`)).status).toBe(200);
+    expect((await feed()).some((e) => e.id === joined.id)).toBe(false);
+    expect(await db.query('select 1 from feed_events where id = $1::bigint', [joined.id])).toHaveLength(0);
+    expect((await alice.call('DELETE', `/api/taverns/${tavern.id}/feed/${joined.id}`)).status).toBe(404);
+
+    // A character's post shows in every tavern the character is in: deleting it here leaves it in the other one.
+    const other = (await alice.post('/api/taverns', { name: 'The Other Place' })).body;
+    await alice.put(`/api/taverns/${other.id}/characters/${a.id}`);
+    await alice.post(`/api/characters/${a.id}/dungeons`, { dungeon: 'The Deadmines', completed: true });
+    const cleared = (await feed()).find((e) => e.kind === 'dungeon_cleared')!;
+    expect((await alice.call('DELETE', `/api/taverns/${tavern.id}/feed/${cleared.id}`)).status).toBe(200);
+    expect((await feed()).some((e) => e.id === cleared.id)).toBe(false);
+    const elsewhere = (await alice.get(`/api/taverns/${other.id}/feed`)).body.events as { id: string }[];
+    expect(elsewhere.some((e) => e.id === cleared.id)).toBe(true);
+    // Hidden posts can't be cheered either.
+    expect((await bob.put(`/api/taverns/${tavern.id}/feed/${cleared.id}/cheers`)).status).toBe(404);
+
+    // Posts from another tavern can't be deleted from here.
+    const founded = (elsewhere as { id: string; kind?: string }[]).find((e) => e.kind === 'tavern_founded')!;
+    expect((await alice.call('DELETE', `/api/taverns/${tavern.id}/feed/${founded.id}`)).status).toBe(404);
+  });
+
   it('makes the owner an admin, and lets the owner make other members admins', async () => {
     const { db, alice, bob, carol, tavern, ids } = await tavernWithFriends();
     expect((await alice.get(`/api/taverns/${tavern.id}`)).body.isAdmin).toBe(true);

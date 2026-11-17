@@ -65,6 +65,7 @@ button.ghost { background: transparent; color: var(--text); border-color: var(--
 button.ghost:hover:not(:disabled) { border-color: var(--accent); }
 button.small { padding: 0.25rem 0.6rem; font-size: 0.875rem; }
 button.danger { color: var(--danger); }
+button.danger-solid { background: var(--danger); border-color: var(--danger); color: #1c0f0c; }
 button.link { background: none; border: none; padding: 0; color: var(--text); font-weight: 500; }
 button.link:hover { color: var(--accent); }
 .button.bnet { background: #148eff; border-color: #148eff; color: white; width: 100%; }
@@ -218,6 +219,15 @@ button.cheer.cheered span[aria-hidden] { display: inline-block; animation: cheer
 .cheer-count { font-variant-numeric: tabular-nums; font-weight: 700; }
 .cheer-names { overflow-wrap: anywhere; }
 @keyframes cheer-clink { 40% { transform: rotate(-18deg) scale(1.25); } }
+.feed-delete { margin-left: auto; }
+
+.confirm-dialog { width: min(420px, calc(100vw - 2rem)); color: var(--text); padding: 1.25rem; }
+.confirm-dialog:not([open]) { display: none; }
+.confirm-dialog::backdrop { background: rgba(0, 0, 0, 0.65); }
+.confirm-dialog h3 { margin: 0 0 0.5rem; font-family: Georgia, serif; }
+.confirm-body { color: var(--muted); }
+.confirm-body p { margin: 0 0 0.5rem; }
+.confirm-actions { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1rem; flex-wrap: wrap; }
 @media (prefers-reduced-motion: reduce) { button.cheer.cheered span[aria-hidden] { animation: none; } }
 .feed-empty { width: 100%; text-align: center; }
 

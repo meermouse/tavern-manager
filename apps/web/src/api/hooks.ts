@@ -107,6 +107,15 @@ export function useTavernFeed(id: string) {
   });
 }
 
+/** Admin only: delete a post from the tavern's feed. */
+export function useDeleteFeedPost(tavernId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (eventId: string) => api.deleteFeedPost(tavernId, eventId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: keys.feed(tavernId) }),
+  });
+}
+
 /** Admin actions on generated pictures: commission one of a post, retry a failed one, or take one down. */
 export function useGeneratedImages(tavernId: string) {
   const qc = useQueryClient();
