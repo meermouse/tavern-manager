@@ -103,6 +103,8 @@ export const FEED_POSTS_SQL = `(select count(*)::int from feed_events e
 
 /** Need/greed/disenchant rolls needed before the need percentage counts, so one lucky roll isn't 100%. */
 export const NINJA_MIN_ROLLS = 10;
+/** Kills needed before the kill/death ratio counts, so a fresh character's handful of kills doesn't top it. */
+export const KD_MIN_KILLS = 100;
 /** Characters a player needs in the tavern to be an Altaholic: one main plus at least one alt. */
 export const ALTAHOLIC_MIN_CHARACTERS = 2;
 
@@ -129,6 +131,14 @@ export function needPercent(stats: Record<string, number>): number | null {
   if (need == null || greed == null) return null;
   const total = need + greed + (findStat(stats, 'Disenchant rolls made on loot', /disenchant rolls/i) ?? 0);
   return total >= NINJA_MIN_ROLLS ? (need / total) * 100 : null;
+}
+
+/** Kills per death (The Butcher's kills over total deaths), once they've made enough kills to count; no deaths counts as one. */
+export function killDeathRatio(stats: Record<string, number>): number | null {
+  const kills = findStat(stats, 'Total kills', 'Creatures killed', /^total kills/i, /creatures killed/i);
+  const deaths = findStat(stats, 'Total deaths', /^total deaths$/i, /^deaths$/i);
+  if (kills == null || deaths == null || kills < KD_MIN_KILLS) return null;
+  return kills / Math.max(deaths, 1);
 }
 
 /** A profession's skill, or `null` if the character hasn't learned it (or professions haven't synced). */
@@ -233,6 +243,15 @@ export const TITLES: TitleDef[] = [
     [/smallest violin/i, /violin/i], (n) => `Played ${plural(n, 'time')}`),
   statTitle('the-butcher', 'The Butcher', '🗡️', 'Most kills in the tavern.',
     ['Total kills', 'Creatures killed', /^total kills/i, /creatures killed/i], (n) => plural(n, 'kill')),
+  {
+    key: 'not-useless',
+    name: 'Not completely useless',
+    icon: '⚔️',
+    description: `Best kill/death ratio in the tavern (at least ${KD_MIN_KILLS} kills).`,
+    subject: 'character',
+    score: ({ stats }) => killDeathRatio(stats),
+    format: (r) => `${r.toLocaleString('en', { maximumFractionDigits: 1 })} K/D`,
+  },
   {
     key: 'best-dressed',
     name: 'Best Dressed',
