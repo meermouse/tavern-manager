@@ -66,39 +66,55 @@ export function tallyBosses(runs: DungeonRun[]): BossTally[] {
   });
 }
 
+/** Logs a new run, or (given `editing`) edits a logged one. */
 function RunForm({
   tavernId,
   characters,
   runs,
   initialDungeon,
+  editing,
   onDone,
 }: {
   tavernId: string;
   characters: TavernCharacter[];
   runs: DungeonRun[];
   initialDungeon: string;
+  editing?: DungeonRun;
   onDone: () => void;
 }) {
-  const { log } = useDungeonRunMutations(tavernId);
+  const { log, edit } = useDungeonRunMutations(tavernId);
+  const save = editing ? edit : log;
   const [dungeon, setDungeon] = useState(initialDungeon);
-  const [date, setDate] = useState(localToday);
-  const [party, setParty] = useState<Set<string>>(new Set());
-  const [extraBosses, setExtraBosses] = useState<string[]>([]);
+  const [date, setDate] = useState(() => editing?.date ?? localToday());
+  const [party, setParty] = useState<Set<string>>(() => new Set(editing?.characters.map((c) => c.id)));
+  // An edited run's bosses stay on offer even if no other run (or the built-in list) names them.
+  const [extraBosses, setExtraBosses] = useState<string[]>(() => editing?.bosses ?? []);
   const bossOptions = useMemo(() => {
     const known = knownBosses(dungeon, runs);
     const seen = new Set(known.map((b) => b.toLowerCase()));
     return [...known, ...extraBosses.filter((b) => !seen.has(b.toLowerCase()))];
   }, [dungeon, runs, extraBosses]);
-  // A full clear is the usual case, so every known boss starts ticked.
-  const [killed, setKilled] = useState<Set<string>>(() => new Set(knownBosses(initialDungeon, runs)));
+  // A full clear is the usual case, so every known boss starts ticked for a new run.
+  const [killed, setKilled] = useState<Set<string>>(() => new Set(editing?.bosses ?? knownBosses(initialDungeon, runs)));
   const [newBoss, setNewBoss] = useState('');
-  const [cleared, setCleared] = useState(true);
-  const [notes, setNotes] = useState('');
+  const [cleared, setCleared] = useState(editing?.cleared ?? true);
+  const [notes, setNotes] = useState(editing?.notes ?? '');
+  // Party members who've since left the tavern can't be picked again, but an edit keeps them listed.
+  const pickable = useMemo(() => {
+    const here = new Set(characters.map((c) => c.id));
+    const gone = (editing?.characters ?? []).filter((c) => !here.has(c.id));
+    return [
+      ...characters,
+      ...gone.map((c): TavernCharacter => ({
+        ...c, region: 'eu', ruleset: null, race: null, status: 'ok', syncError: null, lastSyncedAt: null,
+      })),
+    ];
+  }, [characters, editing]);
 
   const info = findDungeon(dungeon);
   const inRange = (c: TavernCharacter) => !!info && c.level != null && c.level >= info.minLevel && c.level <= info.maxLevel;
   // Characters in the dungeon's level range first, then by level.
-  const sorted = [...characters].sort(
+  const sorted = [...pickable].sort(
     (a, b) => Number(inRange(b)) - Number(inRange(a)) || (b.level ?? 0) - (a.level ?? 0) || a.name.localeCompare(b.name),
   );
 
@@ -129,20 +145,19 @@ function RunForm({
       className="card run-form"
       onSubmit={(e) => {
         e.preventDefault();
-        log.mutate(
-          {
-            dungeon,
-            date,
-            characterIds: [...party],
-            bosses: bossOptions.filter((b) => killed.has(b)),
-            cleared,
-            notes: notes.trim() || undefined,
-          },
-          { onSuccess: onDone },
-        );
+        const run = {
+          dungeon,
+          date,
+          characterIds: [...party],
+          bosses: bossOptions.filter((b) => killed.has(b)),
+          cleared,
+          notes: notes.trim() || undefined,
+        };
+        if (editing) edit.mutate({ id: editing.id, run }, { onSuccess: onDone });
+        else log.mutate(run, { onSuccess: onDone });
       }}
     >
-      <h3>Log a run</h3>
+      <h3>{editing ? `Edit ${editing.dungeon} run` : 'Log a run'}</h3>
       <div className="run-form-row">
         <label>
           <span className="muted small-text">Dungeon</span>
@@ -240,10 +255,10 @@ function RunForm({
         <textarea value={notes} maxLength={500} rows={2} onChange={(e) => setNotes(e.target.value)} />
       </label>
 
-      {log.error && <p className="error">{log.error.message}</p>}
+      {save.error && <p className="error">{save.error.message}</p>}
       <div className="run-form-actions">
-        <button type="submit" disabled={log.isPending || party.size === 0}>
-          {log.isPending ? 'Logging…' : 'Log run'}
+        <button type="submit" disabled={save.isPending || party.size === 0}>
+          {editing ? (save.isPending ? 'Saving…' : 'Save changes') : save.isPending ? 'Logging…' : 'Log run'}
         </button>
         <button type="button" className="ghost" onClick={onDone}>
           Cancel
@@ -253,9 +268,34 @@ function RunForm({
   );
 }
 
-function RunCard({ run, tavernId }: { run: DungeonRun; tavernId: string }) {
+function RunCard({
+  run,
+  tavernId,
+  characters,
+  runs,
+}: {
+  run: DungeonRun;
+  tavernId: string;
+  characters: TavernCharacter[];
+  runs: DungeonRun[];
+}) {
   const { remove } = useDungeonRunMutations(tavernId);
+  const [editing, setEditing] = useState(false);
   const total = knownBosses(run.dungeon, [run]).length;
+  if (editing) {
+    return (
+      <li>
+        <RunForm
+          tavernId={tavernId}
+          characters={characters}
+          runs={runs}
+          initialDungeon={run.dungeon}
+          editing={run}
+          onDone={() => setEditing(false)}
+        />
+      </li>
+    );
+  }
   return (
     <li className={`card run-card${run.cleared ? ' cleared' : ''}`}>
       <div className="run-head">
@@ -289,15 +329,22 @@ function RunCard({ run, tavernId }: { run: DungeonRun; tavernId: string }) {
       {run.notes && <p className="run-notes small-text">“{run.notes}”</p>}
       <div className="run-foot muted small-text">
         <span>Logged by {run.loggedBy?.displayName ?? 'a former member'}</span>
-        {run.canDelete && (
-          <button
-            className="ghost small danger"
-            disabled={remove.isPending}
-            onClick={() => confirm(`Delete this ${run.dungeon} run?`) && remove.mutate(run.id)}
-          >
-            Delete
-          </button>
-        )}
+        <span className="run-actions">
+          {run.canEdit && (
+            <button className="ghost small" onClick={() => setEditing(true)}>
+              Edit
+            </button>
+          )}
+          {run.canDelete && (
+            <button
+              className="ghost small danger"
+              disabled={remove.isPending}
+              onClick={() => confirm(`Delete this ${run.dungeon} run?`) && remove.mutate(run.id)}
+            >
+              Delete
+            </button>
+          )}
+        </span>
       </div>
       {remove.error && <p className="error small-text">{remove.error.message}</p>}
     </li>
@@ -424,7 +471,7 @@ export function TavernDungeons({
           ) : (
             <ol className="run-list">
               {runs.data.map((r) => (
-                <RunCard key={r.id} run={r} tavernId={tavernId} />
+                <RunCard key={r.id} run={r} tavernId={tavernId} characters={characters} runs={runs.data} />
               ))}
             </ol>
           )}

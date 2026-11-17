@@ -13,6 +13,7 @@ Players sign in with their Battle.net account, add their characters, and join a 
 | **User** | A person who signs in with Battle.net. Has a display name (their "IRL name") shown to the rest of the Tavern. |
 | **Character** | A WoW Forever character owned by a user. A user can have many characters. |
 | **Tavern** | A named group of characters that can track each other's progress. A user can add any of their characters to a Tavern, and can belong to more than one Tavern. |
+| **Tavern admin** | A member with extra rights in one Tavern. The Tavern's creator (its owner) is always an admin, and can make other members admins. |
 
 ## Features
 
@@ -22,20 +23,26 @@ Players sign in with their Battle.net account, add their characters, and join a 
 - **Dungeon finder.** Browse the original level-60 dungeons and nine new WoW Forever dungeons, with recommended group sizes and faction access. Tavern characters appear in every matching level range. New dungeon levels and access notes follow [Blizzard's dungeon announcement](https://news.blizzard.com/en-us/article/24301455/explore-the-new-dungeons-of-world-of-warcraft-forever).
 - **Dungeon quests.** Under each dungeon's name in the finder (tavern Dungeons tab and My dungeons) is a grid of ! markers, one per quest that sends you into that dungeon, since these usually carry the best rewards for the level. Hover over or tab to a marker to see the quest name, who gives it and where to find them. Gold markers are for both factions, blue for Alliance only and red for Horde only; when a tavern's faction filter is set to one side, the other side's quests are hidden. Class quests, and quests that start from an item dropped inside, are left out. The list covers the original dungeons and the nine new Forever ones (`apps/web/src/dungeonQuests.ts`); the Forever quests come from [mmonster.co's dungeon quest list](https://mmonster.co/wow-forever/guides/dungeons/quests), leaving out quests that start from an item and their follow-ups. Some of the higher-level Forever quests have no giver on record yet, and their card says so.
 - **Dungeon log.** The My dungeons page has a checklist per character: tick off each dungeon as it's completed (the date is saved with it, and unticking removes it). Tavern friends see a ✔ Done badge next to the character in the dungeon finder, and the character details pane lists what they've completed. Ticking a dungeon also posts "X cleared <dungeon>" to the activity feed of every tavern the character is in, so friends can raise a 🍺; unticking it takes the post down. Only the character's owner can change its log. Stored as `characters.dungeons_completed` (dungeon name → date logged) and set via `POST /api/characters/:id/dungeons` with `{ dungeon, completed }`.
-- **Dungeon runs.** A tavern's **Dungeons** tab has three views: **Finder** (who's in range, with **+ Log run** on every dungeon), **Runs** and **Bosses**. Any member can log a run for the whole group: the dungeon, the date, which of the tavern's characters were there, the bosses killed, whether they cleared it, and optional notes. A clear ticks the dungeon off in every party member's dungeon log, keeping the date if it was already ticked. Each run gets one feed post naming the whole party ("🗝️ Judy, Grim and Thorn cleared Ragefire Chasm", or "⚔️ … ran Uldaman (3 bosses down)" for a partial run). **Runs** lists every logged run, newest first. Whoever logged a run, or the tavern owner, can delete it, which also removes its post but leaves dungeon log ticks alone. **Bosses** shows, for each dungeon the tavern has run, how many runs and clears there have been and every boss with its kill count; bosses not yet killed are dimmed. The original dungeons come with their boss lists (`apps/web/src/dungeons.ts`). The new Forever dungeons don't have lists yet, so the group types boss names in as they log runs, and the run form offers names the tavern has logged before. Stored in `dungeon_runs` and `dungeon_run_characters`; see `apps/api/src/routes/runs.ts`.
+- **Dungeon runs.** A tavern's **Dungeons** tab has three views: **Finder** (who's in range, with **+ Log run** on every dungeon), **Runs** and **Bosses**. Any member can log a run for the whole group: the dungeon, the date, which of the tavern's characters were there, the bosses killed, whether they cleared it, and optional notes. A clear ticks the dungeon off in every party member's dungeon log, keeping the date if it was already ticked. Each run gets one feed post naming the whole party ("🗝️ Judy, Grim and Thorn cleared Ragefire Chasm", or "⚔️ … ran Uldaman (3 bosses down)" for a partial run). **Runs** lists every logged run, newest first. Tavern admins can edit a run (dungeon, date, party, bosses, outcome, notes), which updates its feed post too; making it a clear ticks the dungeon off for the party, but an edit never unticks anything. Whoever logged a run, or a tavern admin, can delete it, which also removes its post but leaves dungeon log ticks alone. **Bosses** shows, for each dungeon the tavern has run, how many runs and clears there have been and every boss with its kill count; bosses not yet killed are dimmed. The original dungeons come with their boss lists (`apps/web/src/dungeons.ts`). The new Forever dungeons don't have lists yet, so the group types boss names in as they log runs, and the run form offers names the tavern has logged before. Stored in `dungeon_runs` and `dungeon_run_characters`; see `apps/api/src/routes/runs.ts`.
 - **Map of Azeroth.** The home page embeds the interactive [Forever Map](https://wowforevermap.com/) by wowforevermap.com, a separate fan site, credited with a link to the full map. A "Simple map" tab switches to our own stylised map (classic continents plus Zephras Isle, Riverglades, Shen'dralas and Mount Hyjal, with capitals, towns and dungeon entrances), which also serves as a fallback if the embed doesn't load. The choice is remembered per browser.
 - **Activity feed.** Each Tavern's home tab is a social-style feed of level-ups (with milestone and max-level highlights), newly equipped rare/epic/legendary gear, achievements, and new members and characters. Friends can raise a 🍺 **Cheers** on any post. The first sync of each character records a silent baseline, so adding a character doesn't flood the feed. See [docs/activity-feed.md](docs/activity-feed.md).
 - **Character portraits.** Each character's Blizzard render headshot (from the character-media endpoint) is shown as a class-coloured icon wherever the character appears: the character table, feed posts, the dungeon finder, My characters and the tavern sidebar. Characters without an image yet (e.g. pending) show their initial instead.
 - **Hover cards.** Hover over (or tab to) any character, anywhere in the app, to see a quick profile card: portrait, level, race and class, title, guild, faction, ruleset, player, item level and achievement points. Hover over any item (feed loot posts, the details pane's gear) for a WoW-style tooltip: item level, binding, slot and type, armour or weapon damage, stats, enchants, durability, required level, equip effects, set and flavour text, as far as the Blizzard API provides them. Touch screens skip these, since there's no hover.
 - **Character details.** Click a row in a tavern's character table to open a details pane above it: the full-body render, title, guild, faction, ruleset, total item level (every equipped item added up, shirts and tabards excluded), achievement points, last seen in game, everything they have equipped (quality-coloured, in paper-doll order), and their latest feed posts. Click the portrait to open it full-screen at Blizzard's largest render size, then scroll, double-click or use +/− to zoom and drag to pan. Click the row again, press Esc or ✕ to close.
 - **Taverns.** Create a Tavern, invite friends with a shareable invite link/code, and choose which of your characters to add to it.
+- **Tavern admins.** Each Tavern has admins: the owner always is one, and can make any other member an admin (or take it away) from the Members panel. Admins get an **Admin** row in the character details pane, where they can:
+  - **Change a character's IRL name** in that Tavern, e.g. when two people share a Battle.net account. This doesn't change the player's own display name or what other Taverns show; **Reset IRL name** goes back to the display name.
+  - **Remove any character** from the Tavern (the character stays with its owner).
+  - **Edit dungeon runs** (see Dungeon runs above).
+
+  Stored as `tavern_members.is_admin` and `tavern_characters.irl_name`. Admin checks live in `apps/api/src/tavernAccess.ts`, the place to extend as admins get more rights.
 - **Character list (primary screen).** A sortable, filterable table of every character in the selected Tavern, with these columns:
 
   | Column | Source |
   |---|---|
   | Character name | Blizzard API (`name` + `surname`) |
   | Ruleset | Blizzard API (Normal, PvP, Roleplay, Roleplay PvP) |
-  | IRL name | The owning user's display name in the app |
+  | IRL name | The owning user's display name in the app, unless a Tavern admin set one for this Tavern |
   | Class | Blizzard API |
   | Race | Blizzard API |
   | Level | Blizzard API |
@@ -140,10 +147,10 @@ taverns
   id, name, owner_id → users, invite_code, created_at
 
 tavern_members
-  tavern_id → taverns, user_id → users, joined_at
+  tavern_id → taverns, user_id → users, is_admin, joined_at
 
 tavern_characters
-  tavern_id → taverns, character_id → characters
+  tavern_id → taverns, character_id → characters, irl_name (admin-set, null = owner's display name)
 
 feed_events, feed_reactions, character_items, character_achievements
   activity feed; see docs/activity-feed.md

@@ -126,6 +126,11 @@ function MembersPanel({ tavern }: { tavern: TavernDetail }) {
   };
   const leave = useMutation({ mutationFn: () => api.leaveTavern(tavern.id), onSuccess: done });
   const remove = useMutation({ mutationFn: () => api.deleteTavern(tavern.id), onSuccess: done });
+  const setAdmin = useMutation({
+    mutationFn: ({ userId, admin }: { userId: string; admin: boolean }) => api.setMemberAdmin(tavern.id, userId, admin),
+    onSuccess: (t) => qc.setQueryData(keys.tavern(t.id), t),
+  });
+  const error = leave.error || remove.error || setAdmin.error;
 
   return (
     <section className="card">
@@ -134,10 +139,24 @@ function MembersPanel({ tavern }: { tavern: TavernDetail }) {
         {tavern.members.map((m) => (
           <li key={m.userId}>
             {m.displayName}
-            {m.isOwner && <span className="badge">Owner</span>}
+            {m.isOwner ? <span className="badge">Owner</span> : m.isAdmin && <span className="badge">Admin</span>}
+            {tavern.isOwner && !m.isOwner && (
+              <button
+                className="ghost small member-admin-toggle"
+                disabled={setAdmin.isPending}
+                onClick={() => setAdmin.mutate({ userId: m.userId, admin: !m.isAdmin })}
+              >
+                {m.isAdmin ? 'Remove admin' : 'Make admin'}
+              </button>
+            )}
           </li>
         ))}
       </ul>
+      {tavern.isOwner && tavern.members.length > 1 && (
+        <p className="muted small-text">
+          Admins can change a character’s IRL name, remove characters and edit dungeon runs.
+        </p>
+      )}
       {tavern.isOwner ? (
         <button
           className="ghost small danger"
@@ -150,7 +169,7 @@ function MembersPanel({ tavern }: { tavern: TavernDetail }) {
           Leave tavern
         </button>
       )}
-      {(leave.error || remove.error) && <p className="error">{(leave.error || remove.error)?.message}</p>}
+      {error && <p className="error">{error.message}</p>}
     </section>
   );
 }

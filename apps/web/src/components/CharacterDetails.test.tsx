@@ -125,6 +125,54 @@ describe('CharacterDetails', () => {
     expect(onClose).toHaveBeenCalledTimes(2);
   });
 
+  it('gives tavern admins tools to change the IRL name or remove the character', async () => {
+    const calls: [string, RequestInit | undefined][] = [];
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+      calls.push([url, init]);
+      if (url === '/api/taverns/t1') return new Response(JSON.stringify({ id: 't1', isAdmin: true, characters: [] }));
+      if (url === '/api/me') return new Response(JSON.stringify({ id: 'u9' }));
+      return new Response(JSON.stringify({ ...judy, equipment: [], equipmentSyncedAt: null, recent: [] }));
+    }));
+    vi.stubGlobal('confirm', () => true);
+    const onClose = vi.fn();
+    renderWithQuery(<CharacterDetails tavernId="t1" character={{ ...judy, irlNameOverridden: true }} onClose={onClose} />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Change IRL name' }));
+    const input = screen.getByRole('textbox', { name: 'IRL name for Judgement Judy' }) as HTMLInputElement;
+    expect(input.value).toBe('Alice');
+    // Esc cancels the edit without closing the pane.
+    fireEvent.keyDown(input, { key: 'Escape' });
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.queryByRole('textbox', { name: /IRL name/ })).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Change IRL name' }));
+    fireEvent.change(screen.getByRole('textbox', { name: /IRL name/ }), { target: { value: ' Ally ' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(calls.some(([, init]) => init?.method === 'PATCH')).toBe(true));
+    const patch = calls.find(([, init]) => init?.method === 'PATCH')!;
+    expect(patch[0]).toBe('/api/taverns/t1/characters/c1');
+    expect(JSON.parse(String(patch[1]!.body))).toEqual({ irlName: 'Ally' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Reset IRL name' }));
+    await waitFor(() => expect(calls.filter(([, init]) => init?.method === 'PATCH')).toHaveLength(2));
+    expect(JSON.parse(String(calls.filter(([, init]) => init?.method === 'PATCH')[1][1]!.body))).toEqual({ irlName: null });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove from tavern' }));
+    await waitFor(() =>
+      expect(calls).toContainEqual(['/api/taverns/t1/characters/c1', expect.objectContaining({ method: 'DELETE' })]),
+    );
+  });
+
+  it('hides the admin tools from other members', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (url: string) =>
+      new Response(JSON.stringify(url === '/api/taverns/t1' ? { id: 't1', isAdmin: false } : { ...judy, recent: [] })),
+    ));
+    renderWithQuery(<CharacterDetails tavernId="t1" character={judy} onClose={() => {}} />);
+    await screen.findByText('Nothing yet.');
+    expect(screen.queryByRole('button', { name: 'Change IRL name' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Remove from tavern' })).toBeNull();
+  });
+
   it('falls back from the full render to the headshot when the render is missing', () => {
     vi.stubGlobal('fetch', vi.fn(() => new Promise(() => {})));
     renderWithQuery(<CharacterDetails tavernId="t1" character={judy} onClose={() => {}} />);

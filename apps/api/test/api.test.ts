@@ -469,3 +469,158 @@ describe('dungeon runs', () => {
     expect((await alice.del(`${url}/${run.id}`)).status).toBe(404);
   });
 });
+
+describe('tavern admins', () => {
+  async function tavernWithFriends() {
+    const { login, db } = await setup();
+    const alice = await login('Alice#1234');
+    const bob = await login('Bob#5678');
+    const carol = await login('Carol#9012');
+    const tavern = (await alice.post('/api/taverns', { name: 'The Pig' })).body;
+    await bob.post(`/api/invites/${tavern.inviteCode}/join`);
+    await carol.post(`/api/invites/${tavern.inviteCode}/join`);
+    const a = (await alice.post('/api/characters', { name: 'Judgement', surname: 'Judy' })).body;
+    const b = (await bob.post('/api/characters', { name: 'Grimble', surname: 'Thornwick' })).body;
+    const cc = (await carol.post('/api/characters', { name: 'Loner', surname: 'Wolf' })).body;
+    await alice.put(`/api/taverns/${tavern.id}/characters/${a.id}`);
+    await bob.put(`/api/taverns/${tavern.id}/characters/${b.id}`);
+    await carol.put(`/api/taverns/${tavern.id}/characters/${cc.id}`);
+    const ids = Object.fromEntries(
+      (await alice.get(`/api/taverns/${tavern.id}`)).body.members.map((m: { displayName: string; userId: string }) => [
+        m.displayName,
+        m.userId,
+      ]),
+    );
+    return { db, alice, bob, carol, tavern, a, b, cc, ids };
+  }
+
+  it('makes the owner an admin, and lets the owner make other members admins', async () => {
+    const { db, alice, bob, carol, tavern, ids } = await tavernWithFriends();
+    expect((await alice.get(`/api/taverns/${tavern.id}`)).body.isAdmin).toBe(true);
+    expect((await bob.get(`/api/taverns/${tavern.id}`)).body.isAdmin).toBe(false);
+    const [row] = await db.query<{ is_admin: boolean }>(
+      'select is_admin from tavern_members where tavern_id = $1 and user_id = $2',
+      [tavern.id, ids.Alice],
+    );
+    expect(row.is_admin).toBe(true);
+
+    const url = (who: string) => `/api/taverns/${tavern.id}/members/${ids[who]}/admin`;
+    // Only the owner hands out admin, even to an admin.
+    expect((await bob.call('PUT', url('Carol'), { admin: true })).status).toBe(403);
+    const updated = await alice.call('PUT', url('Bob'), { admin: true });
+    expect(updated.status).toBe(200);
+    expect(updated.body.members.map((m: { displayName: string; isAdmin: boolean }) => [m.displayName, m.isAdmin])).toEqual([
+      ['Alice', true],
+      ['Bob', true],
+      ['Carol', false],
+    ]);
+    expect((await bob.get(`/api/taverns/${tavern.id}`)).body.isAdmin).toBe(true);
+    expect((await bob.call('PUT', url('Carol'), { admin: true })).status).toBe(403);
+    expect((await alice.call('PUT', url('Alice'), { admin: false })).status).toBe(400);
+    expect((await alice.call('PUT', url('Bob'), { admin: 'yes' })).status).toBe(400);
+    expect((await carol.get(`/api/taverns/${tavern.id}`)).body.isAdmin).toBe(false);
+
+    await alice.call('PUT', url('Bob'), { admin: false });
+    expect((await bob.get(`/api/taverns/${tavern.id}`)).body.isAdmin).toBe(false);
+  });
+
+  it("lets admins change a character's IRL name in this tavern only", async () => {
+    const { alice, bob, tavern, b } = await tavernWithFriends();
+    const url = `/api/taverns/${tavern.id}/characters/${b.id}`;
+    expect((await bob.patch(url, { irlName: 'Bobby' })).status).toBe(403);
+
+    const res = await alice.patch(url, { irlName: '  Robert   the Bold ' });
+    expect(res.status).toBe(200);
+    const char = res.body.characters.find((c: { id: string }) => c.id === b.id);
+    expect(char).toMatchObject({ ownerName: 'Robert the Bold', irlNameOverridden: true });
+    // Shown everywhere the tavern shows the character...
+    expect((await bob.get(url)).body.ownerName).toBe('Robert the Bold');
+    const board = (await bob.get(`/api/taverns/${tavern.id}/leaderboard`)).body;
+    expect(board.find((c: { id: string }) => c.id === b.id).ownerName).toBe('Robert the Bold');
+    const run = (
+      await bob.post(`/api/taverns/${tavern.id}/runs`, { dungeon: 'Ragefire Chasm', characterIds: [b.id], bosses: [], cleared: false })
+    ).body;
+    expect(run.characters[0].ownerName).toBe('Robert the Bold');
+    // ...but Bob's own name and the global leaderboard keep his display name.
+    expect((await bob.get('/api/me')).body.displayName).toBe('Bob');
+    expect((await bob.get('/api/leaderboard')).body.find((c: { id: string }) => c.id === b.id).ownerName).toBe('Bob');
+
+    expect((await alice.patch(url, { irlName: 'x'.repeat(41) })).status).toBe(400);
+    expect((await alice.patch(url, { irlName: 5 })).status).toBe(400);
+    const reset = (await alice.patch(url, { irlName: null })).body;
+    expect(reset.characters.find((c: { id: string }) => c.id === b.id)).toMatchObject({
+      ownerName: 'Bob',
+      irlNameOverridden: false,
+    });
+
+    // Only characters in the tavern.
+    const loose = (await bob.post('/api/characters', { name: 'Spare', surname: 'Alt' })).body;
+    expect((await alice.patch(`/api/taverns/${tavern.id}/characters/${loose.id}`, { irlName: 'Bob' })).status).toBe(404);
+  });
+
+  it("lets admins remove anyone's character from the tavern", async () => {
+    const { alice, bob, carol, tavern, b, cc, ids } = await tavernWithFriends();
+    const count = async () => (await alice.get(`/api/taverns/${tavern.id}`)).body.characters.length;
+    // A plain member's removal of someone else's character does nothing.
+    await carol.del(`/api/taverns/${tavern.id}/characters/${b.id}`);
+    expect(await count()).toBe(3);
+
+    await alice.call('PUT', `/api/taverns/${tavern.id}/members/${ids.Bob}/admin`, { admin: true });
+    expect((await bob.del(`/api/taverns/${tavern.id}/characters/${cc.id}`)).status).toBe(200);
+    expect(await count()).toBe(2);
+    // The character itself stays with its owner.
+    expect((await carol.get('/api/characters')).body).toHaveLength(1);
+  });
+
+  it('lets admins edit a run, updating its feed post and ticking a new clear', async () => {
+    const { alice, bob, carol, tavern, a, b, cc } = await tavernWithFriends();
+    const url = `/api/taverns/${tavern.id}/runs`;
+    const run = (
+      await carol.post(url, { dungeon: 'Ragefire Chasm', date: '2026-11-01', characterIds: [b.id, cc.id], bosses: ['Oggleflint'], cleared: false })
+    ).body;
+    expect(run).toMatchObject({ canEdit: false, canDelete: true });
+    expect((await alice.get(url)).body[0]).toMatchObject({ canEdit: true, canDelete: true });
+
+    const edit = {
+      dungeon: 'Wailing Caverns',
+      date: '2026-11-02',
+      characterIds: [a.id, b.id],
+      bosses: ['Lady Anacondra'],
+      cleared: true,
+      notes: 'Fixed up',
+    };
+    // Not even whoever logged it, unless they're an admin.
+    expect((await carol.patch(`${url}/${run.id}`, edit)).status).toBe(403);
+    expect((await alice.patch(`${url}/${run.id}`, { ...edit, characterIds: [] })).status).toBe(400);
+    expect((await alice.patch(`${url}/00000000-0000-0000-0000-000000000000`, edit)).status).toBe(404);
+
+    const res = await alice.patch(`${url}/${run.id}`, edit);
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({
+      id: run.id,
+      dungeon: 'Wailing Caverns',
+      date: '2026-11-02',
+      bosses: ['Lady Anacondra'],
+      cleared: true,
+      notes: 'Fixed up',
+      loggedBy: { displayName: 'Carol' },
+    });
+    expect(res.body.characters.map((c: { name: string }) => c.name)).toEqual(['Grimble', 'Judgement']);
+    expect((await bob.get('/api/characters')).body[0].dungeonsCompleted).toEqual({
+      'Wailing Caverns': '2026-11-02T00:00:00Z',
+    });
+
+    const posts = (await bob.get(`/api/taverns/${tavern.id}/feed`)).body.events.filter(
+      (e: { kind: string }) => e.kind === 'dungeon_run',
+    );
+    expect(posts).toHaveLength(1);
+    expect(posts[0]).toMatchObject({ user: { displayName: 'Carol' }, data: { dungeon: 'Wailing Caverns', cleared: true } });
+    expect(posts[0].data.characters.map((c: { name: string }) => c.name)).toEqual(['Grimble', 'Judgement']);
+
+    // Someone who has since left can stay in the party, but can't be added back.
+    await bob.post(`/api/taverns/${tavern.id}/leave`);
+    expect((await alice.patch(`${url}/${run.id}`, { ...edit, notes: 'Bob left' })).status).toBe(200);
+    expect((await alice.patch(`${url}/${run.id}`, { ...edit, characterIds: [a.id] })).status).toBe(200);
+    expect((await alice.patch(`${url}/${run.id}`, edit)).status).toBe(400);
+  });
+});

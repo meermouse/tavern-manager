@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { badRequest, jsonBody, requireUser, uuidParam, type AppDeps, type AppEnv } from '../context.js';
 import { recordEvent } from '../feed.js';
+import { IRL_NAME_SQL, tavernMembership, type TavernAccess } from '../tavernAccess.js';
 
 const MAX_NAME = 80;
 const MAX_BOSSES = 40;
@@ -70,61 +71,24 @@ const RUN_SELECT = `
     r.logged_by, lu.display_name as logged_by_name, r.created_at,
     (select coalesce(json_agg(json_build_object(
         'id', c.id, 'name', c.name, 'surname', c.surname, 'class', c.class, 'level', c.level,
-        'avatarUrl', c.avatar_url, 'ownerId', c.user_id, 'ownerName', u.display_name)
+        'avatarUrl', c.avatar_url, 'ownerId', c.user_id, 'ownerName', ${IRL_NAME_SQL})
       order by c.name, c.surname), '[]'::json)
      from dungeon_run_characters rc join characters c on c.id = rc.character_id join users u on u.id = c.user_id
+       left join tavern_characters tc on tc.tavern_id = r.tavern_id and tc.character_id = c.id
      where rc.run_id = r.id) as characters
   from dungeon_runs r left join users lu on lu.id = r.logged_by`;
 
 export function runRoutes({ db }: AppDeps) {
   const app = new Hono<AppEnv>();
 
-  /** The tavern, if the user is a member; its owner id decides who can delete runs. */
-  async function membership(tavernId: string, userId: string) {
-    const [row] = await db.query<{ id: string; owner_id: string }>(
-      `select t.id, t.owner_id from taverns t join tavern_members m on m.tavern_id = t.id
-       where t.id = $1 and m.user_id = $2`,
-      [tavernId, userId],
-    );
-    if (!row) throw new HTTPException(404, { message: 'Tavern not found' });
-    return row;
-  }
-
-  function serializeRun(r: RunRow, viewerId: string, tavernOwnerId: string) {
-    return {
-      id: r.id,
-      dungeon: r.dungeon,
-      date: r.run_on,
-      bosses: r.bosses ?? [],
-      cleared: r.cleared,
-      notes: r.notes,
-      loggedBy: r.logged_by ? { id: r.logged_by, displayName: r.logged_by_name } : null,
-      createdAt: r.created_at,
-      characters: typeof r.characters === 'string' ? JSON.parse(r.characters) : r.characters,
-      canDelete: r.logged_by === viewerId || tavernOwnerId === viewerId,
-    };
-  }
-
-  app.get('/taverns/:id/runs', async (c) => {
-    const user = requireUser(c);
-    const tavern = await membership(uuidParam(c, 'id'), user.id);
-    const rows = await db.query<RunRow>(
-      `${RUN_SELECT} where r.tavern_id = $1 order by r.run_on desc, r.created_at desc`,
-      [tavern.id],
-    );
-    return c.json(rows.map((r) => serializeRun(r, user.id, tavern.owner_id)));
-  });
+  /** The tavern, if the user is a member; whether they're an admin decides who can edit and delete runs. */
+  const membership = (tavernId: string, userId: string) => tavernMembership(db, tavernId, userId);
 
   /**
-   * Log a run for the group: `{ dungeon, date?, characterIds, bosses, cleared, notes? }`. Any member can log any of
-   * the tavern's characters. A clear ticks the dungeon off in every party member's dungeon log (keeping an earlier
-   * date), and the run gets one feed post naming the whole party.
+   * The run fields shared by logging and editing: `{ dungeon, date?, characterIds, bosses, cleared, notes? }`.
+   * Everyone in the group must be one of the tavern's characters, or (`keep`, when editing) already in the run.
    */
-  app.post('/taverns/:id/runs', async (c) => {
-    const user = requireUser(c);
-    const tavern = await membership(uuidParam(c, 'id'), user.id);
-    const body = await jsonBody(c);
-
+  async function runInput(tavernId: string, body: Record<string, unknown>, keep: string[] = []) {
     const dungeon = typeof body.dungeon === 'string' ? body.dungeon.trim() : '';
     if (!dungeon || dungeon.length > MAX_NAME) badRequest('Pick a dungeon');
     const date = runDate(body.date);
@@ -140,51 +104,134 @@ export function runRoutes({ db }: AppDeps) {
     if (!wanted.length) badRequest('Pick who was in the group');
 
     const party = await db.query<{ character_id: string }>(
-      'select character_id from tavern_characters where tavern_id = $1 and character_id::text = any($2::text[])',
-      [tavern.id, wanted],
+      `select id as character_id from characters where id::text = any($2::text[])
+         and (id in (select character_id from tavern_characters where tavern_id = $1) or id::text = any($3::text[]))`,
+      [tavernId, wanted, keep],
     );
     if (party.length !== wanted.length) badRequest('Everyone in the group must be one of this tavern’s characters');
-    const ids = party.map((p) => p.character_id);
+    return { dungeon, date, cleared, bosses, notes: notes || null, ids: party.map((p) => p.character_id) };
+  }
+
+  /** A clear ticks the dungeon off in every party member's dungeon log, keeping an earlier date. */
+  async function tickCleared(ids: string[], dungeon: string, date: string) {
+    await db.query(
+      `update characters set dungeons_completed = dungeons_completed || jsonb_build_object($2::text, $3::text)
+       where id = any($1::uuid[]) and not dungeons_completed ? $2`,
+      [ids, dungeon, `${date}T00:00:00Z`],
+    );
+  }
+
+  /** The run's feed post data (the party is trimmed to what a post shows). */
+  function postData(run: ReturnType<typeof serializeRun>) {
+    return {
+      runId: run.id,
+      dungeon: run.dungeon,
+      date: run.date,
+      cleared: run.cleared,
+      bosses: run.bosses,
+      characters: run.characters.map((ch: RunCharacter) => ({
+        id: ch.id, name: ch.name, surname: ch.surname, class: ch.class, level: ch.level, avatarUrl: ch.avatarUrl,
+      })),
+    };
+  }
+
+  async function loadRun(tavern: TavernAccess, runId: string, viewerId: string) {
+    const [row] = await db.query<RunRow>(`${RUN_SELECT} where r.id = $1 and r.tavern_id = $2`, [runId, tavern.id]);
+    if (!row) throw new HTTPException(404, { message: 'Run not found' });
+    return serializeRun(row, viewerId, tavern);
+  }
+
+  function serializeRun(r: RunRow, viewerId: string, tavern: Pick<TavernAccess, 'is_admin'>) {
+    return {
+      id: r.id,
+      dungeon: r.dungeon,
+      date: r.run_on,
+      bosses: r.bosses ?? [],
+      cleared: r.cleared,
+      notes: r.notes,
+      loggedBy: r.logged_by ? { id: r.logged_by, displayName: r.logged_by_name } : null,
+      createdAt: r.created_at,
+      characters: typeof r.characters === 'string' ? JSON.parse(r.characters) : r.characters,
+      canDelete: r.logged_by === viewerId || tavern.is_admin,
+      canEdit: tavern.is_admin,
+    };
+  }
+
+  app.get('/taverns/:id/runs', async (c) => {
+    const user = requireUser(c);
+    const tavern = await membership(uuidParam(c, 'id'), user.id);
+    const rows = await db.query<RunRow>(
+      `${RUN_SELECT} where r.tavern_id = $1 order by r.run_on desc, r.created_at desc`,
+      [tavern.id],
+    );
+    return c.json(rows.map((r) => serializeRun(r, user.id, tavern)));
+  });
+
+  /**
+   * Log a run for the group (see `runInput`). Any member can log any of the tavern's characters. A clear ticks the
+   * dungeon off in every party member's dungeon log, and the run gets one feed post naming the whole party.
+   */
+  app.post('/taverns/:id/runs', async (c) => {
+    const user = requireUser(c);
+    const tavern = await membership(uuidParam(c, 'id'), user.id);
+    const input = await runInput(tavern.id, await jsonBody(c));
 
     const [run] = await db.query<{ id: string }>(
       `insert into dungeon_runs (tavern_id, dungeon, run_on, bosses, cleared, notes, logged_by)
        values ($1, $2, $3::date, $4::text[], $5, $6, $7) returning id`,
-      [tavern.id, dungeon, date, bosses, cleared, notes || null, user.id],
+      [tavern.id, input.dungeon, input.date, input.bosses, input.cleared, input.notes, user.id],
     );
     await db.query(
       `insert into dungeon_run_characters (run_id, character_id) select $1, unnest($2::uuid[])`,
-      [run.id, ids],
+      [run.id, input.ids],
     );
-    if (cleared) {
-      // Keep an earlier date if the dungeon was already ticked off.
-      await db.query(
-        `update characters set dungeons_completed = dungeons_completed || jsonb_build_object($2::text, $3::text)
-         where id = any($1::uuid[]) and not dungeons_completed ? $2`,
-        [ids, dungeon, `${date}T00:00:00Z`],
-      );
-    }
+    if (input.cleared) await tickCleared(input.ids, input.dungeon, input.date);
 
-    const [row] = await db.query<RunRow>(`${RUN_SELECT} where r.id = $1`, [run.id]);
-    const out = serializeRun(row, user.id, tavern.owner_id);
-    await recordEvent(db, {
-      kind: 'dungeon_run',
-      tavernId: tavern.id,
-      userId: user.id,
-      data: {
-        runId: run.id,
-        dungeon,
-        date,
-        cleared,
-        bosses,
-        characters: out.characters.map((ch: RunCharacter) => ({
-          id: ch.id, name: ch.name, surname: ch.surname, class: ch.class, level: ch.level, avatarUrl: ch.avatarUrl,
-        })),
-      },
-    });
+    const out = await loadRun(tavern, run.id, user.id);
+    await recordEvent(db, { kind: 'dungeon_run', tavernId: tavern.id, userId: user.id, data: postData(out) });
     return c.json(out, 201);
   });
 
-  /** Whoever logged a run, or the tavern owner, can delete it; its feed post goes too. Dungeon log ticks stay. */
+  /**
+   * Admin-only: replace a run's details (same body as logging one). Its feed post is updated to match. Making it a
+   * clear ticks the dungeon off for the party; like deleting, an edit never unticks anything.
+   */
+  app.patch('/taverns/:id/runs/:runId', async (c) => {
+    const user = requireUser(c);
+    const tavern = await membership(uuidParam(c, 'id'), user.id);
+    const runId = uuidParam(c, 'runId');
+    const before = await loadRun(tavern, runId, user.id);
+    if (!tavern.is_admin) throw new HTTPException(403, { message: 'Only tavern admins can edit runs' });
+    const input = await runInput(
+      tavern.id,
+      await jsonBody(c),
+      before.characters.map((ch: RunCharacter) => ch.id),
+    );
+
+    await db.query(
+      `update dungeon_runs set dungeon = $2, run_on = $3::date, bosses = $4::text[], cleared = $5, notes = $6
+       where id = $1`,
+      [runId, input.dungeon, input.date, input.bosses, input.cleared, input.notes],
+    );
+    await db.query('delete from dungeon_run_characters where run_id = $1 and not (character_id = any($2::uuid[]))', [
+      runId,
+      input.ids,
+    ]);
+    await db.query(
+      `insert into dungeon_run_characters (run_id, character_id) select $1, unnest($2::uuid[]) on conflict do nothing`,
+      [runId, input.ids],
+    );
+    if (input.cleared) await tickCleared(input.ids, input.dungeon, input.date);
+
+    const out = await loadRun(tavern, runId, user.id);
+    await db.query(
+      `update feed_events set data = $3::jsonb where kind = 'dungeon_run' and tavern_id = $1 and data->>'runId' = $2`,
+      [tavern.id, runId, JSON.stringify(postData(out))],
+    );
+    return c.json(out);
+  });
+
+  /** Whoever logged a run, or a tavern admin, can delete it; its feed post goes too. Dungeon log ticks stay. */
   app.delete('/taverns/:id/runs/:runId', async (c) => {
     const user = requireUser(c);
     const tavern = await membership(uuidParam(c, 'id'), user.id);
@@ -194,8 +241,8 @@ export function runRoutes({ db }: AppDeps) {
       [runId, tavern.id],
     );
     if (!run) throw new HTTPException(404, { message: 'Run not found' });
-    if (run.logged_by !== user.id && tavern.owner_id !== user.id) {
-      throw new HTTPException(403, { message: 'Only whoever logged this run, or the tavern owner, can delete it' });
+    if (run.logged_by !== user.id && !tavern.is_admin) {
+      throw new HTTPException(403, { message: 'Only whoever logged this run, or a tavern admin, can delete it' });
     }
     await db.query('delete from dungeon_runs where id = $1', [runId]);
     await db.query(`delete from feed_events where kind = 'dungeon_run' and tavern_id = $1 and data->>'runId' = $2`, [

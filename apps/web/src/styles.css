@@ -234,6 +234,7 @@ button.cheer.cheered span[aria-hidden] { display: inline-block; animation: cheer
 .invite-code { font-size: 1.2rem; letter-spacing: 0.15em; background: var(--bg-input); padding: 0.25rem 0.6rem; border-radius: 6px; }
 .checklist, .members { list-style: none; padding: 0; margin: 0 0 0.75rem; }
 .checklist li, .members li { padding: 0.25rem 0; }
+.members .member-admin-toggle { margin-left: 0.5rem; padding-top: 0; padding-bottom: 0; }
 .checklist label { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; }
 .add-character { margin-top: 0.5rem; }
 
@@ -504,6 +505,10 @@ button.details-portrait.enlargeable:hover .enlarge-hint, button.details-portrait
 .details-badges .role-icons { margin-left: 0.4rem; }
 .checklist .role-icons { margin-left: 0.4rem; }
 .details-roles { display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.6rem; }
+.details-admin { display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.6rem; }
+.details-admin .badge, .details-admin button { margin-left: 0; }
+.details-admin-form { display: flex; align-items: center; flex-wrap: wrap; gap: 0.4rem; }
+.details-admin-form input { flex: 1 1 160px; min-width: 0; }
 .role-counts { display: inline-flex; flex-wrap: wrap; gap: 0.5rem; }
 .role-counts .hover-trigger { cursor: help; }
 .role-count { display: inline-flex; align-items: center; gap: 0.2rem; font-size: 0.85rem; font-weight: 600; font-variant-numeric: tabular-nums; }
@@ -681,6 +686,7 @@ button.details-portrait.enlargeable:hover .enlarge-hint, button.details-portrait
 .run-bosses, .run-notes, .feed-bosses { margin: 0; }
 .run-notes { font-style: italic; }
 .run-foot { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; }
+.run-actions { display: flex; gap: 0.4rem; }
 .boss-tallies p { margin: 0.2rem 0 0.5rem; }
 .boss-chips { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.35rem; }
 .boss-chips li { font-size: 0.85rem; padding: 0.15rem 0.55rem; border: 1px dashed var(--border); border-radius: 999px; color: var(--muted); }

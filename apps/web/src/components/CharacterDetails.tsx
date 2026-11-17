@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { FeedItem, TavernCharacter } from '../api/client';
-import { useCharacterDetails, useMe, useSetRoles } from '../api/hooks';
+import { useCharacterDetails, useIsTavernAdmin, useMe, useSetRoles, useTavernCharacterAdmin } from '../api/hooks';
 import { CharacterLevel } from './CharacterLevel';
 import { Ago, CharacterStats, Stat } from './CharacterStats';
 import { ClassName, classKey } from './ClassName';
@@ -103,6 +103,73 @@ function Gear({ items, syncedAt }: { items: FeedItem[] | null | undefined; synce
   );
 }
 
+/** Tavern admin tools for a character: change the IRL name the tavern shows for it, or remove it from the tavern. */
+function AdminControls({ tavernId, character }: { tavernId: string; character: TavernCharacter }) {
+  const { setIrlName, remove } = useTavernCharacterAdmin(tavernId, character.id);
+  const [draft, setDraft] = useState<string | null>(null);
+  const name = `${character.name} ${character.surname}`;
+  const error = setIrlName.error ?? remove.error;
+  return (
+    <div className="details-admin">
+      <span className="muted small-text">Admin</span>
+      {draft === null ? (
+        <>
+          <button className="ghost small" onClick={() => setDraft(character.ownerName)}>
+            Change IRL name
+          </button>
+          {character.irlNameOverridden && (
+            <button
+              className="ghost small"
+              disabled={setIrlName.isPending}
+              title="Go back to the player's own display name"
+              onClick={() => setIrlName.mutate(null)}
+            >
+              Reset IRL name
+            </button>
+          )}
+        </>
+      ) : (
+        <form
+          className="details-admin-form"
+          onSubmit={(e) => {
+            e.preventDefault();
+            setIrlName.mutate(draft.trim() || null, { onSuccess: () => setDraft(null) });
+          }}
+        >
+          <input
+            aria-label={`IRL name for ${name}`}
+            value={draft}
+            maxLength={40}
+            autoFocus
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              // Esc cancels the edit rather than closing the pane.
+              if (e.key === 'Escape') {
+                e.preventDefault();
+                setDraft(null);
+              }
+            }}
+          />
+          <button type="submit" className="small" disabled={setIrlName.isPending}>
+            Save
+          </button>
+          <button type="button" className="ghost small" onClick={() => setDraft(null)}>
+            Cancel
+          </button>
+        </form>
+      )}
+      <button
+        className="ghost small danger"
+        disabled={remove.isPending}
+        onClick={() => confirm(`Remove ${name} from this tavern?`) && remove.mutate()}
+      >
+        Remove from tavern
+      </button>
+      {error && <span className="error small-text">{error.message}</span>}
+    </div>
+  );
+}
+
 export function CharacterDetails({
   tavernId,
   character,
@@ -120,6 +187,7 @@ export function CharacterDetails({
   const me = useMe();
   const isOwner = !!me.data && me.data.id === c.ownerId;
   const setRoles = useSetRoles(c.id);
+  const isAdmin = useIsTavernAdmin(tavernId);
 
   useEffect(() => {
     ref.current?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
@@ -169,6 +237,7 @@ export function CharacterDetails({
               {setRoles.error && <span className="error small-text">{setRoles.error.message}</span>}
             </div>
           )}
+          {isAdmin && tavernId && <AdminControls key={c.id} tavernId={tavernId} character={c} />}
           {c.status !== 'ok' && c.syncError && <p className="muted small-text">{c.syncError}</p>}
         </header>
 

@@ -97,7 +97,10 @@ export interface Character {
 
 export interface TavernCharacter extends Character {
   ownerId: string;
+  /** The character's IRL name: the owner's display name, unless a tavern admin set one for this tavern. */
   ownerName: string;
+  /** True when a tavern admin set `ownerName` (tavern roster only). */
+  irlNameOverridden?: boolean;
   /** Titles this character holds in the tavern (tavern roster only). */
   titles?: TitleBadge[];
 }
@@ -141,6 +144,8 @@ export interface TavernMember {
   userId: string;
   displayName: string;
   isOwner: boolean;
+  /** Tavern admins (the owner always is one) can rename IRL names, remove characters and edit runs. */
+  isAdmin?: boolean;
   joinedAt: string;
 }
 
@@ -149,6 +154,8 @@ export interface TavernDetail {
   name: string;
   inviteCode: string;
   isOwner: boolean;
+  /** Whether you're one of this tavern's admins. */
+  isAdmin?: boolean;
   createdAt: string;
   members: TavernMember[];
   characters: TavernCharacter[];
@@ -234,8 +241,10 @@ export interface DungeonRun {
     ownerId: string;
     ownerName: string;
   })[];
-  /** Whoever logged it, or the tavern owner, can delete it. */
+  /** Whoever logged it, or a tavern admin, can delete it. */
   canDelete: boolean;
+  /** Tavern admins can edit it. */
+  canEdit?: boolean;
 }
 
 export interface NewDungeonRun {
@@ -331,6 +340,8 @@ export const api = {
   dungeonRuns: (tavernId: string) => request<DungeonRun[]>('GET', `/api/taverns/${tavernId}/runs`),
   logDungeonRun: (tavernId: string, run: NewDungeonRun) =>
     request<DungeonRun>('POST', `/api/taverns/${tavernId}/runs`, run),
+  editDungeonRun: (tavernId: string, runId: string, run: NewDungeonRun) =>
+    request<DungeonRun>('PATCH', `/api/taverns/${tavernId}/runs/${runId}`, run),
   deleteDungeonRun: (tavernId: string, runId: string) =>
     request<{ ok: true }>('DELETE', `/api/taverns/${tavernId}/runs/${runId}`),
   tavernLeaderboard: (id: string) => request<LeaderboardEntry[]>('GET', `/api/taverns/${id}/leaderboard`),
@@ -340,6 +351,12 @@ export const api = {
     request<{ ok: true }>('PUT', `/api/taverns/${tavernId}/characters/${characterId}`),
   removeFromTavern: (tavernId: string, characterId: string) =>
     request<{ ok: true }>('DELETE', `/api/taverns/${tavernId}/characters/${characterId}`),
+  /** Admin only: the IRL name this tavern shows for a character (`null` goes back to the owner's display name). */
+  setIrlName: (tavernId: string, characterId: string, irlName: string | null) =>
+    request<TavernDetail>('PATCH', `/api/taverns/${tavernId}/characters/${characterId}`, { irlName }),
+  /** Owner only: make a member a tavern admin, or take it away. */
+  setMemberAdmin: (tavernId: string, userId: string, admin: boolean) =>
+    request<TavernDetail>('PUT', `/api/taverns/${tavernId}/members/${userId}/admin`, { admin }),
 
   invite: (code: string) => request<InvitePreview>('GET', `/api/invites/${encodeURIComponent(code)}`),
   joinInvite: (code: string) => request<{ tavernId: string }>('POST', `/api/invites/${encodeURIComponent(code)}/join`),

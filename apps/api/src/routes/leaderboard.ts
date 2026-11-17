@@ -5,6 +5,7 @@ import type { Db } from '../db.js';
 import { userFeed } from '../feed.js';
 import { gearSummary, serializeCharacterDetails, serializeEquipment, serializeCharacter } from '../serialize.js';
 import type { CharacterRow } from '../sync.js';
+import { IRL_NAME_SQL } from '../tavernAccess.js';
 
 /** Characters on your global leaderboard (`$1` is your user id): your own, plus everyone in your taverns. */
 const VISIBLE_CHARACTERS = `select id from characters where user_id = $1
@@ -30,9 +31,9 @@ function statMap(value: unknown): Record<string, number> | null {
  * Everything a leaderboard ranks by, for the characters matched by `scope` (a subquery of character ids).
  * Cheers (received by the character, given by its player) count only reactions in `cheerTaverns` (a subquery of tavern ids). Both may use `$1`.
  */
-async function leaderboard(db: Db, param: string, scope: string, cheerTaverns: string) {
+async function leaderboard(db: Db, param: string, scope: string, cheerTaverns: string, tavernId: string | null) {
   const rows = await db.query<LeaderboardRow>(
-    `select c.*, u.display_name as owner_name,
+    `select c.*, ${IRL_NAME_SQL} as owner_name,
        (select count(*)::int from character_achievements a where a.character_id = c.id) as achievements_earned,
        (select count(*)::int from character_items i where i.character_id = c.id) as notable_items,
        (select count(*)::int from feed_reactions r join feed_events e on e.id = r.event_id
@@ -42,9 +43,10 @@ async function leaderboard(db: Db, param: string, scope: string, cheerTaverns: s
        (select count(*)::int from feed_events e where e.character_id = c.id and e.kind in ('level_up', 'loot', 'achievement'))
           as feed_posts
      from characters c join users u on u.id = c.user_id
+       left join tavern_characters tc on tc.character_id = c.id and tc.tavern_id = $2::uuid
      where c.id in (${scope})
      order by c.name, c.surname`,
-    [param],
+    [param, tavernId],
   );
   return rows.map((r) => ({
     ...serializeCharacter(r),
@@ -75,7 +77,13 @@ export function leaderboardRoutes({ db }: AppDeps) {
     ]);
     if (!member) throw new HTTPException(404, { message: 'Tavern not found' });
     return c.json(
-      await leaderboard(db, tavernId, 'select character_id from tavern_characters where tavern_id = $1', 'select $1::uuid'),
+      await leaderboard(
+        db,
+        tavernId,
+        'select character_id from tavern_characters where tavern_id = $1',
+        'select $1::uuid',
+        tavernId,
+      ),
     );
   });
 
@@ -83,7 +91,7 @@ export function leaderboardRoutes({ db }: AppDeps) {
   app.get('/leaderboard', async (c) => {
     const user = requireUser(c);
     return c.json(
-      await leaderboard(db, user.id, VISIBLE_CHARACTERS, 'select tavern_id from tavern_members where user_id = $1'),
+      await leaderboard(db, user.id, VISIBLE_CHARACTERS, 'select tavern_id from tavern_members where user_id = $1', null),
     );
   });
 
