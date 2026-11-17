@@ -112,7 +112,7 @@ describe('TavernDungeons', () => {
         <TavernDungeons tavernId="t1" characters={[]} visible={[]} />
       </QueryClientProvider>,
     );
-    fireEvent.click(screen.getByRole('button', { name: /Runs/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Runs/ }));
     const card = within(screen.getByText('Ragefire Chasm').closest('li')!);
     expect(card.getByText('Partial')).toBeTruthy();
     expect(card.getByText('Judy Tester')).toBeTruthy();

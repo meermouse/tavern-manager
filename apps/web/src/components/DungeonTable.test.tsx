@@ -111,12 +111,30 @@ describe('Dungeon quest markers', () => {
     expect(within(screen.getByRole('tooltip')).getByText('Quest giver not on record yet')).toBeTruthy();
   });
 
-  it('links each marker to the quest on Wowhead, or to a search when its ID isn\'t known', () => {
+  it('keeps the Wowhead links on the card, not on the marker', () => {
     render(<DungeonTable characters={[]} />);
-    const vanCleef = within(row('The Deadmines')).getByText(/^The Defias Brotherhood:/).closest('a')!;
-    expect(vanCleef.getAttribute('href')).toBe('https://www.wowhead.com/classic/quest=166');
-    const journal = within(row('Alcaz Prison')).getByText(/The Dragon's Journal/).closest('a')!;
-    expect(journal.getAttribute('href')).toBe('https://www.wowhead.com/classic/search?q=The%20Dragon\'s%20Journal');
+    const marker = within(row('The Deadmines')).getByText(/^The Defias Brotherhood:/).closest('.quest-marker') as HTMLElement;
+    expect(marker.closest('a')).toBeNull();
+    expect(within(marker).queryByRole('link')).toBeNull();
+    fireEvent.focus(marker);
+    act(() => { vi.runAllTimers(); });
+    const card = within(screen.getByRole('tooltip'));
+    expect(card.getByRole('link', { name: /View on Wowhead/ }).getAttribute('href')).toBe('https://www.wowhead.com/classic/quest=166');
+  });
+
+  it('opens the card on click and keeps it open until a click outside', () => {
+    render(<DungeonTable characters={[]} />);
+    const marker = within(row('Alcaz Prison')).getByText(/The Dragon's Journal/).closest('.quest-marker') as HTMLElement;
+    fireEvent.click(marker);
+    const card = within(screen.getByRole('tooltip'));
+    expect(card.getByRole('link', { name: /Search Wowhead/ }).getAttribute('href'))
+      .toBe('https://www.wowhead.com/classic/search?q=The%20Dragon\'s%20Journal');
+    fireEvent.pointerLeave(marker);
+    fireEvent.blur(marker);
+    act(() => { vi.runAllTimers(); });
+    expect(screen.getByRole('tooltip')).toBeTruthy();
+    fireEvent.pointerDown(document.body);
+    expect(screen.queryByRole('tooltip')).toBeNull();
   });
 
   it('shows whether a quest is shareable and where its chain starts and ends', () => {
