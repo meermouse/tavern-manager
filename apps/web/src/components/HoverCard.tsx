@@ -31,6 +31,7 @@ export function HoverCard({
   className = '',
   focusable = true,
   openOnClick = false,
+  onActivate,
 }: {
   /** Rendered lazily, only while open. `close` shuts the card, e.g. after a button on it is used. */
   content: (close: () => void) => ReactNode;
@@ -40,6 +41,8 @@ export function HoverCard({
   focusable?: boolean;
   /** Let a click or tap open the card and keep it open, e.g. so touch users can reach links on it. */
   openOnClick?: boolean;
+  /** Run on a click, tap, Enter or Space on the trigger (closing the card), e.g. to open a details pane. */
+  onActivate?: () => void;
 }) {
   const id = useId();
   const [open, setOpen] = useState(false);
@@ -99,6 +102,14 @@ export function HoverCard({
     setPinned(false);
   };
 
+  const activate = () => {
+    if (onActivate) {
+      closeCard();
+      onActivate();
+    } else toggle();
+  };
+  const clickable = openOnClick || !!onActivate;
+
   const toggle = () => {
     clearTimeout(timer.current);
     const next = !pinned;
@@ -116,18 +127,18 @@ export function HoverCard({
       onPointerLeave={(e) => e.pointerType !== 'touch' && schedule(false, CLOSE_DELAY_MS)}
       onFocus={() => schedule(true, 0)}
       onBlur={() => schedule(false, 0)}
-      onClick={openOnClick ? (e) => {
+      onClick={clickable ? (e) => {
         // Clicks on links inside the card bubble here through the portal; leave those alone.
         if (cardRef.current?.contains(e.target as Node)) return;
-        toggle();
+        activate();
       } : undefined}
-      onKeyDown={openOnClick ? (e) => {
+      onKeyDown={clickable ? (e) => {
         if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) {
           e.preventDefault();
-          toggle();
+          activate();
         }
       } : undefined}
-      role={openOnClick ? 'button' : undefined}
+      role={clickable ? 'button' : undefined}
       aria-expanded={openOnClick ? open : undefined}
     >
       {children}
