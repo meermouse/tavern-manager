@@ -51,6 +51,12 @@ describe('isMilestone', () => {
 });
 
 describe('FeedPost', () => {
+  it('shows nothing for a kind it does not know', () => {
+    const { container } = render(<ul><FeedPost event={post({ kind: 'secret_admin_thing' as FeedEvent['kind'] })} now={NOW} /></ul>);
+    expect(container.querySelector('li')).toBeNull();
+    expect(container.textContent).not.toMatch(/Something happened/);
+  });
+
   it('renders a group run', () => {
     const party = [
       { id: 'a', name: 'Judy', surname: 'X', class: 'Paladin', level: 15, avatarUrl: null },
