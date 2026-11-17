@@ -170,6 +170,8 @@ export function createMockBlizzardClient(): BlizzardClient {
         'Duels lost': n(6, 0.06),
         'Elixirs consumed': n(10, 0.3),
         'Total waves': n(11, 0.4),
+        'Total LOLs': n(12, 0.5),
+        "Total times playing world's smallest violin": n(13, 0.05),
       };
     },
     async getCharacterStats(region, name, surname) {

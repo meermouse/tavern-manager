@@ -128,6 +128,8 @@ describe('new titles', () => {
     const stats = {
       'Total deaths': 40, 'Deaths from falling': 1, 'Beverages consumed': 12, 'Critters killed': 300,
       'Total facepalms': 3, 'Times camped': 1, 'Duels lost': 2, 'Elixirs consumed': 14, 'Total waves': 21,
+      'Quests completed': 120, 'Number of times hearthed': 1, 'Total LOLs': 9,
+      "Total times playing world's smallest violin": 4, 'Creatures killed': 5000,
     };
     const ranked = rankTitles([{ id: 'a', user_id: 'u', statistics: stats }]);
     const value = (key: string) => ranked.find((t) => t.key === key)!.standings[0]?.value;
@@ -140,6 +142,11 @@ describe('new titles', () => {
     expect(value('punching-bag')).toBe('2 duels lost');
     expect(value('juiced')).toBe('14 elixirs');
     expect(value('hello-there')).toBe('21 waves');
+    expect(value('errand-runner')).toBe('120 quests');
+    expect(value('homebody')).toBe('Hearthed 1 time');
+    expect(value('class-clown')).toBe('9 laughs');
+    expect(value('tiny-violinist')).toBe('Played 4 times');
+    expect(value('the-butcher')).toBe('5,000 kills');
   });
 
   it('uses item level, feed posts and last login', () => {
@@ -191,7 +198,8 @@ describe('title routes', () => {
     const titleKeys = detail.titles.map((t: { key: string }) => t.key);
     expect(titleKeys).toEqual([
       'ninja', 'head-chef', 'old-man-sea', 'field-medic', 'altaholic', 'corpse-runner', 'gravity-tester',
-      'regular', 'bunny-slayer', 'unimpressed', 'happy-camper', 'punching-bag', 'juiced', 'hello-there', 'best-dressed', 'town-crier', 'gone-fishin',
+      'regular', 'bunny-slayer', 'unimpressed', 'happy-camper', 'punching-bag', 'juiced', 'hello-there',
+      'errand-runner', 'homebody', 'class-clown', 'tiny-violinist', 'the-butcher', 'best-dressed', 'town-crier', 'gone-fishin',
     ]);
     // Feed posts are counted (none left), so both are in the running but nobody holds Town Crier at 0.
     const crier = detail.titles.find((t: { key: string }) => t.key === 'town-crier');

@@ -71,6 +71,11 @@ Players sign in with their Battle.net account, add their characters, and join a 
   | 🥊 **Punching Bag** | Most duels lost |
   | 🧪 **Juiced** | Most elixirs consumed |
   | 👋 **Hello There** | Most waves |
+  | 📜 **Errand Runner** | Most quests completed |
+  | 🏠 **Homebody** | Most times hearthed |
+  | 😂 **Class Clown** | Most laughs |
+  | 🎻 **Tiny Violinist** | Most times playing the world's smallest violin |
+  | 🗡️ **The Butcher** | Most kills (creatures killed, if there's no total) |
   | ✨ **Best Dressed** | Highest average (equipped) item level |
   | 📣 **Town Crier** | Most feed posts (level-ups, loot, achievements) |
   | 👻 **Gone Fishin’** | Longest since last logging in, at least a day |
