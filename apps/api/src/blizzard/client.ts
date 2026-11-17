@@ -1,4 +1,5 @@
 import type { Region } from '../config.js';
+import { cheapestByItem, combineHouses, idsIn, KNOWN_AUCTION_HOUSES, type AuctionSnapshot } from './auctions.js';
 
 export const RULESETS = ['Normal', 'PvP', 'Roleplay', 'Roleplay PvP'] as const;
 
@@ -113,6 +114,11 @@ export interface BlizzardClient {
   getCharacterStats?(region: Region, name: string, surname: string): Promise<StatisticMap | null>;
   /** Trained professions from `/professions`, or `null` when not available. Optional: best-effort. */
   getProfessions?(region: Region, name: string, surname: string): Promise<CharacterProfession[] | null>;
+  /**
+   * The going price of every item listed on the region's auction houses, or `null` when the auction API isn't
+   * available. Stops starting new houses after `deadline` (ms since epoch). Optional: best-effort.
+   */
+  getAuctionPrices?(region: Region, opts?: { deadline?: number }): Promise<AuctionSnapshot | null>;
 }
 
 /** Statistic name → value. */
@@ -478,6 +484,19 @@ export function createBlizzardClient(
     return (await res.json()) as Json;
   }
 
+  /** GET game data in the Forever dynamic namespace (auction houses). `null` on 404. */
+  async function getData(region: Region, path: string): Promise<Json | null> {
+    const url = `https://${region}.api.blizzard.com${path}?namespace=dynamic-forever-${region}&locale=en_US`;
+    let res = await get(url, await getAppToken());
+    if (res.status === 401) {
+      appToken = null;
+      res = await get(url, await getAppToken());
+    }
+    if (res.status === 404) return null;
+    if (!res.ok) throw new BlizzardError(`Blizzard API error (${res.status})`, res.status);
+    return (await res.json()) as Json;
+  }
+
   return {
     async getCharacter(region, name, surname) {
       const json = await getProfile(region, name, surname);
@@ -512,6 +531,33 @@ export function createBlizzardClient(
     async getProfessions(region, name, surname) {
       const json = await getProfile(region, name, surname, '/professions');
       return json && parseProfessions(json);
+    },
+
+    async getAuctionPrices(region, opts = {}) {
+      const data = (path: string) => getData(region, path);
+      const ruleset = idsIn(await data('/data/wow/ruleset/index')).sort((a, b) => a - b)[0] ?? 1;
+      const base = `/data/wow/ruleset/${ruleset}/auctions`;
+      const listed = idsIn(await data(`${base}/index`));
+      const houses = listed.length ? listed : KNOWN_AUCTION_HOUSES;
+      const results: ReturnType<typeof cheapestByItem>[] = [];
+      // A few houses at a time: gentle on rate limits, quick enough for a scheduled function.
+      let next = 0;
+      const worker = async () => {
+        while (next < houses.length && !(opts.deadline && Date.now() > opts.deadline)) {
+          const house = houses[next++];
+          const listings = await data(`${base}/${house}`).catch(() => null);
+          const commodities = await data(`${base}/${house}/commodities`).catch(() => null);
+          if (!listings && !commodities) continue;
+          const merged = cheapestByItem(listings);
+          for (const [id, c] of cheapestByItem(commodities)) {
+            const seen = merged.get(id);
+            merged.set(id, { price: Math.min(seen?.price ?? Infinity, c.price), listings: (seen?.listings ?? 0) + c.listings });
+          }
+          results.push(merged);
+        }
+      };
+      await Promise.all([worker(), worker(), worker()]);
+      return results.length ? { houses: results.length, prices: combineHouses(results) } : null;
     },
 
     async getAccountCharacters(region, userAccessToken) {

@@ -1,0 +1,87 @@
+/**
+ * Auction house data for WoW Forever. Undocumented: these are the paths and shapes the community has found
+ * (`dynamic-forever-{region}` namespace, houses listed under a ruleset), so parsing is defensive throughout.
+ *
+ *   /data/wow/ruleset/index                               rulesets
+ *   /data/wow/ruleset/{ruleset}/auctions/index            auction houses (the ruleset in the path is ignored)
+ *   /data/wow/ruleset/{ruleset}/auctions/{house}          listings for one house
+ *   /data/wow/ruleset/{ruleset}/auctions/{house}/commodities
+ *
+ * Listings don't say who is selling, so this can price items but never credit a seller.
+ */
+
+type Json = Record<string, unknown>;
+
+/** House ids the community has reported for EU (pvp, g2, g3, g4, g5 groups × Alliance/Horde/Blackwater). */
+export const KNOWN_AUCTION_HOUSES = [110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 123, 124, 125];
+
+/** The going price of one item across a region's auction houses. */
+export interface AuctionPrice {
+  /** Copper per unit: the median of each house's cheapest listing, so one silly listing can't set it. */
+  price: number;
+  /** How many listings (not units) were seen. */
+  listings: number;
+}
+
+export interface AuctionSnapshot {
+  /** Auction houses that answered. */
+  houses: number;
+  prices: Map<number, AuctionPrice>;
+}
+
+/** The ids in the first array of `{ id }` objects in a response, e.g. `{ auctions: [{ id: 110, ... }] }`. */
+export function idsIn(json: unknown): number[] {
+  if (!json || typeof json !== 'object') return [];
+  const lists = Array.isArray(json) ? [json] : Object.values(json as Json).filter(Array.isArray);
+  for (const list of lists as unknown[][]) {
+    const ids = list
+      .map((e) => (e && typeof e === 'object' ? (e as Json).id : null))
+      .filter((id): id is number => typeof id === 'number' && Number.isInteger(id));
+    if (ids.length) return ids;
+  }
+  return [];
+}
+
+/** Cheapest copper-per-unit for each item in one house's listings (auctions and commodities responses alike). */
+export function cheapestByItem(json: unknown): Map<number, { price: number; listings: number }> {
+  const out = new Map<number, { price: number; listings: number }>();
+  const auctions = json && typeof json === 'object' ? (json as Json).auctions : null;
+  if (!Array.isArray(auctions)) return out;
+  for (const raw of auctions) {
+    if (!raw || typeof raw !== 'object') continue;
+    const a = raw as Json;
+    const item = a.item as Json | undefined;
+    const id = typeof item?.id === 'number' ? item.id : null;
+    if (id == null) continue;
+    const quantity = typeof a.quantity === 'number' && a.quantity > 0 ? a.quantity : 1;
+    // Commodities have a unit price; other listings a buyout for the whole stack (bid-only ones have neither).
+    const unit =
+      typeof a.unit_price === 'number' ? a.unit_price : typeof a.buyout === 'number' ? a.buyout / quantity : null;
+    if (unit == null || !(unit > 0)) continue;
+    const seen = out.get(id);
+    out.set(id, { price: Math.min(seen?.price ?? Infinity, unit), listings: (seen?.listings ?? 0) + 1 });
+  }
+  return out;
+}
+
+function median(values: number[]): number {
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = sorted.length >> 1;
+  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+/** Combine each house's cheapest prices into one going price per item. */
+export function combineHouses(houses: Map<number, { price: number; listings: number }>[]): Map<number, AuctionPrice> {
+  const byItem = new Map<number, { prices: number[]; listings: number }>();
+  for (const house of houses) {
+    for (const [id, { price, listings }] of house) {
+      const entry = byItem.get(id) ?? { prices: [], listings: 0 };
+      entry.prices.push(price);
+      entry.listings += listings;
+      byItem.set(id, entry);
+    }
+  }
+  const out = new Map<number, AuctionPrice>();
+  for (const [id, { prices, listings }] of byItem) out.set(id, { price: Math.round(median(prices)), listings });
+  return out;
+}

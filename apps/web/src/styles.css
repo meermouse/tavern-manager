@@ -591,6 +591,7 @@ button.details-portrait.enlargeable:hover .enlarge-hint, button.details-portrait
 .metric-picker { display: flex; align-items: center; gap: 0.5rem; }
 .metric-picker select { min-width: 14rem; max-width: 100%; }
 .metric-description { margin: 0 0 0.75rem; }
+.leaderboard-total { margin: -0.25rem 0 0.75rem; font-size: 1.05rem; }
 .leaderboard th.num, .leaderboard td.num { text-align: right; font-variant-numeric: tabular-nums; }
 .leaderboard th.rank, .leaderboard td.rank { width: 3rem; text-align: center; font-variant-numeric: tabular-nums; }
 .leaderboard tr.podium-1 td { background: rgba(224, 164, 60, 0.12); }

@@ -215,6 +215,27 @@ create table if not exists feed_hidden_events (
   primary key (tavern_id, event_id)
 );
 
+-- The going auction house price of each item, per region (copper per unit; see prices.ts). Rows are upserted, never
+-- deleted: an item that isn't listed right now keeps its last known price.
+create table if not exists auction_prices (
+  region text not null,
+  item_id integer not null,
+  price bigint not null,
+  listings integer not null default 0,
+  updated_at timestamptz not null default now(),
+  primary key (region, item_id)
+);
+
+-- When each region's auction houses were last fetched, successfully or not.
+create table if not exists auction_snapshots (
+  region text primary key,
+  attempted_at timestamptz not null default now(),
+  fetched_at timestamptz,
+  houses integer not null default 0,
+  items integer not null default 0,
+  error text
+);
+
 select pg_advisory_unlock(727274);
 `;
 

@@ -1,5 +1,6 @@
 import type { CharacterProfession } from './blizzard/client.js';
 import type { Db } from './db.js';
+import { GEAR_VALUE_SQL } from './prices.js';
 
 /**
  * Tavern titles: held by whichever character (or player) in a tavern currently leads a stat. They're worked out
@@ -23,6 +24,8 @@ export interface TitleCandidate {
   last_login_at?: Date | string | null;
   /** Level-ups, loot and achievement posts in the feed. */
   feed_posts?: number | null;
+  /** Equipped gear at auction house prices, in copper (`null`: nothing priced). */
+  gear_value?: number | null;
 }
 
 /** What a title's score function sees for one character. */
@@ -35,6 +38,7 @@ export interface ScoreInput {
   /** Days since the character last logged in, or `null` if Blizzard hasn't said. */
   daysSinceSeen: number | null;
   feedPosts: number | null;
+  gearValue: number | null;
 }
 
 export interface TitleDef {
@@ -130,6 +134,13 @@ export function needPercent(stats: Record<string, number>): number | null {
 /** A profession's skill, or `null` if the character hasn't learned it (or professions haven't synced). */
 export function professionSkill(professions: CharacterProfession[], name: string): number | null {
   return professions.find((p) => p.name.toLowerCase() === name.toLowerCase())?.skill ?? null;
+}
+
+/** Copper as "1,234g 56s". */
+export function formatGold(copper: number): string {
+  const gold = Math.floor(copper / 10_000);
+  const silver = Math.floor((copper % 10_000) / 100);
+  return gold ? `${gold.toLocaleString('en')}g ${silver}s` : `${silver}s ${Math.round(copper % 100)}c`;
 }
 
 const plural = (n: number, word: string) => `${Math.round(n).toLocaleString('en')} ${word}${Math.round(n) === 1 ? '' : 's'}`;
@@ -232,6 +243,15 @@ export const TITLES: TitleDef[] = [
     format: (n) => `Item level ${n}`,
   },
   {
+    key: 'moneybags',
+    name: 'Moneybags',
+    icon: '💰',
+    description: 'Most valuable equipped gear in the tavern, at auction house prices.',
+    subject: 'character',
+    score: ({ gearValue }) => gearValue,
+    format: (n) => `${formatGold(n)} of gear`,
+  },
+  {
     key: 'town-crier',
     name: 'Town Crier',
     icon: '📣',
@@ -290,6 +310,7 @@ export function rankTitles(characters: TitleCandidate[], incumbents: ReadonlyMap
       itemLevel: c.item_level ?? null,
       daysSinceSeen: daysSince(c.last_login_at),
       feedPosts: c.feed_posts ?? null,
+      gearValue: c.gear_value ?? null,
     },
   }));
 
@@ -410,7 +431,8 @@ export function awardTitles(characters: TitleCandidate[], ranked = rankTitles(ch
 export async function userTitles(db: Db, userId: string) {
   const rows = await db.query<TitleCandidate & { tavern_id: string; tavern_name: string; name: string; surname: string }>(
     `select tc.tavern_id, t.name as tavern_name, c.id, c.user_id, c.name, c.surname, c.statistics, c.professions,
-       c.item_level, c.last_login_at, u.display_name as owner_name, ${FEED_POSTS_SQL} as feed_posts
+       c.item_level, c.last_login_at, u.display_name as owner_name, ${FEED_POSTS_SQL} as feed_posts,
+       ${GEAR_VALUE_SQL} as gear_value
      from tavern_members m
      join taverns t on t.id = m.tavern_id
      join tavern_characters tc on tc.tavern_id = m.tavern_id

@@ -4,6 +4,7 @@
 #   /api/*       → netlify/functions/api.ts  (path set in the function's config)
 #   /auth/*      → netlify/functions/api.ts
 #   (scheduled)  → netlify/functions/refresh.ts every 30 minutes
+#   (scheduled)  → netlify/functions/refresh-prices.ts hourly: auction house prices for gear net worth
 #   (background) → netlify/functions/generate-image-background.ts paints admin "Commission painting" pictures
 
 [build]

@@ -3,6 +3,7 @@ import { HTTPException } from 'hono/http-exception';
 import { requireUser, uuidParam, type AppDeps, type AppEnv } from '../context.js';
 import type { Db } from '../db.js';
 import { userFeed } from '../feed.js';
+import { GEAR_PRICED_SQL, GEAR_VALUE_SQL } from '../prices.js';
 import { gearSummary, serializeCharacterDetails, serializeEquipment, serializeCharacter } from '../serialize.js';
 import type { CharacterRow } from '../sync.js';
 import { IRL_NAME_SQL } from '../tavernAccess.js';
@@ -20,6 +21,8 @@ type LeaderboardRow = CharacterRow & {
   cheers: number;
   cheers_given: number;
   feed_posts: number;
+  gear_value: number | null;
+  gear_priced: number;
 };
 
 function statMap(value: unknown): Record<string, number> | null {
@@ -41,7 +44,8 @@ async function leaderboard(db: Db, param: string, scope: string, cheerTaverns: s
        (select count(*)::int from feed_reactions r
           where r.user_id = c.user_id and r.tavern_id in (${cheerTaverns})) as cheers_given,
        (select count(*)::int from feed_events e where e.character_id = c.id and e.kind in ('level_up', 'loot', 'achievement'))
-          as feed_posts
+          as feed_posts,
+       ${GEAR_VALUE_SQL} as gear_value, ${GEAR_PRICED_SQL} as gear_priced
      from characters c join users u on u.id = c.user_id
        left join tavern_characters tc on tc.character_id = c.id and tc.tavern_id = $2::uuid
      where c.id in (${scope})
@@ -58,6 +62,8 @@ async function leaderboard(db: Db, param: string, scope: string, cheerTaverns: s
     cheers: r.cheers,
     cheersGiven: r.cheers_given,
     feedPosts: r.feed_posts,
+    gearValue: r.gear_value,
+    gearPriced: r.gear_priced,
     statistics: statMap(r.statistics),
     characterStats: statMap(r.character_stats),
     statisticsSyncedAt: r.statistics_synced_at,
