@@ -10,6 +10,8 @@ export function ConfirmDialog({
   confirmLabel = 'Confirm',
   danger,
   busy,
+  confirmDisabled,
+  className,
   error,
   onConfirm,
   onCancel,
@@ -21,6 +23,10 @@ export function ConfirmDialog({
   danger?: boolean;
   /** Disable the buttons while the action runs. */
   busy?: boolean;
+  /** Disable just the confirm button, e.g. until something is filled in. */
+  confirmDisabled?: boolean;
+  /** Extra class names, e.g. for a wider dialog. */
+  className?: string;
   error?: string | null;
   onConfirm: () => void;
   onCancel: () => void;
@@ -44,7 +50,7 @@ export function ConfirmDialog({
   return (
     <dialog
       ref={dialogRef}
-      className="confirm-dialog card"
+      className={`confirm-dialog card${className ? ` ${className}` : ''}`}
       aria-labelledby={titleId}
       aria-describedby={children ? bodyId : undefined}
       // Esc fires `cancel` on a modal dialog.
@@ -69,7 +75,7 @@ export function ConfirmDialog({
         <button type="button" className="ghost" onClick={cancel} disabled={busy} autoFocus>
           Cancel
         </button>
-        <button type="button" className={danger ? 'danger-solid' : undefined} onClick={onConfirm} disabled={busy}>
+        <button type="button" className={danger ? 'danger-solid' : undefined} onClick={onConfirm} disabled={busy || confirmDisabled}>
           {busy ? 'Working…' : confirmLabel}
         </button>
       </div>

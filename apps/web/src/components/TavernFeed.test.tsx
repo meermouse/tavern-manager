@@ -1,9 +1,13 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { FeedEvent } from '../api/client';
-import { cheersLabel, FeedPost, isMilestone, timeAgo } from './TavernFeed';
+import { cheersLabel, CommissionDialog, FeedPost, isMilestone, timeAgo } from './TavernFeed';
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
 
 const NOW = Date.parse('2026-11-12T12:00:00Z');
 const character = { id: 'c1', name: 'Judgement', surname: 'Judy', class: 'Paladin', race: 'Human', level: 23 };
@@ -239,6 +243,42 @@ describe('Commission painting', () => {
   it('is absent by default (non-admins)', () => {
     renderPost(post({}));
     expect(screen.queryByText(/Commission painting/)).toBeNull();
+  });
+});
+
+describe('CommissionDialog', () => {
+  function renderDialog(onConfirm = vi.fn()) {
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ prompt: 'Paint Judgement levelling up.' })));
+    vi.stubGlobal('fetch', fetchMock);
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={qc}>
+        <CommissionDialog tavernId="t1" event={post({ id: '7' })} onConfirm={onConfirm} onCancel={vi.fn()} />
+      </QueryClientProvider>,
+    );
+    return { fetchMock, onConfirm };
+  }
+
+  it('shows the prompt in an editable box and paints the edited prompt', async () => {
+    const { fetchMock, onConfirm } = renderDialog();
+    const box = (await screen.findByDisplayValue('Paint Judgement levelling up.')) as HTMLTextAreaElement;
+    expect(fetchMock).toHaveBeenCalledWith('/api/taverns/t1/images/preview', expect.objectContaining({ method: 'POST' }));
+    expect(screen.getByLabelText('Prompt')).toBe(box);
+
+    fireEvent.change(box, { target: { value: 'Paint Judgement in the rain.  ' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Reset' }));
+    expect(box.value).toBe('Paint Judgement levelling up.');
+
+    fireEvent.change(box, { target: { value: 'Paint Judgement in the rain.  ' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Paint it' }));
+    expect(onConfirm).toHaveBeenCalledWith('Paint Judgement in the rain.');
+  });
+
+  it('can’t paint an empty prompt', async () => {
+    renderDialog();
+    const box = await screen.findByDisplayValue('Paint Judgement levelling up.');
+    fireEvent.change(box, { target: { value: '   ' } });
+    expect(screen.getByRole('button', { name: 'Paint it' })).toHaveProperty('disabled', true);
   });
 });
 

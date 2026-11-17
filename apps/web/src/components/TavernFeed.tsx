@@ -1,7 +1,15 @@
 import { useMutation, useQueryClient, type InfiniteData } from '@tanstack/react-query';
-import { useState, type ReactNode } from 'react';
+import { useId, useState, type ReactNode } from 'react';
 import { api, type Cheers, type FeedEvent, type FeedFilters, type FeedPage } from '../api/client';
-import { feedKey, keys, useDeleteFeedPost, useGeneratedImages, useIsTavernAdmin, useTavernFeed } from '../api/hooks';
+import {
+  feedKey,
+  keys,
+  useDeleteFeedPost,
+  useGeneratedImages,
+  useImagePrompt,
+  useIsTavernAdmin,
+  useTavernFeed,
+} from '../api/hooks';
 import { ConfirmDialog } from './ConfirmDialog';
 import { CharacterAvatar } from './CharacterAvatar';
 import { CharacterLink } from './CharacterLink';
@@ -401,6 +409,65 @@ export function FeedPost({
   );
 }
 
+/**
+ * Admins only: shows the prompt the painting will be made from, in a box they can edit, before commissioning it.
+ * The characters' renders are still sent along as reference images.
+ */
+export function CommissionDialog({
+  tavernId,
+  event,
+  busy,
+  error,
+  onConfirm,
+  onCancel,
+}: {
+  tavernId: string;
+  event: FeedEvent;
+  busy?: boolean;
+  error?: string | null;
+  onConfirm: (prompt: string) => void;
+  onCancel: () => void;
+}) {
+  const preview = useImagePrompt(tavernId, event.id);
+  // null until edited: show the suggested prompt as it loads.
+  const [edited, setEdited] = useState<string | null>(null);
+  const prompt = edited ?? preview.data?.prompt ?? '';
+  const promptId = useId();
+  const changed = edited !== null && preview.data && edited !== preview.data.prompt;
+  return (
+    <ConfirmDialog
+      title="Commission a painting"
+      confirmLabel="Paint it"
+      className="commission-dialog"
+      busy={busy}
+      confirmDisabled={!preview.data || !prompt.trim()}
+      error={error ?? preview.error?.message}
+      onCancel={onCancel}
+      onConfirm={() => onConfirm(prompt.trim())}
+    >
+      <p>Everyone in the tavern will see it once it’s finished.</p>
+      <div className="commission-prompt-head">
+        <label htmlFor={promptId}>Prompt</label>
+        {changed && (
+          <button type="button" className="ghost small" onClick={() => setEdited(null)} disabled={busy}>
+            Reset
+          </button>
+        )}
+      </div>
+      <textarea
+        id={promptId}
+        className="commission-prompt"
+        value={prompt}
+        placeholder={preview.isPending ? 'Writing the prompt…' : undefined}
+        disabled={!preview.data || busy}
+        onChange={(e) => setEdited(e.target.value)}
+        rows={14}
+        spellCheck
+      />
+    </ConfirmDialog>
+  );
+}
+
 const NO_FILTERS: FeedFilters = {};
 
 export function TavernFeed({
@@ -422,6 +489,7 @@ export function TavernFeed({
   const images = useGeneratedImages(tavernId);
   const deletePost = useDeleteFeedPost(tavernId);
   const [deleting, setDeleting] = useState<FeedEvent | null>(null);
+  const [commissioning, setCommissioning] = useState<FeedEvent | null>(null);
   const imageActions: ImageActions | undefined = isAdmin
     ? {
         retry: (id) => images.retry.mutate(id),
@@ -450,9 +518,8 @@ export function TavernFeed({
     if (!isAdmin || !PAINTABLE_KINDS.has(e.kind) || painted.has(e.id)) return undefined;
     return {
       onClick: () => {
-        if (window.confirm('Commission an AI painting of this post? Everyone will see it once it’s finished.')) {
-          images.generate.mutate(e.id);
-        }
+        images.generate.reset();
+        setCommissioning(e);
       },
       disabledReason: images.generate.isPending
         ? 'Starting…'
@@ -461,7 +528,8 @@ export function TavernFeed({
           : undefined,
     };
   };
-  const imageError = images.generate.error ?? images.retry.error ?? images.remove.error;
+  // The commission dialog shows its own errors while it's open.
+  const imageError = (commissioning ? null : images.generate.error) ?? images.retry.error ?? images.remove.error;
   const filtered = !!(filters.kinds || filters.characterIds || filters.mine || filters.search);
   if (!all.length && !filtered) {
     return (
@@ -502,6 +570,21 @@ export function TavernFeed({
           />
         ))}
       </ol>
+      {commissioning && (
+        <CommissionDialog
+          tavernId={tavernId}
+          event={commissioning}
+          busy={images.generate.isPending}
+          error={images.generate.error?.message}
+          onCancel={() => setCommissioning(null)}
+          onConfirm={(prompt) =>
+            images.generate.mutate(
+              { eventId: commissioning.id, prompt },
+              { onSuccess: () => setCommissioning(null) },
+            )
+          }
+        />
+      )}
       {deleting && (
         <ConfirmDialog
           title="Delete this post?"
