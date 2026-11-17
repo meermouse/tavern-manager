@@ -48,6 +48,32 @@ export function useTavern(id: string) {
   return useQuery({ queryKey: keys.tavern(id), queryFn: () => api.tavern(id) });
 }
 
+/** Whether you're an admin of the tavern (false outside a tavern, or until it has loaded). */
+export function useIsTavernAdmin(tavernId: string | undefined) {
+  const tavern = useQuery({
+    queryKey: keys.tavern(tavernId ?? ''),
+    queryFn: () => api.tavern(tavernId!),
+    enabled: !!tavernId,
+  });
+  return !!tavernId && !!tavern.data?.isAdmin;
+}
+
+/** Admin actions on one of a tavern's characters: set its IRL name, or remove it from the tavern. */
+export function useTavernCharacterAdmin(tavernId: string, characterId: string) {
+  const qc = useQueryClient();
+  const refetch = () => qc.invalidateQueries({ queryKey: keys.taverns });
+  return {
+    setIrlName: useMutation({
+      mutationFn: (irlName: string | null) => api.setIrlName(tavernId, characterId, irlName),
+      onSuccess: (t) => {
+        qc.setQueryData(keys.tavern(tavernId), t);
+        return refetch();
+      },
+    }),
+    remove: useMutation({ mutationFn: () => api.removeFromTavern(tavernId, characterId), onSuccess: refetch }),
+  };
+}
+
 /** A character's details pane data, as seen from a tavern, or (no id) from the global leaderboard. */
 export function useCharacterDetails(tavernId: string | undefined, characterId: string) {
   return useQuery({
@@ -131,12 +157,16 @@ export function useDungeonRuns(tavernId: string) {
   return useQuery({ queryKey: keys.dungeonRuns(tavernId), queryFn: () => api.dungeonRuns(tavernId) });
 }
 
-/** Log or delete a run. Either changes the run list, the feed and (for a clear) everyone's dungeon log. */
+/** Log, edit or delete a run. Any of them changes the run list, the feed and (for a clear) everyone's dungeon log. */
 export function useDungeonRunMutations(tavernId: string) {
   const qc = useQueryClient();
   const refetch = () => refetchCharacters(qc);
   return {
     log: useMutation({ mutationFn: (run: NewDungeonRun) => api.logDungeonRun(tavernId, run), onSuccess: refetch }),
+    edit: useMutation({
+      mutationFn: ({ id, run }: { id: string; run: NewDungeonRun }) => api.editDungeonRun(tavernId, id, run),
+      onSuccess: refetch,
+    }),
     remove: useMutation({ mutationFn: (runId: string) => api.deleteDungeonRun(tavernId, runId), onSuccess: refetch }),
   };
 }

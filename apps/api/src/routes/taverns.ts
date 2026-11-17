@@ -6,7 +6,9 @@ import { badRequest, jsonBody, requireUser, uuidParam, type AppDeps, type AppEnv
 import { eventVisibleInTavern, recordEvent, setCheer, tavernFeed } from '../feed.js';
 import { serializeCharacter, serializeCharacterDetails } from '../serialize.js';
 import { refreshStale, type CharacterRow } from '../sync.js';
+import { IRL_NAME_SQL, adminTavern, tavernMembership, type TavernAccess } from '../tavernAccess.js';
 
+const MAX_IRL_NAME = 40;
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
 export function generateInviteCode(length = 8): string {
@@ -15,13 +17,7 @@ export function generateInviteCode(length = 8): string {
   return out;
 }
 
-interface TavernRow {
-  id: string;
-  name: string;
-  owner_id: string;
-  invite_code: string;
-  created_at: Date;
-}
+type TavernRow = Omit<TavernAccess, 'is_admin'>;
 
 function tavernName(body: Record<string, unknown>): string {
   const name = typeof body.name === 'string' ? body.name.trim() : '';
@@ -32,30 +28,24 @@ function tavernName(body: Record<string, unknown>): string {
 export function tavernRoutes({ db, blizzard }: AppDeps) {
   const app = new Hono<AppEnv>();
 
-  async function membership(tavernId: string, userId: string): Promise<TavernRow> {
-    const [row] = await db.query<TavernRow>(
-      `select t.* from taverns t join tavern_members m on m.tavern_id = t.id
-       where t.id = $1 and m.user_id = $2`,
-      [tavernId, userId],
-    );
-    if (!row) throw new HTTPException(404, { message: 'Tavern not found' });
-    return row;
-  }
+  const membership = (tavernId: string, userId: string) => tavernMembership(db, tavernId, userId);
 
-  async function ownedTavern(tavernId: string, userId: string): Promise<TavernRow> {
+  async function ownedTavern(tavernId: string, userId: string): Promise<TavernAccess> {
     const tavern = await membership(tavernId, userId);
     if (tavern.owner_id !== userId) throw new HTTPException(403, { message: 'Only the tavern owner can do that' });
     return tavern;
   }
 
   async function detail(tavern: TavernRow, userId: string) {
-    const members = await db.query<{ user_id: string; display_name: string; joined_at: Date }>(
-      `select m.user_id, u.display_name, m.joined_at from tavern_members m join users u on u.id = m.user_id
+    const members = await db.query<{ user_id: string; display_name: string; is_admin: boolean; joined_at: Date }>(
+      `select m.user_id, u.display_name, m.is_admin, m.joined_at from tavern_members m join users u on u.id = m.user_id
        where m.tavern_id = $1 order by m.joined_at`,
       [tavern.id],
     );
-    const characters = await db.query<CharacterRow & { owner_name: string; feed_posts: number }>(
-      `select c.*, u.display_name as owner_name, ${FEED_POSTS_SQL} as feed_posts from tavern_characters tc
+    const isAdmin = (memberId: string) =>
+      memberId === tavern.owner_id || members.some((m) => m.user_id === memberId && m.is_admin);
+    const characters = await db.query<CharacterRow & { owner_name: string; irl_name: string | null; feed_posts: number }>(
+      `select c.*, ${IRL_NAME_SQL} as owner_name, tc.irl_name, ${FEED_POSTS_SQL} as feed_posts from tavern_characters tc
        join characters c on c.id = tc.character_id
        join users u on u.id = c.user_id
        where tc.tavern_id = $1
@@ -69,17 +59,21 @@ export function tavernRoutes({ db, blizzard }: AppDeps) {
       name: tavern.name,
       inviteCode: tavern.invite_code,
       isOwner: tavern.owner_id === userId,
+      isAdmin: isAdmin(userId),
       createdAt: tavern.created_at,
       members: members.map((m) => ({
         userId: m.user_id,
         displayName: m.display_name,
         isOwner: m.user_id === tavern.owner_id,
+        isAdmin: isAdmin(m.user_id),
         joinedAt: m.joined_at,
       })),
       characters: characters.map((c) => ({
         ...serializeCharacter(c),
         ownerId: c.user_id,
         ownerName: c.owner_name,
+        /** True when an admin set this character's IRL name here, rather than it being the owner's display name. */
+        irlNameOverridden: c.irl_name !== null,
         titles: titles.get(c.id) ?? [],
       })),
       /** Every title with its standings, for the Titles tab. */
@@ -117,7 +111,7 @@ export function tavernRoutes({ db, blizzard }: AppDeps) {
       `with t as (
          insert into taverns (name, owner_id, invite_code) values ($1, $2, $3) returning *
        ), m as (
-         insert into tavern_members (tavern_id, user_id) select id, owner_id from t
+         insert into tavern_members (tavern_id, user_id, is_admin) select id, owner_id, true from t
        )
        select * from t`,
       [name, user.id, generateInviteCode()],
@@ -210,7 +204,7 @@ export function tavernRoutes({ db, blizzard }: AppDeps) {
     const tavern = await membership(uuidParam(c, 'id'), user.id);
     const characterId = uuidParam(c, 'characterId');
     const [row] = await db.query<CharacterRow & { owner_name: string }>(
-      `select c.*, u.display_name as owner_name from tavern_characters tc
+      `select c.*, ${IRL_NAME_SQL} as owner_name from tavern_characters tc
        join characters c on c.id = tc.character_id
        join users u on u.id = c.user_id
        where tc.tavern_id = $1 and tc.character_id = $2`,
@@ -240,15 +234,53 @@ export function tavernRoutes({ db, blizzard }: AppDeps) {
     const user = requireUser(c);
     const tavern = await membership(uuidParam(c, 'id'), user.id);
     const characterId = uuidParam(c, 'characterId');
-    // Players can remove their own characters; the owner can remove anyone's.
+    // Players can remove their own characters; admins can remove anyone's.
     const params: unknown[] = [tavern.id, characterId];
     let ownerCheck = '';
-    if (tavern.owner_id !== user.id) {
+    if (!tavern.is_admin) {
       params.push(user.id);
       ownerCheck = 'and character_id in (select id from characters where user_id = $3)';
     }
     await db.query(`delete from tavern_characters where tavern_id = $1 and character_id = $2 ${ownerCheck}`, params);
     return c.json({ ok: true });
+  });
+
+  /**
+   * Admin-only: `{ irlName }` sets the IRL name this tavern shows for a character. It doesn't touch the player's own
+   * display name or other taverns. `null` or an empty name goes back to the owner's display name.
+   */
+  app.patch('/taverns/:id/characters/:characterId', async (c) => {
+    const user = requireUser(c);
+    const tavern = await adminTavern(db, uuidParam(c, 'id'), user.id);
+    const characterId = uuidParam(c, 'characterId');
+    const body = await jsonBody(c);
+    if (body.irlName !== null && typeof body.irlName !== 'string') badRequest('irlName must be a name or null');
+    const irlName = typeof body.irlName === 'string' ? body.irlName.trim().replace(/\s+/g, ' ') : '';
+    if (irlName.length > MAX_IRL_NAME) badRequest(`IRL name must be ${MAX_IRL_NAME} characters or fewer`);
+    const [updated] = await db.query(
+      'update tavern_characters set irl_name = $3 where tavern_id = $1 and character_id = $2 returning character_id',
+      [tavern.id, characterId, irlName || null],
+    );
+    if (!updated) throw new HTTPException(404, { message: 'Character not found' });
+    return c.json(await detail(tavern, user.id));
+  });
+
+  // ---- Members ----
+
+  /** Owner-only: `{ admin }` makes a member a tavern admin, or takes it away. The owner is always an admin. */
+  app.put('/taverns/:id/members/:userId/admin', async (c) => {
+    const user = requireUser(c);
+    const tavern = await ownedTavern(uuidParam(c, 'id'), user.id);
+    const memberId = uuidParam(c, 'userId');
+    const body = await jsonBody(c);
+    if (typeof body.admin !== 'boolean') badRequest('admin must be true or false');
+    if (memberId === tavern.owner_id) badRequest('The tavern owner is always an admin');
+    const [updated] = await db.query(
+      'update tavern_members set is_admin = $3 where tavern_id = $1 and user_id = $2 returning user_id',
+      [tavern.id, memberId, body.admin],
+    );
+    if (!updated) throw new HTTPException(404, { message: 'Member not found' });
+    return c.json(await detail(tavern, user.id));
   });
 
   // ---- Invites ----

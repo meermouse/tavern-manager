@@ -36,6 +36,7 @@ export async function setup(overrides: Partial<AppDeps> = {}) {
       put: (p: string) => call('PUT', p),
       patch: (p: string, b: unknown) => call('PATCH', p, b),
       del: (p: string) => call('DELETE', p),
+      call,
     };
   }
 

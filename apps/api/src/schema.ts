@@ -171,6 +171,15 @@ create table if not exists dungeon_run_characters (
   primary key (run_id, character_id)
 );
 
+-- Tavern admins: can rename a character's IRL name in the tavern, remove anyone's character from it and edit its
+-- dungeon runs. The owner is always an admin (and is flagged as one); the owner can make other members admins.
+alter table tavern_members add column if not exists is_admin boolean not null default false;
+update tavern_members m set is_admin = true from taverns t
+  where t.id = m.tavern_id and t.owner_id = m.user_id and not m.is_admin;
+
+-- The IRL name a tavern admin gave a character in this tavern; null shows the owning player's display name.
+alter table tavern_characters add column if not exists irl_name text;
+
 select pg_advisory_unlock(727274);
 `;
 

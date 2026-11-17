@@ -99,6 +99,58 @@ describe('TavernDungeons', () => {
     });
   });
 
+  it('lets admins edit a logged run', async () => {
+    const patched: [string, unknown][] = [];
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+      if (init?.method === 'PATCH') {
+        patched.push([url, JSON.parse(String(init.body))]);
+        return new Response(JSON.stringify(run({})));
+      }
+      return new Response('[]');
+    }));
+    const qc = new QueryClient();
+    const characters = [char('a', 'Judy', 15), char('b', 'Grim', 16)];
+    qc.setQueryData(keys.dungeonRuns('t1'), [
+      run({
+        id: 'r9', bosses: ['Oggleflint'], cleared: false, notes: 'Hearthed out', date: '2026-11-10', canEdit: true,
+        characters: [{ ...characters[0] }],
+      }),
+      run({ id: 'r8', canEdit: false }),
+    ]);
+    render(
+      <QueryClientProvider client={qc}>
+        <TavernDungeons tavernId="t1" characters={characters} visible={characters} view="runs" />
+      </QueryClientProvider>,
+    );
+    expect(screen.getAllByRole('button', { name: 'Edit' })).toHaveLength(1);
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+
+    const form = within(screen.getByRole('heading', { name: 'Edit Ragefire Chasm run' }).closest('form')!);
+    expect((form.getByLabelText('Date') as HTMLInputElement).value).toBe('2026-11-10');
+    expect((form.getByRole('checkbox', { name: /Judy/ }) as HTMLInputElement).checked).toBe(true);
+    expect((form.getByRole('checkbox', { name: /Grim/ }) as HTMLInputElement).checked).toBe(false);
+    expect((form.getByRole('checkbox', { name: 'Oggleflint' }) as HTMLInputElement).checked).toBe(true);
+    expect((form.getByRole('checkbox', { name: 'Bazzalan' }) as HTMLInputElement).checked).toBe(false);
+    expect((form.getByRole('checkbox', { name: /We cleared it/ }) as HTMLInputElement).checked).toBe(false);
+
+    fireEvent.click(form.getByRole('checkbox', { name: /Grim/ }));
+    fireEvent.click(form.getByRole('checkbox', { name: 'Bazzalan' }));
+    fireEvent.click(form.getByRole('button', { name: 'Save changes' }));
+
+    await waitFor(() => expect(patched).toHaveLength(1));
+    expect(patched[0]).toEqual([
+      '/api/taverns/t1/runs/r9',
+      {
+        dungeon: 'Ragefire Chasm',
+        date: '2026-11-10',
+        characterIds: ['a', 'b'],
+        bosses: ['Oggleflint', 'Bazzalan'],
+        cleared: false,
+        notes: 'Hearthed out',
+      },
+    ]);
+  });
+
   it('shows logged runs and the boss tally', () => {
     const qc = new QueryClient();
     qc.setQueryData(keys.dungeonRuns('t1'), [
