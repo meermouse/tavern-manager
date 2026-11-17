@@ -322,6 +322,13 @@ textarea.commission-prompt { display: block; box-sizing: border-box; width: 100%
   /* Long dungeon cells stack under their label instead of squeezing beside it. */
   .dungeon-table td:first-child, .dungeon-table td:last-child { flex-direction: column; gap: 0.35rem; }
   .dungeon-table td > * { min-width: 0; }
+  /* The gear table is small enough to stay a table. */
+  table.gear-table { display: table; }
+  .gear-table thead { display: table-header-group; }
+  .gear-table tbody { display: table-row-group; }
+  .gear-table tfoot { display: table-footer-group; }
+  .gear-table tr { display: table-row; padding: 0; }
+  .gear-table th, .gear-table td { display: table-cell; width: auto; }
 }
 
 /* ---- World map ---- */
@@ -459,11 +466,28 @@ tr.selected, tr.selected:hover { background: rgba(224, 164, 60, 0.14); box-shado
 .details-stats .stat dt { color: var(--muted); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; }
 .details-stats .stat dd { margin: 0; font-weight: 600; }
 .details-columns { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem 1.5rem; }
-.details-gear { list-style: none; margin: 0 0 0.25rem; padding: 0; display: grid; gap: 0.15rem; font-size: 0.9rem; }
-.details-gear li { display: grid; grid-template-columns: 6.5rem minmax(0, 1fr) auto auto; gap: 0.5rem; align-items: baseline; }
-.gear-value { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
-.gear-slot { font-size: 0.8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.gear-ilvl { font-variant-numeric: tabular-nums; }
+/* Equipped gear: a compact table inside the details pane. */
+.gear-table { font-size: 0.9rem; margin: 0 0 0.35rem; }
+.gear-table th, .gear-table td { padding: 0.3rem 0.4rem; border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent); }
+.gear-table th:first-child, .gear-table td:first-child { padding-left: 0; }
+.gear-table th:last-child, .gear-table td:last-child { padding-right: 0; }
+.gear-table thead th { background: none; font-size: 0.7rem; padding-top: 0; }
+.gear-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+.gear-table .gear-item { white-space: normal; }
+.gear-table .gear-slot { display: block; color: var(--muted); font-size: 0.75rem; line-height: 1.2; }
+.gear-table tbody tr:hover td { background: color-mix(in srgb, var(--bg-input) 70%, transparent); }
+.gear-table tfoot th, .gear-table tfoot td { border-bottom: none; border-top: 1px solid var(--border); padding-top: 0.45rem; }
+.gear-table tfoot th { background: none; text-transform: none; letter-spacing: 0; font-size: 0.9rem; color: var(--text); text-align: right; }
+.price-source {
+  display: inline-block; font-size: 0.6rem; font-weight: 700; letter-spacing: 0.04em; vertical-align: 0.1em;
+  padding: 0 0.35rem; border-radius: 999px; border: 1px solid currentColor; color: var(--accent);
+}
+.vendor-price { opacity: 0.7; }
+.gear-table td.num { vertical-align: top; }
+.coins { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.coin-g { color: #ffd100; }
+.coin-s { color: #c7c7cf; }
+.coin-c { color: #d68a4e; }
 .details-recent { gap: 0.4rem; max-width: none; }
 .details-recent .feed-post { padding: 0.5rem 0.65rem; gap: 0.6rem; background: var(--bg-input); }
 .details-recent .feed-avatar { width: 2rem; height: 2rem; font-size: 0.95rem; }

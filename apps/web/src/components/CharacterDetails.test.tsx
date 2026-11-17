@@ -140,10 +140,17 @@ describe('CharacterDetails', () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(details))));
     renderWithQuery(<CharacterDetails tavernId="t1" character={judy} onClose={() => {}} />);
 
-    expect((await screen.findByTitle(/^Vendor price/)).textContent).toBe('3g 12s vendor');
-    expect(screen.getByTitle('Auction house: going price across 6 listings').textContent).toBe('4g 50s AH');
-    expect(screen.getByTitle('No auction or vendor price').textContent).toBe('—');
-    expect(screen.getByText('7g 62s')).toBeTruthy();
+    const table = (await screen.findByText('Hearthfire Greatblade')).closest('table')!;
+    expect(within(table).getAllByRole('columnheader').map((h) => h.textContent)).toEqual(['Item', 'iLvl', 'Value']);
+    const cells = (name: string) =>
+      within(screen.getByText(name).closest('tr')!).getAllByRole('cell').map((c) => c.textContent);
+    expect(cells('Hearthfire Greatblade')).toEqual(['Hearthfire GreatbladeMain Hand', '57', '3g 12s']);
+    expect(cells('Bracers of the Bar Brawl')).toEqual(['Bracers of the Bar BrawlWrists', '17', '4g 50s AH']);
+    expect(cells('Plain Shirt')).toEqual(['Plain ShirtShirt', '1', '—']);
+    expect(screen.getByTitle('Going auction house price, from 6 listings across the region')).toBeTruthy();
+    expect(screen.getByTitle(/^Vendor price: it isn’t on the auction house/)).toBeTruthy();
+    const total = screen.getByRole('rowheader', { name: 'Gear value' }).closest('tr')!;
+    expect(total.textContent).toContain('7g 62s');
   });
 
   it('gives tavern admins tools to change the IRL name or remove the character', async () => {

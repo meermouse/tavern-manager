@@ -99,8 +99,9 @@ export function pricedEquipment(equipment: unknown[] | null, prices: ReadonlyMap
   if (!equipment) return { equipment: null, gearValue: null };
   let total: number | null = null;
   const items = equipment.map((raw) => {
-    const item = raw as { id?: number; sellPrice?: number | null };
-    const auction = item.id != null ? prices.get(item.id) : undefined;
+    const item = raw as { id?: number; quality?: string; sellPrice?: number | null };
+    // Grey items are vendor trash, whatever someone's asking for one on the auction house.
+    const auction = item.id != null && item.quality !== 'POOR' ? prices.get(item.id) : undefined;
     const value = auction?.price ?? (item.sellPrice || null);
     if (value != null) total = (total ?? 0) + value;
     return { ...item, auctionPrice: auction?.price ?? null, auctionListings: auction?.listings ?? 0, value };

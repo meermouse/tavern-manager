@@ -14,8 +14,14 @@ export const PRICES_MAX_AGE_MINUTES = 60;
 const EQUIPPED = `jsonb_array_elements(case when jsonb_typeof(c.equipment) = 'array' then c.equipment else '[]'::jsonb end) eq
   left join auction_prices p on p.region = c.region and p.item_id = (eq->>'id')::int`;
 
-/** One equipped item's value: the auction price if it's listed, else what a vendor pays for it. */
-const ITEM_VALUE = `coalesce(p.price, nullif((eq->>'sellPrice')::numeric, 0))`;
+/**
+ * Grey items are vendor trash: the odd one listed at a silly price shouldn't make it worth gold. SQL condition on
+ * an equipped item `eq`.
+ */
+const AUCTION_PRICED = `p.price is not null and coalesce(eq->>'quality', '') <> 'POOR'`;
+
+/** One equipped item's value: the auction price if it's listed (and not grey), else what a vendor pays for it. */
+const ITEM_VALUE = `case when ${AUCTION_PRICED} then p.price else nullif((eq->>'sellPrice')::numeric, 0) end`;
 
 /**
  * Copper value of character `c`'s equipped gear, as a select-list subquery: each item at its auction house price,
@@ -24,7 +30,7 @@ const ITEM_VALUE = `coalesce(p.price, nullif((eq->>'sellPrice')::numeric, 0))`;
 export const GEAR_VALUE_SQL = `(select sum(${ITEM_VALUE})::float8 from ${EQUIPPED})`;
 
 /** How many of character `c`'s equipped items have an auction price, as a select-list subquery. */
-export const GEAR_PRICED_SQL = `(select count(p.price)::int from ${EQUIPPED})`;
+export const GEAR_PRICED_SQL = `(select count(*) filter (where ${AUCTION_PRICED})::int from ${EQUIPPED})`;
 
 /** Auction prices for these items in a region, by item id (for the gear breakdown). */
 export async function itemPrices(db: Db, region: string, itemIds: number[]): Promise<Map<number, { price: number; listings: number }>> {
