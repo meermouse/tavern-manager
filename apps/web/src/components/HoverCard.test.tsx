@@ -98,6 +98,7 @@ describe('hover cards', () => {
       guild: 'Last Orders',
       ownerName: 'Alice',
       itemLevel: 51,
+      gearItemLevel: 612,
     };
     render(
       <CharacterDirectory.Provider value={new Map([['c1', full]])}>
@@ -113,6 +114,8 @@ describe('hover cards', () => {
     expect(text).toContain('Level 42 Human Paladin');
     expect(text).toContain('<Last Orders>');
     expect(text).toContain('PlayerAlice');
-    expect(text).toContain('Item level51');
+    // The same total as the details pane, not Blizzard's average.
+    expect(text).toContain('Total item level612');
+    expect(text).not.toContain('51');
   });
 });

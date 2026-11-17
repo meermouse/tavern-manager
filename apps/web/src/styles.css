@@ -383,8 +383,8 @@ tr.selected, tr.selected:hover { background: rgba(224, 164, 60, 0.14); box-shado
 .details-badges .badge { margin-left: 0; }
 .badge.faction { border-color: currentColor; }
 .details-stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 0.5rem 1rem; margin: 0; }
-.details-stat dt { color: var(--muted); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; }
-.details-stat dd { margin: 0; font-weight: 600; }
+.details-stats .stat dt { color: var(--muted); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; }
+.details-stats .stat dd { margin: 0; font-weight: 600; }
 .details-columns { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem 1.5rem; }
 .details-gear { list-style: none; margin: 0 0 0.25rem; padding: 0; display: grid; gap: 0.15rem; font-size: 0.9rem; }
 .details-gear li { display: grid; grid-template-columns: 6.5rem minmax(0, 1fr) auto; gap: 0.5rem; align-items: baseline; }
@@ -431,6 +431,7 @@ tr.selected, tr.selected:hover { background: rgba(224, 164, 60, 0.14); box-shado
 .character-card .cc-badges { display: flex; flex-wrap: wrap; gap: 0.25rem; margin: 0.15rem 0; }
 .character-card .cc-badges .badge { margin-left: 0; }
 .character-card .cc-stats { display: grid; grid-template-columns: auto 1fr; gap: 0 0.75rem; margin: 0.2rem 0 0; font-size: 0.82rem; }
+.character-card .cc-stats .stat { display: contents; }
 .character-card .cc-stats dt { color: var(--muted); }
 .character-card .cc-stats dd { margin: 0; }
 

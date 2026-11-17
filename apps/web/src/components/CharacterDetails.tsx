@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { FeedItem, TavernCharacter } from '../api/client';
 import { useCharacterDetails, useMe, useSetRoles } from '../api/hooks';
 import { CharacterLevel } from './CharacterLevel';
+import { Ago, CharacterStats, Stat } from './CharacterStats';
 import { ClassName, classKey } from './ClassName';
 import { ItemLink } from './ItemLink';
 import { PortraitViewer } from './PortraitViewer';
@@ -78,15 +79,6 @@ function CompletedDungeons({ log }: { log: Record<string, string> | undefined })
         </li>
       ))}
     </ul>
-  );
-}
-
-function Stat({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="details-stat">
-      <dt>{label}</dt>
-      <dd>{children}</dd>
-    </div>
   );
 }
 
@@ -180,24 +172,10 @@ export function CharacterDetails({
           {c.status !== 'ok' && c.syncError && <p className="muted small-text">{c.syncError}</p>}
         </header>
 
-        <dl className="details-stats">
-          <Stat label="Player">{c.ownerName}</Stat>
-          {details.data?.gearItemLevel != null && <Stat label="Total item level">{details.data.gearItemLevel}</Stat>}
-          {c.achievementPoints != null && <Stat label="Achievement points">{c.achievementPoints}</Stat>}
+        <CharacterStats character={c} className="details-stats">
           <Stat label="Dungeons completed">{completedCount(c)} / {dungeons.length}</Stat>
-          {c.lastLoginAt && (
-            <Stat label="Last seen in game">
-              <time dateTime={c.lastLoginAt} title={new Date(c.lastLoginAt).toLocaleString()}>{timeAgo(c.lastLoginAt)}</time>
-            </Stat>
-          )}
-          <Stat label="Last updated">
-            {c.lastSyncedAt ? (
-              <time dateTime={c.lastSyncedAt} title={new Date(c.lastSyncedAt).toLocaleString()}>{timeAgo(c.lastSyncedAt)}</time>
-            ) : (
-              'Never'
-            )}
-          </Stat>
-        </dl>
+          <Stat label="Last updated">{c.lastSyncedAt ? <Ago at={c.lastSyncedAt} /> : 'Never'}</Stat>
+        </CharacterStats>
 
         <div className="details-columns">
           <div>
