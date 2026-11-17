@@ -181,11 +181,58 @@ export interface FeedOptions {
   excludeKinds?: FeedKind[];
   /** Just this post (if visible). */
   eventId?: string;
+  /** Only posts of these kinds. */
+  kinds?: FeedKind[];
+  /** Only posts about any of these characters (including group runs and paintings they're in). */
+  characterIds?: string[];
+  /** Only posts about characters this user owns. */
+  ownedBy?: string;
+  /** Only posts whose text (names, items, dungeons, bosses, achievements, captions) contains this. */
+  search?: string;
   /**
    * Include generated pictures that are still being painted or failed (for admins, who can retry or remove them).
    * Everyone else only sees a picture's post once it's finished.
    */
   unfinishedImages?: boolean;
+}
+
+export const FEED_KINDS: readonly FeedKind[] = [
+  'level_up',
+  'loot',
+  'achievement',
+  'dungeon_cleared',
+  'dungeon_run',
+  'character_joined',
+  'member_joined',
+  'tavern_founded',
+  'generated_image',
+];
+
+/** Ids of the characters a post is about: its own character, plus a group run's party or a painting's cast. */
+const POST_CHARACTER_IDS = `(
+  select e.character_id::text where e.character_id is not null
+  union all
+  select x->>'id' from jsonb_array_elements(
+    case when jsonb_typeof(e.data->'characters') = 'array' then e.data->'characters' else '[]'::jsonb end
+  ) x
+)`;
+
+/** The parts of a post's data that the text filter searches: what the post says, as shown in the feed. */
+const SEARCHABLE_PATHS = [
+  'lax $.items[*].name',
+  'lax $.items[*].quality',
+  'lax $.achievements[*].name',
+  'lax $.dungeon',
+  'lax $.bosses[*]',
+  'lax $.characters[*].name',
+  'lax $.characters[*].surname',
+  'lax $.caption',
+  'lax $.tavernName',
+];
+
+/** An `ilike` pattern matching `text` anywhere, with `%`, `_` and `\` taken literally. */
+export function likePattern(text: string): string {
+  return `%${text.replace(/[\\%_]/g, (ch) => `\\${ch}`)}%`;
 }
 
 /**
@@ -284,6 +331,27 @@ async function feedEvents(
   if (opts.eventId) {
     params.push(opts.eventId);
     cursor += ` and e.id = $${params.length}::bigint`;
+  }
+  if (opts.kinds) {
+    params.push(opts.kinds);
+    cursor += ` and e.kind = any($${params.length}::text[])`;
+  }
+  if (opts.characterIds) {
+    params.push(opts.characterIds);
+    cursor += ` and exists(select 1 from ${POST_CHARACTER_IDS} pc(id) where pc.id = any($${params.length}::text[]))`;
+  }
+  if (opts.ownedBy) {
+    params.push(opts.ownedBy);
+    cursor += ` and exists(select 1 from ${POST_CHARACTER_IDS} pc(id)
+      join characters oc on oc.id::text = pc.id where oc.user_id = $${params.length}::uuid)`;
+  }
+  if (opts.search) {
+    params.push(likePattern(opts.search));
+    const p = `$${params.length}`;
+    // Who it's about, plus the post's readable text (not ids, dates or avatar URLs).
+    const text = SEARCHABLE_PATHS.map((path) => `select jsonb_path_query(e.data, '${path}')`).join(' union all ');
+    cursor += ` and (concat_ws(' ', c.name, c.surname, u.display_name) ilike ${p}
+      or exists(select 1 from (${text}) t(v) where jsonb_typeof(v) = 'string' and v #>> '{}' ilike ${p}))`;
   }
   if (!opts.unfinishedImages) cursor += ` and (gi.id is null or ${IMAGE_STATUS_SQL} = 'ready')`;
   const rows = await db.query<FeedRow>(

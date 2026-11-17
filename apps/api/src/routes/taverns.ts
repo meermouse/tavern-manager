@@ -3,7 +3,7 @@ import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { awardTitles, FEED_POSTS_SQL, tavernTitles } from '../titles.js';
 import { badRequest, jsonBody, requireUser, uuidParam, type AppDeps, type AppEnv } from '../context.js';
-import { deleteTavernPost, eventVisibleInTavern, recordEvent, setCheer, tavernFeed } from '../feed.js';
+import { deleteTavernPost, eventVisibleInTavern, FEED_KINDS, recordEvent, setCheer, tavernFeed, type FeedKind } from '../feed.js';
 import { serializeCharacter, serializeCharacterDetails } from '../serialize.js';
 import { refreshStale, type CharacterRow } from '../sync.js';
 import { IRL_NAME_SQL, adminTavern, tavernMembership, type TavernAccess } from '../tavernAccess.js';
@@ -132,7 +132,24 @@ export function tavernRoutes({ db, blizzard }: AppDeps) {
     const before = c.req.query('before');
     if (before !== undefined && !/^\d{1,18}$/.test(before)) badRequest('Invalid cursor');
     const limit = Math.min(50, Math.max(1, Number(c.req.query('limit')) || 30));
-    return c.json(await tavernFeed(db, tavern.id, user.id, { before, limit, unfinishedImages: tavern.is_admin }));
+    // Optional filters: ?kinds=a,b  ?characters=id,id  ?mine=1  ?q=text
+    const list = (name: string) => c.req.query(name)?.split(',').filter(Boolean) ?? [];
+    const kinds = list('kinds');
+    if (kinds.some((k) => !FEED_KINDS.includes(k as FeedKind))) badRequest('Unknown post type');
+    const characterIds = list('characters');
+    if (characterIds.length > 100) badRequest('Too many characters');
+    const search = c.req.query('q')?.trim().slice(0, 100) || undefined;
+    return c.json(
+      await tavernFeed(db, tavern.id, user.id, {
+        before,
+        limit,
+        unfinishedImages: tavern.is_admin,
+        kinds: kinds.length ? (kinds as FeedKind[]) : undefined,
+        characterIds: characterIds.length ? characterIds : undefined,
+        ownedBy: c.req.query('mine') === '1' ? user.id : undefined,
+        search,
+      }),
+    );
   });
 
   for (const method of ['put', 'delete'] as const) {

@@ -1,5 +1,5 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
-import { api, ApiError, type Character, type NewDungeonRun, type Role } from './client';
+import { api, ApiError, type Character, type FeedFilters, type NewDungeonRun, type Role } from './client';
 
 export const keys = {
   me: ['me'] as const,
@@ -91,10 +91,17 @@ export function useLeaderboard(tavernId?: string) {
   });
 }
 
-export function useTavernFeed(id: string) {
+/** The cache key of a tavern feed with these filters (under `keys.feed`, so invalidating that refetches every filter). */
+export function feedKey(id: string, filters: FeedFilters = {}) {
+  return [...keys.feed(id), filters] as const;
+}
+
+export function useTavernFeed(id: string, filters: FeedFilters = {}) {
   return useInfiniteQuery({
-    queryKey: keys.feed(id),
-    queryFn: ({ pageParam }) => api.tavernFeed(id, pageParam),
+    queryKey: feedKey(id, filters),
+    queryFn: ({ pageParam }) => api.tavernFeed(id, pageParam, filters),
+    // Changing a filter keeps the old posts on screen until the new ones arrive, instead of flashing "Loading…".
+    placeholderData: (previous, previousQuery) => (previousQuery?.queryKey[1] === id ? previous : undefined),
     initialPageParam: null as string | null,
     getNextPageParam: (last) => last.nextCursor,
     // While a generated picture is being painted, check back until it's done.
