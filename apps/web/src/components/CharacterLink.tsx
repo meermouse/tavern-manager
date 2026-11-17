@@ -18,7 +18,7 @@ export type CharacterLike = Pick<TavernCharacter, 'id' | 'name'> & Partial<Omit<
  */
 export const CharacterDirectory = createContext<ReadonlyMap<string, CharacterLike>>(new Map());
 
-export function CharacterCard({ character: c }: { character: CharacterLike }) {
+export function CharacterCard({ character: c, onDetails }: { character: CharacterLike; onDetails?: () => void }) {
   const key = classKey(c.class ?? null);
   const image = c.insetUrl ?? null;
   const line = [c.race, c.class].filter(Boolean);
@@ -78,6 +78,21 @@ export function CharacterCard({ character: c }: { character: CharacterLike }) {
             </Stat>
           )}
         </CharacterStats>
+        {onDetails && (
+          // Shown on touch screens only (see styles.css), where tapping a name can bring up this card instead of the
+          // details pane: this gets them there.
+          <button
+            type="button"
+            className="small cc-details-button"
+            onClick={(e) => {
+              // The card is portalled but React still bubbles the click to the table row, whose click toggles the pane.
+              e.stopPropagation();
+              onDetails();
+            }}
+          >
+            Details
+          </button>
+        )}
       </div>
     </div>
   );
@@ -88,17 +103,31 @@ export function CharacterLink({
   character,
   children,
   focusable,
+  onDetails,
 }: {
   character: CharacterLike;
   children: ReactNode;
   focusable?: boolean;
+  /** Puts a Details button on the card (touch screens only) that opens this character's details pane. */
+  onDetails?: () => void;
 }) {
   const directory = useContext(CharacterDirectory);
   return (
     <HoverCard
       className="character-link"
       focusable={focusable}
-      content={() => <CharacterCard character={{ ...character, ...directory.get(character.id) }} />}
+      content={(close) => (
+        <CharacterCard
+          character={{ ...character, ...directory.get(character.id) }}
+          onDetails={
+            onDetails &&
+            (() => {
+              close();
+              onDetails();
+            })
+          }
+        />
+      )}
     >
       {children}
     </HoverCard>
