@@ -179,6 +179,11 @@ export interface FeedOptions {
   characterId?: string;
   /** Leave out posts of these kinds. */
   excludeKinds?: FeedKind[];
+  /**
+   * Include generated pictures that are still being painted or failed (for admins, who can retry or remove them).
+   * Everyone else only sees a picture's post once it's finished.
+   */
+  unfinishedImages?: boolean;
 }
 
 /** Which events a tavern can see: its own posts, plus posts about characters currently in it. */
@@ -247,6 +252,7 @@ async function feedEvents(
     params.push(opts.excludeKinds);
     cursor += ` and not (e.kind = any($${params.length}::text[]))`;
   }
+  if (!opts.unfinishedImages) cursor += ` and (gi.id is null or ${IMAGE_STATUS_SQL} = 'ready')`;
   const rows = await db.query<FeedRow>(
     `select e.id::text as id, e.kind, e.tavern_id, e.character_id, e.data, e.created_at,
        c.name, c.surname, c.class, c.race, c.level, c.avatar_url,

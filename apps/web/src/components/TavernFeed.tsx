@@ -208,7 +208,7 @@ function GeneratedPicture({ event, actions }: { event: FeedEvent; actions?: Imag
     return (
       <div className="feed-picture failed">
         <p className="small-text">
-          The painting didn’t work out{image.error ? <span className="muted">: {image.error}</span> : null}
+          The painting didn’t work out{image.error ? <span className="muted">: {image.error}</span> : null}. Only admins can see this post.
         </p>
         {actions && (
           <div className="feed-picture-actions">
@@ -225,7 +225,10 @@ function GeneratedPicture({ event, actions }: { event: FeedEvent; actions?: Imag
   }
   return (
     <div className="feed-picture painting" role="status">
-      <span className="small-text muted">The tavern artist is painting… this usually takes a minute or two.</span>
+      <span className="small-text muted">
+        The tavern artist is painting… this usually takes a minute or two. Only admins see this post until the
+        picture is finished; then it's posted for everyone.
+      </span>
     </div>
   );
 }

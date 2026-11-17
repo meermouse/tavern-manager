@@ -10,13 +10,14 @@ each character drawn from their Blizzard render.
 
 1. On a tavern's **Feed** tab, an admin presses **🎨 Generate image**.
 2. They pick how many of the latest posts to paint (1–20, default 5). The form lists exactly which posts it will use.
-3. **Generate** saves the request and adds a 🎨 post: "Alice commissioned a painting: *The Deadmines with Judy, Grim
+3. **Generate** saves the request and adds a 🎨 post, which only admins see for now: "Alice commissioned a painting: *The Deadmines with Judy, Grim
    and Thorn*". While it's being painted, the post shows a placeholder, and the feed checks back every 5 seconds.
-4. After a minute or two, the picture appears in the post. Click it to open it at full size (1536×1024).
+4. After a minute or two, the picture appears in the post and it is **posted to the feed for everyone** in the tavern,
+   dated when it was finished. Click it to open it at full size (1536×1024).
 
 Only one picture per tavern is painted at a time. Earlier pictures are never used as posts for a new one.
 
-If painting fails (for example, the image API's safety system rejects the prompt, or the account runs out of
+If painting fails, the post stays visible to admins only (for example, the image API's safety system rejects the prompt, or the account runs out of
 credit), the post says why, and admins can **Try again** (same prompt) or **Remove** it. Admins can also remove a
 finished picture. A job that hasn't finished after 20 minutes counts as failed.
 

@@ -39,6 +39,11 @@ export async function runImageJob(db: Db, images: ImageGenerator | null, imageId
        where id = $1`,
       [job.id, out.data, out.contentType],
     );
+    // Members see the post from now on, so date it from when the picture was finished.
+    await db.query(
+      'update feed_events set created_at = now() where id = (select event_id from generated_images where id = $1)',
+      [job.id],
+    );
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error(`Image ${job.id} failed:`, message);

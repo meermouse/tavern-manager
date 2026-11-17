@@ -112,6 +112,9 @@ describe('generated images', () => {
     expect((await w.alice.post(`/api/taverns/${w.tavern.id}/images`, {})).status).toBe(202);
     const feed = (await w.alice.get(`/api/taverns/${w.tavern.id}/feed`)).body;
     expect(feed.events[0].data.image).toMatchObject({ status: 'pending', url: null });
+    // Only admins see it until it's finished.
+    const bobFeed = (await w.bob.get(`/api/taverns/${w.tavern.id}/feed`)).body;
+    expect(bobFeed.events.map((e: { kind: string }) => e.kind)).not.toContain('generated_image');
     expect((await w.alice.post(`/api/taverns/${w.tavern.id}/images`, {})).status).toBe(409);
 
     // A job that never ran counts as failed after a while, and can be retried.
@@ -131,6 +134,8 @@ describe('generated images', () => {
       url: null,
     });
 
+    const bobFeed = (await w.bob.get(`/api/taverns/${w.tavern.id}/feed`)).body;
+    expect(bobFeed.events.map((e: { kind: string }) => e.kind)).not.toContain('generated_image');
     expect((await w.bob.post(`/api/taverns/${w.tavern.id}/images/${imageId}/retry`)).status).toBe(403);
     expect((await w.alice.post(`/api/taverns/${w.tavern.id}/images/${imageId}/retry`)).status).toBe(202);
     expect(w.calls).toHaveLength(2);
