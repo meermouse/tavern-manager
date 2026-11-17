@@ -1,5 +1,6 @@
 import type { CharacterProfession } from './blizzard/client.js';
 import type { Db } from './db.js';
+import { GEAR_VALUE_SQL } from './prices.js';
 
 /**
  * Tavern titles: held by whichever character (or player) in a tavern currently leads a stat. They're worked out
@@ -23,6 +24,8 @@ export interface TitleCandidate {
   last_login_at?: Date | string | null;
   /** Level-ups, loot and achievement posts in the feed. */
   feed_posts?: number | null;
+  /** Equipped gear at auction house prices, in copper (`null`: nothing priced). */
+  gear_value?: number | null;
 }
 
 /** What a title's score function sees for one character. */
@@ -35,6 +38,7 @@ export interface ScoreInput {
   /** Days since the character last logged in, or `null` if Blizzard hasn't said. */
   daysSinceSeen: number | null;
   feedPosts: number | null;
+  gearValue: number | null;
 }
 
 export interface TitleDef {
@@ -132,6 +136,13 @@ export function professionSkill(professions: CharacterProfession[], name: string
   return professions.find((p) => p.name.toLowerCase() === name.toLowerCase())?.skill ?? null;
 }
 
+/** Copper as "1,234g 56s". */
+export function formatGold(copper: number): string {
+  const gold = Math.floor(copper / 10_000);
+  const silver = Math.floor((copper % 10_000) / 100);
+  return gold ? `${gold.toLocaleString('en')}g ${silver}s` : `${silver}s ${Math.round(copper % 100)}c`;
+}
+
 const plural = (n: number, word: string) => `${Math.round(n).toLocaleString('en')} ${word}${Math.round(n) === 1 ? '' : 's'}`;
 
 /** A title for whoever has the most of a Blizzard statistic. */
@@ -212,6 +223,16 @@ export const TITLES: TitleDef[] = [
     ['Elixirs consumed', /elixirs consumed/i], (n) => plural(n, 'elixir')),
   statTitle('hello-there', 'Hello There', '👋', 'Most waves in the tavern.',
     ['Total waves', /total waves/i], (n) => plural(n, 'wave')),
+  statTitle('errand-runner', 'Errand Runner', '📜', 'Most quests completed in the tavern.',
+    ['Quests completed', /quests completed/i], (n) => plural(n, 'quest')),
+  statTitle('homebody', 'Homebody', '🏠', 'Most times hearthed in the tavern.',
+    ['Number of times hearthed', /hearthed/i, /hearthstone/i], (n) => `Hearthed ${plural(n, 'time')}`),
+  statTitle('class-clown', 'Class Clown', '😂', 'Most laughs in the tavern.',
+    ['Total LOLs', 'Total laughs', /laugh/i, /\blols?\b/i], (n) => plural(n, 'laugh')),
+  statTitle('tiny-violinist', 'Tiny Violinist', '🎻', 'Most times playing the world’s smallest violin in the tavern.',
+    [/smallest violin/i, /violin/i], (n) => `Played ${plural(n, 'time')}`),
+  statTitle('the-butcher', 'The Butcher', '🗡️', 'Most kills in the tavern.',
+    ['Total kills', 'Creatures killed', /^total kills/i, /creatures killed/i], (n) => plural(n, 'kill')),
   {
     key: 'best-dressed',
     name: 'Best Dressed',
@@ -220,6 +241,15 @@ export const TITLES: TitleDef[] = [
     subject: 'character',
     score: ({ itemLevel }) => itemLevel,
     format: (n) => `Item level ${n}`,
+  },
+  {
+    key: 'moneybags',
+    name: 'Moneybags',
+    icon: '💰',
+    description: 'Most valuable equipped gear in the tavern, at auction house prices.',
+    subject: 'character',
+    score: ({ gearValue }) => gearValue,
+    format: (n) => `${formatGold(n)} of gear`,
   },
   {
     key: 'town-crier',
@@ -280,6 +310,7 @@ export function rankTitles(characters: TitleCandidate[], incumbents: ReadonlyMap
       itemLevel: c.item_level ?? null,
       daysSinceSeen: daysSince(c.last_login_at),
       feedPosts: c.feed_posts ?? null,
+      gearValue: c.gear_value ?? null,
     },
   }));
 
@@ -400,7 +431,8 @@ export function awardTitles(characters: TitleCandidate[], ranked = rankTitles(ch
 export async function userTitles(db: Db, userId: string) {
   const rows = await db.query<TitleCandidate & { tavern_id: string; tavern_name: string; name: string; surname: string }>(
     `select tc.tavern_id, t.name as tavern_name, c.id, c.user_id, c.name, c.surname, c.statistics, c.professions,
-       c.item_level, c.last_login_at, u.display_name as owner_name, ${FEED_POSTS_SQL} as feed_posts
+       c.item_level, c.last_login_at, u.display_name as owner_name, ${FEED_POSTS_SQL} as feed_posts,
+       ${GEAR_VALUE_SQL} as gear_value
      from tavern_members m
      join taverns t on t.id = m.tavern_id
      join tavern_characters tc on tc.tavern_id = m.tavern_id

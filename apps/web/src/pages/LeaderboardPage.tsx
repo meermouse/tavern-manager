@@ -26,6 +26,7 @@ export function LeaderboardPage() {
             <LeaderboardTable
               entries={board.data}
               emptyText="No characters yet. Add some, or join a tavern."
+              scope="Combined"
               {...selection}
             />
           )}

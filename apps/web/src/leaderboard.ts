@@ -16,6 +16,8 @@ export interface Metric {
   pinned?: boolean;
   /** Belongs to the player, not the character: ranked one row per player. */
   perPlayer?: boolean;
+  /** Also show everyone's values added up, under this label (e.g. "net worth"). */
+  total?: string;
 }
 
 /**
@@ -204,6 +206,12 @@ export const METRICS: Metric[] = [
   },
   { key: 'quests', label: 'Quests completed', group: 'Adventuring & wealth', description: 'Lifetime quests turned in.', value: stat('Quests completed') },
   { key: 'flights', label: 'Flight paths taken', group: 'Adventuring & wealth', description: 'Gryphon, wyvern and hippogryph rides.', value: stat('Flight paths taken', /flight paths/i) },
+  {
+    key: 'gear-value', label: 'Gear value (auction house)', group: 'Adventuring & wealth', format: 'gold', total: 'net worth',
+    description:
+      'What their equipped gear would fetch on the auction house, at the going price across the region’s houses. Soulbound gear never gets listed, so it counts for nothing.',
+    value: (e) => e.gearValue ?? null,
+  },
   { key: 'gold-acquired', label: 'Total gold acquired', group: 'Adventuring & wealth', format: 'gold', description: 'Every coin ever earned.', value: stat('Total gold acquired') },
   { key: 'most-gold', label: 'Most gold ever owned', group: 'Adventuring & wealth', format: 'gold', description: 'Peak bank balance.', value: stat('Most gold ever owned') },
   { key: 'gold-looted', label: 'Gold looted', group: 'Adventuring & wealth', format: 'gold', description: 'Coin prised from corpses.', value: stat('Gold looted') },

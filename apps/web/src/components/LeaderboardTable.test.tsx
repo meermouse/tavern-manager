@@ -45,6 +45,24 @@ describe('LeaderboardTable', () => {
     expect(localStorage.getItem('leaderboard.metric')).toBe('deaths');
   });
 
+  it('adds up gear value into the net worth, counting every character', () => {
+    const rich = [
+      entry({ name: 'Judgement', surname: 'Judy', gearValue: 1_250_000 }),
+      entry({ name: 'Grimble', surname: 'Thornwick', ownerId: 'u2', ownerName: 'Bob', gearValue: 40_000 }),
+      entry({ name: 'Alty', surname: 'McAltface', ownerId: 'u2', ownerName: 'Bob', gearValue: 10_000 }),
+      entry({ name: 'Pendingly', surname: 'Lowbie', ownerId: 'u2', ownerName: 'Bob' }),
+    ];
+    const { rerender } = render(<LeaderboardTable entries={rich} emptyText="none" />);
+    expect(screen.queryByText(/net worth/)).toBeNull();
+    fireEvent.change(screen.getByRole('combobox', { name: 'Rank by' }), { target: { value: 'gear-value' } });
+    expect(screen.getByText(/Tavern net worth/).textContent).toBe('Tavern net worth: 130g 0s');
+    expect(names()).toEqual(['Judgement Judy', 'Grimble Thornwick', 'Alty McAltface', 'Pendingly Lowbie']);
+    fireEvent.click(screen.getByRole('checkbox', { name: /Best character per player/ }));
+    expect(screen.getByText(/Tavern net worth/).textContent).toBe('Tavern net worth: 130g 0s');
+    rerender(<LeaderboardTable entries={rich} emptyText="none" scope="Combined" />);
+    expect(screen.getByText(/Combined net worth/)).toBeTruthy();
+  });
+
   it('can show one character per player', () => {
     render(<LeaderboardTable entries={data} emptyText="none" />);
     fireEvent.click(screen.getByRole('checkbox', { name: /Best character per player/ }));

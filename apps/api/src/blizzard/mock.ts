@@ -170,6 +170,8 @@ export function createMockBlizzardClient(): BlizzardClient {
         'Duels lost': n(6, 0.06),
         'Elixirs consumed': n(10, 0.3),
         'Total waves': n(11, 0.4),
+        'Total LOLs': n(12, 0.5),
+        "Total times playing world's smallest violin": n(13, 0.05),
       };
     },
     async getCharacterStats(region, name, surname) {
@@ -191,6 +193,17 @@ export function createMockBlizzardClient(): BlizzardClient {
         melee_crit: Math.round((2 + ((h >>> 10) % 80) / 10) * 100) / 100,
         dodge: Math.round((2 + ((h >>> 11) % 60) / 10) * 100) / 100,
       };
+    },
+    async getAuctionPrices() {
+      // Bind-on-pickup gear never reaches the auction house, so the Crown (an epic from a boss) has no price.
+      const BASE: Record<string, number> = { COMMON: 2_500, UNCOMMON: 40_000, RARE: 350_000, EPIC: 4_500_000 };
+      const prices = new Map(
+        MOCK_GEAR.filter((g) => g.id !== 900007).map((g) => [
+          g.id,
+          { price: Math.round(BASE[g.quality] * (0.8 + (hash(`price:${g.id}`) % 40) / 100)), listings: 1 + (hash(`n:${g.id}`) % 9) },
+        ]),
+      );
+      return { houses: 3, prices };
     },
     async getProfessions(region, name, surname) {
       const profile = await client.getCharacter(region, name, surname);

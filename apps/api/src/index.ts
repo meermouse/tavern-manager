@@ -7,6 +7,7 @@ import { serveStatic } from '@hono/node-server/serve-static';
 import { Hono } from 'hono';
 import { createApp } from './app.js';
 import { createDeps } from './deps.js';
+import { refreshAllAuctionPrices } from './prices.js';
 import { refreshStale } from './sync.js';
 
 const deps = await createDeps();
@@ -45,3 +46,11 @@ setInterval(async () => {
     running = false;
   }
 }, Math.min(intervalMs, 5 * 60_000));
+
+// Auction house prices for gear net worth: once at start-up, then hourly (refreshAllAuctionPrices skips fresh regions).
+const refreshPrices = () =>
+  refreshAllAuctionPrices(deps.db, deps.blizzard)
+    .then((n) => n && console.log(`Auction prices: ${n} item(s) priced`))
+    .catch((err) => console.error('Auction price refresh failed', err));
+void refreshPrices();
+setInterval(refreshPrices, 10 * 60_000);

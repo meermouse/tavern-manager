@@ -53,6 +53,8 @@ Players sign in with their Battle.net account, add their characters, and join a 
 - **Refresh.** Character data refreshes on a schedule and on demand.
 - **Leaderboard.** A friendly competition: a tavern's **Leaderboard** tab (and a top-level Leaderboard page covering your characters plus everyone in your taverns) ranks characters by a stat picked from a drop-down, with 🥇🥈🥉 for the podium, a highest/lowest-first toggle and a "best character per player" option. The default is **total gear item level** (all equipped item levels added up, shirt and tabard excluded). Stats come from data we already sync (gear, level, achievements, cheers) plus two best-effort Blizzard endpoints synced alongside each character: `/achievements/statistics` (lifetime counters such as total deaths, kills, deaths from falling, drinks consumed) and `/statistics` (the character sheet: health, strength, armor, crit...). Stats are only offered when someone has data for them, and any statistic Blizzard returns that isn't in the curated list still appears under "Every other statistic".
 
+- **Net worth.** What everyone's equipped gear would fetch on the auction house. Every hour the API fetches the region's WoW Forever auction houses and saves each item's going price: the median of every house's cheapest listing, so one silly listing can't set it. An item that isn't listed right now keeps its last known price. A character's gear value is the sum of the prices of what they're wearing. Soulbound gear never gets listed, so it counts for nothing. Pick **Gear value (auction house)** on a leaderboard to rank by it; a line above the table adds everyone up as **Tavern net worth** (or **Combined net worth** on the top-level Leaderboard). The richest character holds the 💰 **Moneybags** title. The auction API isn't documented: we use the paths the community has found (`/data/wow/ruleset/{id}/auctions/{house}` and `/commodities` in the `dynamic-forever-{region}` namespace). Listings don't say who's selling, so this can't track anyone's auction house sales. See `apps/api/src/prices.ts` and `apps/api/src/blizzard/auctions.ts`.
+
 - **Titles.** Held by whichever character (or, for player titles, player) in a tavern currently leads a stat. A tavern's **Titles** tab shows a grid of every title with its holder; unclaimed titles are greyed out. Clicking a title drops down its standings: the holder at #1, then everyone else in the running, so you can see who's about to take it. Holders also get a medal next to the character (character table, details pane, hover card) and on their player in the top bar. Titles are worked out live from synced data. The holder keeps a title until someone strictly beats them, so a tie goes to whoever got there first (holders and the date they took each title are saved in `tavern_title_holders`). A tie for the lead with no holder among it leaves the title unheld, shown as "N-way tie" with no medal, until someone pulls ahead. Nobody wins with a score of 0, and characters with no data for a stat are left out of its standings.
 
   | Title | Awarded for |
@@ -71,7 +73,13 @@ Players sign in with their Battle.net account, add their characters, and join a 
   | 🥊 **Punching Bag** | Most duels lost |
   | 🧪 **Juiced** | Most elixirs consumed |
   | 👋 **Hello There** | Most waves |
+  | 📜 **Errand Runner** | Most quests completed |
+  | 🏠 **Homebody** | Most times hearthed |
+  | 😂 **Class Clown** | Most laughs |
+  | 🎻 **Tiny Violinist** | Most times playing the world's smallest violin |
+  | 🗡️ **The Butcher** | Most kills (creatures killed, if there's no total) |
   | ✨ **Best Dressed** | Highest average (equipped) item level |
+  | 💰 **Moneybags** | Most valuable equipped gear at auction house prices (see Net worth) |
   | 📣 **Town Crier** | Most feed posts (level-ups, loot, achievements) |
   | 👻 **Gone Fishin’** | Longest since last logging in, at least a day |
 
@@ -155,6 +163,12 @@ tavern_characters
 
 feed_events, feed_reactions, character_items, character_achievements
   activity feed; see docs/activity-feed.md
+
+auction_prices
+  region, item_id, price (copper per unit), listings, updated_at     -- last known going price, for net worth
+
+auction_snapshots
+  region, attempted_at, fetched_at, houses, items, error            -- when each region's houses were last fetched
 ```
 
 ---
@@ -223,6 +237,7 @@ The repo is ready to deploy to Netlify as-is (`netlify.toml`):
 | React app | Static site from `apps/web/dist`, with an SPA fallback |
 | API (`/api/*`, `/auth/*`) | One Netlify Function (`netlify/functions/api.ts`) running the same Hono app via `hono/netlify` |
 | Scheduled refresh | Scheduled Function (`netlify/functions/refresh.ts`), every 30 minutes |
+| Auction prices | Scheduled Function (`netlify/functions/refresh-prices.ts`), hourly |
 | Generated images | Background Function (`netlify/functions/generate-image-background.ts`), up to 15 minutes per picture |
 | Database | Postgres: [Netlify DB](https://docs.netlify.com/build/data-and-storage/netlify-db/) (Neon) sets `NETLIFY_DATABASE_URL` automatically, or any Postgres via `DATABASE_URL` |
 
@@ -240,7 +255,7 @@ Because the API is served from the same origin as the site, there's no CORS to c
 
 Deployed functions always run in production mode: Secure cookies, no dev login, no mock data. `netlify dev` keeps the local defaults.
 
-The plain Node server (`npm run build && npm start`) also works for hosts like Fly.io, Render or a VPS. It serves the API and the built web app from one process and runs the refresh on an in-process timer.
+The plain Node server (`npm run build && npm start`) also works for hosts like Fly.io, Render or a VPS. It serves the API and the built web app from one process and runs the refresh and the hourly auction price fetch on in-process timers.
 
 ---
 

@@ -16,9 +16,12 @@ export function LeaderboardTable({
   emptyText,
   selectedId,
   onSelect,
+  scope = 'Tavern',
 }: {
   entries: LeaderboardEntry[];
   emptyText: string;
+  /** Who a total covers, e.g. "Tavern" → "Tavern net worth". */
+  scope?: string;
   selectedId?: string | null;
   /** Called with the clicked character, or `null` when the selected row is clicked again. */
   onSelect?: (character: LeaderboardEntry | null) => void;
@@ -38,6 +41,8 @@ export function LeaderboardTable({
     return [...out];
   }, [metrics]);
   const hasData = rows.some((r) => r.value != null);
+  // Every character counts towards a total, even when only each player's best is listed.
+  const total = metric.total && hasData ? entries.reduce((sum, e) => sum + (metric.value(e) ?? 0), 0) : null;
 
   return (
     <div className="leaderboard">
@@ -74,6 +79,11 @@ export function LeaderboardTable({
         </label>
       </div>
       <p className="muted small-text metric-description">{metric.description}</p>
+      {total != null && (
+        <p className="leaderboard-total">
+          {scope} {metric.total}: <strong>{formatMetric(total, metric.format)}</strong>
+        </p>
+      )}
 
       <div className="table-wrap">
         <table>

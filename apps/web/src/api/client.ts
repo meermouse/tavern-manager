@@ -125,6 +125,10 @@ export interface LeaderboardEntry extends TavernCharacter {
   /** 🍺 the character's player has raised. The same for all their characters. */
   cheersGiven: number;
   feedPosts: number;
+  /** Equipped gear at the going auction house price, in copper; `null` when none of it is priced. */
+  gearValue?: number | null;
+  /** How many equipped items have an auction price (soulbound gear never gets listed). */
+  gearPriced?: number;
   /** Lifetime counters from Blizzard's achievement statistics, by name ("Total deaths", ...). */
   statistics: Record<string, number> | null;
   /** The character sheet: health, strength, armor, melee_crit, ... */
