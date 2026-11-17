@@ -100,7 +100,8 @@ describe('gear net worth', () => {
     await alice.put(`/api/taverns/${tavern.id}/characters/${judy.id}`);
 
     const before = (await alice.get(`/api/taverns/${tavern.id}/leaderboard`)).body[0];
-    expect(before.gearValue).toBeNull();
+    // Before any auction prices, gear is worth what a vendor pays.
+    expect(before.gearValue).toBeGreaterThan(0);
     expect(before.gearPriced).toBe(0);
 
     expect(await refreshAuctionPrices(db, deps.blizzard, 'eu')).toBeGreaterThan(0);
@@ -108,7 +109,7 @@ describe('gear net worth', () => {
     expect(await refreshAuctionPrices(db, deps.blizzard, 'eu')).toBe(0);
 
     const entry = (await alice.get(`/api/taverns/${tavern.id}/leaderboard`)).body[0];
-    const [row] = await db.query<{ equipment: { id: number }[] }>('select equipment from characters where id = $1', [judy.id]);
+    const [row] = await db.query<{ equipment: { id: number; sellPrice: number }[] }>('select equipment from characters where id = $1', [judy.id]);
     const prices = new Map(
       (await db.query<{ item_id: number; price: string }>('select item_id, price from auction_prices')).map((p) => [
         p.item_id,
@@ -117,7 +118,17 @@ describe('gear net worth', () => {
     );
     const priced = row.equipment.filter((i) => prices.has(i.id));
     expect(entry.gearPriced).toBe(priced.length);
-    expect(entry.gearValue).toBe(priced.reduce((sum, i) => sum + prices.get(i.id)!, 0));
+    // Listed items at their auction price, the rest (the unlisted Crown) at their vendor price.
+    const value = (i: { id: number; sellPrice: number }) => prices.get(i.id) ?? i.sellPrice;
+    expect(entry.gearValue).toBe(row.equipment.reduce((sum, i) => sum + value(i), 0));
+
+    // The details pane breaks it down per item.
+    const details = (await alice.get(`/api/taverns/${tavern.id}/characters/${judy.id}`)).body;
+    expect(details.gearValue).toBe(entry.gearValue);
+    for (const item of details.equipment) {
+      expect(item.auctionPrice).toBe(prices.get(item.id) ?? null);
+      expect(item.value).toBe(prices.get(item.id) ?? item.sellPrice);
+    }
 
     const detail = (await alice.get(`/api/taverns/${tavern.id}`)).body;
     const moneybags = detail.titles.find((t: { key: string }) => t.key === 'moneybags');

@@ -182,7 +182,8 @@ describe('title routes', () => {
     // Only the stats under test: clear the gear, logins and feed posts the mock sync filled in.
     const setStats = async (id: string, stats: Record<string, number>, professions: unknown) => {
       await db.query(
-        `update characters set statistics = $2::jsonb, professions = $3::jsonb, item_level = null, last_login_at = null
+        `update characters set statistics = $2::jsonb, professions = $3::jsonb, item_level = null, last_login_at = null,
+           equipment = null
          where id = $1`,
         [id, JSON.stringify(stats), professions && JSON.stringify(professions)],
       );

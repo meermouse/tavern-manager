@@ -460,7 +460,8 @@ tr.selected, tr.selected:hover { background: rgba(224, 164, 60, 0.14); box-shado
 .details-stats .stat dd { margin: 0; font-weight: 600; }
 .details-columns { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem 1.5rem; }
 .details-gear { list-style: none; margin: 0 0 0.25rem; padding: 0; display: grid; gap: 0.15rem; font-size: 0.9rem; }
-.details-gear li { display: grid; grid-template-columns: 6.5rem minmax(0, 1fr) auto; gap: 0.5rem; align-items: baseline; }
+.details-gear li { display: grid; grid-template-columns: 6.5rem minmax(0, 1fr) auto auto; gap: 0.5rem; align-items: baseline; }
+.gear-value { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
 .gear-slot { font-size: 0.8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .gear-ilvl { font-variant-numeric: tabular-nums; }
 .details-recent { gap: 0.4rem; max-width: none; }

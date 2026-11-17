@@ -125,6 +125,7 @@ describe('parseEquipment tooltip details', () => {
           item_class: { name: 'Weapon' },
           item_subclass: { name: 'Sword' },
           binding: { type: 'ON_ACQUIRE', name: 'Binds when picked up' },
+          sell_price: { value: 123456, display_strings: { header: 'Sell Price:', gold: '12', silver: '34', copper: '56' } },
           unique_equipped: 'Unique',
           weapon: {
             damage: { display_string: '44 - 115 Damage' },
@@ -164,6 +165,7 @@ describe('parseEquipment tooltip details', () => {
       requirement: 'Requires Level 60',
       durability: 'Durability 125 / 125',
       description: 'The windseeker blade.',
+      sellPrice: 123456,
     });
   });
 });

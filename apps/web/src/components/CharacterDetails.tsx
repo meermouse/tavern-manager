@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { FeedItem, TavernCharacter } from '../api/client';
+import type { FeedItem, PricedItem, TavernCharacter } from '../api/client';
 import { useCharacterDetails, useIsTavernAdmin, useMe, useSetRoles, useTavernCharacterAdmin } from '../api/hooks';
 import { CharacterLevel } from './CharacterLevel';
 import { Ago, CharacterStats, Stat } from './CharacterStats';
@@ -10,6 +10,7 @@ import { ProfessionList } from './ProfessionIcons';
 import { TitleBadges } from './TitleBadges';
 import { completedCount } from './DungeonLog';
 import { dungeons } from '../dungeons';
+import { formatMetric } from '../leaderboard';
 import { RoleIcons, RolePicker } from './RoleIcons';
 import { FeedPost, timeAgo } from './TavernFeed';
 
@@ -82,7 +83,29 @@ function CompletedDungeons({ log }: { log: Record<string, string> | undefined })
   );
 }
 
-function Gear({ items, syncedAt }: { items: FeedItem[] | null | undefined; syncedAt: string | null | undefined }) {
+/** What an item counts for towards net worth, and where that figure came from. */
+function ItemValue({ item }: { item: PricedItem }) {
+  if (item.value == null) return <span className="muted small-text gear-value" title="No auction or vendor price">—</span>;
+  const listed = item.auctionPrice != null;
+  const title = listed
+    ? `Auction house: going price across ${item.auctionListings ?? 0} listing${item.auctionListings === 1 ? '' : 's'}`
+    : 'Vendor price: it isn’t on the auction house (soulbound gear never is)';
+  return (
+    <span className="small-text gear-value" title={title}>
+      {formatMetric(item.value, 'gold')} <span className="muted">{listed ? 'AH' : 'vendor'}</span>
+    </span>
+  );
+}
+
+function Gear({
+  items,
+  syncedAt,
+  total,
+}: {
+  items: PricedItem[] | null | undefined;
+  syncedAt: string | null | undefined;
+  total?: number | null;
+}) {
   if (items === undefined) return <p className="muted small-text">Loading gear…</p>;
   if (!items?.length) {
     return <p className="muted small-text">Gear shows up after the character's next refresh.</p>;
@@ -94,10 +117,17 @@ function Gear({ items, syncedAt }: { items: FeedItem[] | null | undefined; synce
           <li key={`${i.slot}-${i.id}`}>
             <span className="muted gear-slot">{i.slot ?? '—'}</span>
             <ItemLink item={i} brackets={false} />
-            {i.itemLevel != null && <span className="muted small-text gear-ilvl">{i.itemLevel}</span>}
+            {i.itemLevel != null ? <span className="muted small-text gear-ilvl">{i.itemLevel}</span> : <span />}
+            <ItemValue item={i} />
           </li>
         ))}
       </ul>
+      {total != null && (
+        <p className="small-text">
+          Gear value: <strong>{formatMetric(total, 'gold')}</strong>{' '}
+          <span className="muted">(auction house price where listed, vendor price otherwise)</span>
+        </p>
+      )}
       {syncedAt && <p className="muted small-text">As of {timeAgo(syncedAt)}</p>}
     </>
   );
@@ -256,7 +286,11 @@ export function CharacterDetails({
             <h3>Dungeons completed</h3>
             <CompletedDungeons log={c.dungeonsCompleted} />
             <h3>Equipped</h3>
-            <Gear items={details.isPending ? undefined : details.data?.equipment} syncedAt={details.data?.equipmentSyncedAt} />
+            <Gear
+              items={details.isPending ? undefined : details.data?.equipment}
+              syncedAt={details.data?.equipmentSyncedAt}
+              total={details.data?.gearValue}
+            />
           </div>
           <div>
             <h3>Recent activity</h3>

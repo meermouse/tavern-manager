@@ -10,15 +10,31 @@ import type { Db } from './db.js';
 /** Auction houses refresh roughly hourly, so there's no point fetching more often. */
 export const PRICES_MAX_AGE_MINUTES = 60;
 
-/** Equipped items for character `c`, as a set-returning SQL fragment (empty when gear hasn't synced). */
+/** Equipped items for character `c` with their auction price (`p.price`, null if not listed), as SQL `from` items. */
 const EQUIPPED = `jsonb_array_elements(case when jsonb_typeof(c.equipment) = 'array' then c.equipment else '[]'::jsonb end) eq
-  join auction_prices p on p.region = c.region and p.item_id = (eq->>'id')::int`;
+  left join auction_prices p on p.region = c.region and p.item_id = (eq->>'id')::int`;
 
-/** Copper value of character `c`'s equipped gear at auction prices, as a select-list subquery; `null` if nothing is priced. */
-export const GEAR_VALUE_SQL = `(select sum(p.price)::float8 from ${EQUIPPED})`;
+/** One equipped item's value: the auction price if it's listed, else what a vendor pays for it. */
+const ITEM_VALUE = `coalesce(p.price, nullif((eq->>'sellPrice')::numeric, 0))`;
+
+/**
+ * Copper value of character `c`'s equipped gear, as a select-list subquery: each item at its auction house price,
+ * or its vendor price when it isn't listed (soulbound gear never is). `null` if nothing has a value.
+ */
+export const GEAR_VALUE_SQL = `(select sum(${ITEM_VALUE})::float8 from ${EQUIPPED})`;
 
 /** How many of character `c`'s equipped items have an auction price, as a select-list subquery. */
-export const GEAR_PRICED_SQL = `(select count(*)::int from ${EQUIPPED})`;
+export const GEAR_PRICED_SQL = `(select count(p.price)::int from ${EQUIPPED})`;
+
+/** Auction prices for these items in a region, by item id (for the gear breakdown). */
+export async function itemPrices(db: Db, region: string, itemIds: number[]): Promise<Map<number, { price: number; listings: number }>> {
+  if (!itemIds.length) return new Map();
+  const rows = await db.query<{ item_id: number; price: string | number; listings: number }>(
+    'select item_id, price, listings from auction_prices where region = $1 and item_id = any($2::int[])',
+    [region, itemIds],
+  );
+  return new Map(rows.map((r) => [r.item_id, { price: Number(r.price), listings: r.listings }]));
+}
 
 /**
  * Fetch the region's auction houses and save each item's going price, unless they were fetched within

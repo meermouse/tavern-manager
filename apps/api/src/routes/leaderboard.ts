@@ -3,8 +3,8 @@ import { HTTPException } from 'hono/http-exception';
 import { requireUser, uuidParam, type AppDeps, type AppEnv } from '../context.js';
 import type { Db } from '../db.js';
 import { userFeed } from '../feed.js';
-import { GEAR_PRICED_SQL, GEAR_VALUE_SQL } from '../prices.js';
-import { gearSummary, serializeCharacterDetails, serializeEquipment, serializeCharacter } from '../serialize.js';
+import { GEAR_PRICED_SQL, GEAR_VALUE_SQL, itemPrices } from '../prices.js';
+import { equipmentIds, gearSummary, serializeCharacterDetails, serializeEquipment, serializeCharacter } from '../serialize.js';
 import type { CharacterRow } from '../sync.js';
 import { IRL_NAME_SQL } from '../tavernAccess.js';
 
@@ -115,7 +115,8 @@ export function leaderboardRoutes({ db }: AppDeps) {
     );
     if (!row) throw new HTTPException(404, { message: 'Character not found' });
     const recent = await userFeed(db, user.id, { limit: 5, characterId });
-    return c.json(serializeCharacterDetails(row, recent.events));
+    const prices = await itemPrices(db, row.region, equipmentIds(row));
+    return c.json(serializeCharacterDetails(row, recent.events, prices));
   });
 
   return app;

@@ -75,6 +75,8 @@ export interface EquippedItem {
   set?: string | null;
   /** Flavour text. */
   description?: string | null;
+  /** What a vendor pays for it, in copper (Blizzard's `sell_price`). */
+  sellPrice?: number | null;
 }
 
 export interface CompletedAchievement {
@@ -313,7 +315,14 @@ function parseItemDetails(it: Json): Partial<EquippedItem> {
     durability: display(it.durability),
     set: set ? display(set) ?? nameOf(set.item_set) : null,
     description: text(it.description),
+    sellPrice: sellPriceOf(it.sell_price),
   };
+}
+
+/** `sell_price` as copper: `{ value: 1234, display_strings: {...} }`, or a bare number. */
+function sellPriceOf(value: unknown): number | null {
+  const v = value && typeof value === 'object' ? (value as Json).value : value;
+  return typeof v === 'number' && Number.isFinite(v) && v > 0 ? Math.round(v) : null;
 }
 
 export function parseEquipment(json: Json): EquippedItem[] {

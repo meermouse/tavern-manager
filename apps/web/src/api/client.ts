@@ -105,9 +105,22 @@ export interface TavernCharacter extends Character {
   titles?: TitleBadge[];
 }
 
+/** An equipped item with what it's worth towards net worth. */
+export interface PricedItem extends FeedItem {
+  /** Going auction house price in copper, `null` when it isn't listed. Optional: older API responses. */
+  auctionPrice?: number | null;
+  auctionListings?: number;
+  /** Vendor sell price in copper. */
+  sellPrice?: number | null;
+  /** What it counts for: the auction price, or else the vendor price. */
+  value?: number | null;
+}
+
 export interface CharacterDetails extends TavernCharacter {
   /** Everything equipped as of the last gear sync; `null` if we haven't been able to fetch it. */
-  equipment: FeedItem[] | null;
+  equipment: PricedItem[] | null;
+  /** Equipped gear's total value (see `PricedItem.value`), `null` when nothing has a value. */
+  gearValue?: number | null;
   equipmentSyncedAt: string | null;
   /** This character's latest feed posts in this tavern. */
   recent: FeedEvent[];

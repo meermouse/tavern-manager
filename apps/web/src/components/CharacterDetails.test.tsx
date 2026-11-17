@@ -125,6 +125,27 @@ describe('CharacterDetails', () => {
     expect(onClose).toHaveBeenCalledTimes(2);
   });
 
+  it('values each item at its auction price, or its vendor price when it isn’t listed', async () => {
+    const details: Details = {
+      ...judy,
+      equipment: [
+        { id: 9, name: 'Hearthfire Greatblade', quality: 'EPIC', slot: 'Main Hand', itemLevel: 57, auctionPrice: null, auctionListings: 0, sellPrice: 31_250, value: 31_250 },
+        { id: 10, name: 'Bracers of the Bar Brawl', quality: 'UNCOMMON', slot: 'Wrists', itemLevel: 17, auctionPrice: 45_000, auctionListings: 6, sellPrice: 900, value: 45_000 },
+        { id: 11, name: 'Plain Shirt', quality: 'COMMON', slot: 'Shirt', itemLevel: 1, auctionPrice: null, auctionListings: 0, value: null },
+      ],
+      gearValue: 76_250,
+      equipmentSyncedAt: '2026-11-12T09:00:00Z',
+      recent: [],
+    };
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(details))));
+    renderWithQuery(<CharacterDetails tavernId="t1" character={judy} onClose={() => {}} />);
+
+    expect((await screen.findByTitle(/^Vendor price/)).textContent).toBe('3g 12s vendor');
+    expect(screen.getByTitle('Auction house: going price across 6 listings').textContent).toBe('4g 50s AH');
+    expect(screen.getByTitle('No auction or vendor price').textContent).toBe('—');
+    expect(screen.getByText('7g 62s')).toBeTruthy();
+  });
+
   it('gives tavern admins tools to change the IRL name or remove the character', async () => {
     const calls: [string, RequestInit | undefined][] = [];
     vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {

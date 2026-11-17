@@ -8,6 +8,7 @@ import { CharacterAvatar } from '../components/CharacterAvatar';
 import { CharacterDirectory, CharacterLink, CharacterSelect } from '../components/CharacterLink';
 import { CharacterTable } from '../components/CharacterTable';
 import { DUNGEON_VIEWS, TavernDungeons, type DungeonView } from '../components/DungeonRuns';
+import { AuctionPriceStatus } from '../components/AuctionPriceStatus';
 import { LeaderboardTable } from '../components/LeaderboardTable';
 import { FeedFilterBar, toFeedFilters, useFeedFilters } from '../components/FeedFilters';
 import { TavernFeed } from '../components/TavernFeed';
@@ -219,6 +220,7 @@ function TavernLeaderboard({ tavernId, visible }: { tavernId: string; visible: T
     <div className="stack roster">
       {details}
       <LeaderboardTable entries={entries} emptyText="No characters in this tavern yet." {...selection} />
+      <AuctionPriceStatus />
     </div>
   );
 }
