@@ -461,6 +461,10 @@ describe('dungeon runs', () => {
     expect(onlyRuns.every((e) => e.kind === 'dungeon_run')).toBe(true);
     expect(runs(onlyRuns)).toEqual(['Wailing Caverns', 'Ragefire Chasm']);
     expect((await alice.get(`/api/taverns/${tavern.id}/feed?kinds=nonsense`)).status).toBe(400);
+    const noRuns = await feed(alice, 'hide=dungeon_run,character_joined');
+    expect(noRuns.length).toBeGreaterThan(0);
+    expect(noRuns.some((e) => e.kind === 'dungeon_run' || e.kind === 'character_joined')).toBe(false);
+    expect((await alice.get(`/api/taverns/${tavern.id}/feed?hide=nonsense`)).status).toBe(400);
 
     // A character: their own posts plus group runs they were in.
     const judys = await feed(alice, `characters=${a.id}`);

@@ -18,20 +18,30 @@ export type PostType = (typeof POST_TYPES)[number]['key'];
 
 /** The feed filter as the UI holds it: post types rather than raw kinds. */
 export interface FeedFilterState {
+  /** Show only these post types. */
   types: PostType[];
+  /** Leave these post types out. */
+  hidden: PostType[];
   characterIds: string[];
   mine: boolean;
   search: string;
 }
 
 export function isFiltering(f: FeedFilterState): boolean {
-  return f.types.length > 0 || f.characterIds.length > 0 || f.mine || f.search.trim() !== '';
+  return f.types.length > 0 || f.hidden.length > 0 || f.characterIds.length > 0 || f.mine || f.search.trim() !== '';
 }
+
+const kindsOf = (types: PostType[]): FeedKind[] =>
+  types.length ? POST_TYPES.filter((t) => types.includes(t.key)).flatMap((t) => t.kinds) : [];
 
 /** What to ask the API for. */
 export function toFeedFilters(f: FeedFilterState): FeedFilters {
+  const kinds = kindsOf(f.types);
+  // Hiding a type is moot when only other types are shown.
+  const hidden = kinds.length ? [] : kindsOf(f.hidden);
   return {
-    kinds: f.types.length ? POST_TYPES.filter((t) => f.types.includes(t.key)).flatMap((t) => t.kinds) : undefined,
+    kinds: kinds.length ? kinds : undefined,
+    excludeKinds: hidden.length ? hidden : undefined,
     characterIds: f.characterIds.length ? [...f.characterIds].sort() : undefined,
     mine: f.mine || undefined,
     search: f.search.trim() || undefined,
@@ -39,25 +49,28 @@ export function toFeedFilters(f: FeedFilterState): FeedFilters {
 }
 
 const list = (value: string | null) => (value ? value.split(',').filter(Boolean) : []);
+const isPostType = (t: string): t is PostType => POST_TYPES.some((p) => p.key === t);
 
 /**
- * The feed filter, kept in the URL (?q=…&types=…&chars=…&mine=1) so a refresh or a shared link shows the same
+ * The feed filter, kept in the URL (?q=…&types=…&hide=…&chars=…&mine=1) so a refresh or a shared link shows the same
  * posts. Changes replace the history entry rather than adding one.
  */
 export function useFeedFilters(): [FeedFilterState, (next: FeedFilterState) => void] {
   const [params, setParams] = useSearchParams();
   const q = params.get('q');
   const types = params.get('types');
+  const hide = params.get('hide');
   const chars = params.get('chars');
   const mine = params.get('mine');
   const state = useMemo<FeedFilterState>(
     () => ({
-      types: list(types).filter((t): t is PostType => POST_TYPES.some((p) => p.key === t)),
+      types: list(types).filter(isPostType),
+      hidden: list(hide).filter(isPostType).filter((t) => !list(types).includes(t)),
       characterIds: list(chars),
       mine: mine === '1',
       search: q ?? '',
     }),
-    [q, types, chars, mine],
+    [q, types, hide, chars, mine],
   );
   const set = useCallback(
     (next: FeedFilterState) =>
@@ -67,6 +80,7 @@ export function useFeedFilters(): [FeedFilterState, (next: FeedFilterState) => v
           const put = (name: string, value: string) => (value ? p.set(name, value) : p.delete(name));
           put('q', next.search);
           put('types', next.types.join(','));
+          put('hide', next.hidden.join(','));
           put('chars', next.characterIds.join(','));
           put('mine', next.mine ? '1' : '');
           return p;
@@ -183,8 +197,17 @@ export function FeedFilterBar({
 }) {
   // With "Just mine" on, only your own characters are worth picking.
   const pickable = value.mine && viewerId ? characters.filter((c) => c.ownerId === viewerId) : characters;
-  const toggleType = (key: PostType) =>
-    onChange({ ...value, types: value.types.includes(key) ? value.types.filter((t) => t !== key) : [...value.types, key] });
+  // Each post type cycles: everything → only this → hide this → everything.
+  const typeState = (key: PostType) =>
+    value.types.includes(key) ? 'only' : value.hidden.includes(key) ? 'hidden' : 'off';
+  const cycleType = (key: PostType) => {
+    const types = value.types.filter((t) => t !== key);
+    const hidden = value.hidden.filter((t) => t !== key);
+    const current = typeState(key);
+    if (current === 'off') types.push(key);
+    else if (current === 'only') hidden.push(key);
+    onChange({ ...value, types, hidden });
+  };
   const setMine = (mine: boolean) => {
     const keep = new Set((mine && viewerId ? characters.filter((c) => c.ownerId === viewerId) : characters).map((c) => c.id));
     onChange({ ...value, mine, characterIds: value.characterIds.filter((id) => keep.has(id)) });
@@ -203,22 +226,34 @@ export function FeedFilterBar({
         </label>
       </div>
       <div className="feed-filters-row feed-filter-types" role="group" aria-label="Post types">
-        {POST_TYPES.map((t) => (
-          <button
-            key={t.key}
-            type="button"
-            className={`ghost small${value.types.includes(t.key) ? ' active' : ''}`}
-            aria-pressed={value.types.includes(t.key)}
-            onClick={() => toggleType(t.key)}
-          >
-            <span aria-hidden="true">{t.icon}</span> {t.label}
-          </button>
-        ))}
+        {POST_TYPES.map((t) => {
+          const state = typeState(t.key);
+          return (
+            <button
+              key={t.key}
+              type="button"
+              className={`ghost small${state === 'only' ? ' active' : state === 'hidden' ? ' hidden' : ''}`}
+              aria-pressed={state === 'only' ? true : state === 'hidden' ? 'mixed' : false}
+              aria-label={`${t.label}${state === 'only' ? ' (showing only these)' : state === 'hidden' ? ' (hidden)' : ''}`}
+              title={
+                state === 'off'
+                  ? `Show only ${t.label.toLowerCase()}`
+                  : state === 'only'
+                    ? `Click again to hide ${t.label.toLowerCase()}`
+                    : `${t.label} hidden — click to show again`
+              }
+              onClick={() => cycleType(t.key)}
+            >
+              <span aria-hidden="true">{state === 'hidden' ? '🚫' : t.icon}</span>{' '}
+              <span className="feed-filter-label">{t.label}</span>
+            </button>
+          );
+        })}
         {isFiltering(value) && (
           <button
             type="button"
             className="link small-text feed-filter-clear"
-            onClick={() => onChange({ types: [], characterIds: [], mine: false, search: '' })}
+            onClick={() => onChange({ types: [], hidden: [], characterIds: [], mine: false, search: '' })}
           >
             Clear filters
           </button>

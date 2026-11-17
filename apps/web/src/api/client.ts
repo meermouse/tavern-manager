@@ -285,6 +285,8 @@ export interface Cheers {
 export interface FeedFilters {
   /** Only these kinds of post. */
   kinds?: FeedKind[];
+  /** Leave out these kinds of post. */
+  excludeKinds?: FeedKind[];
   /** Only posts about any of these characters (group runs and paintings they're in count). */
   characterIds?: string[];
   /** Only posts about the viewer's own characters. */
@@ -363,6 +365,7 @@ export const api = {
     const q = new URLSearchParams();
     if (before) q.set('before', before);
     if (filters?.kinds?.length) q.set('kinds', filters.kinds.join(','));
+    if (filters?.excludeKinds?.length) q.set('hide', filters.excludeKinds.join(','));
     if (filters?.characterIds?.length) q.set('characters', filters.characterIds.join(','));
     if (filters?.mine) q.set('mine', '1');
     if (filters?.search?.trim()) q.set('q', filters.search.trim());

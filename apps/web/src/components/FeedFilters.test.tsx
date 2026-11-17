@@ -10,7 +10,7 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-const none: FeedFilterState = { types: [], characterIds: [], mine: false, search: '' };
+const none: FeedFilterState = { types: [], hidden: [], characterIds: [], mine: false, search: '' };
 
 function character(id: string, name: string, ownerId: string): TavernCharacter {
   return {
@@ -21,17 +21,30 @@ const roster = [character('a', 'Judy', 'me'), character('b', 'Grim', 'bob'), cha
 
 describe('toFeedFilters', () => {
   it('sends nothing when nothing is set', () => {
-    expect(toFeedFilters(none)).toEqual({ kinds: undefined, characterIds: undefined, mine: undefined, search: undefined });
+    expect(toFeedFilters(none)).toEqual({ kinds: undefined, excludeKinds: undefined, characterIds: undefined, mine: undefined, search: undefined });
     expect(isFiltering(none)).toBe(false);
     expect(isFiltering({ ...none, search: '   ' })).toBe(false);
   });
 
   it('expands post types into kinds and tidies the rest', () => {
-    expect(toFeedFilters({ types: ['dungeons', 'loot'], characterIds: ['b', 'a'], mine: true, search: ' wailing ' })).toEqual({
+    expect(toFeedFilters({ ...none, types: ['dungeons', 'loot'], characterIds: ['b', 'a'], mine: true, search: ' wailing ' })).toEqual({
       kinds: ['loot', 'dungeon_run', 'dungeon_cleared'],
+      excludeKinds: undefined,
       characterIds: ['a', 'b'],
       mine: true,
       search: 'wailing',
+    });
+  });
+
+  it('leaves hidden types out, unless only other types are shown anyway', () => {
+    expect(toFeedFilters({ ...none, hidden: ['paintings', 'arrivals'] })).toMatchObject({
+      kinds: undefined,
+      excludeKinds: ['generated_image', 'character_joined', 'member_joined', 'tavern_founded'],
+    });
+    expect(isFiltering({ ...none, hidden: ['loot'] })).toBe(true);
+    expect(toFeedFilters({ ...none, types: ['loot'], hidden: ['paintings'] })).toMatchObject({
+      kinds: ['loot'],
+      excludeKinds: undefined,
     });
   });
 });
@@ -48,7 +61,7 @@ function Harness({ initial = none, viewerId = 'me' }: { initial?: FeedFilterStat
 const state = () => JSON.parse(screen.getByTestId('state').textContent!) as FeedFilterState;
 
 describe('FeedFilterBar', () => {
-  it('toggles post types and clears everything', () => {
+  it('cycles post types through only, hidden and off, and clears everything', () => {
     render(<Harness />);
     const loot = screen.getByRole('button', { name: /Loot/ });
     fireEvent.click(loot);
@@ -56,7 +69,15 @@ describe('FeedFilterBar', () => {
     expect(state().types).toEqual(['loot', 'dungeons']);
     expect(loot.getAttribute('aria-pressed')).toBe('true');
     fireEvent.click(loot);
-    expect(state().types).toEqual(['dungeons']);
+    expect(state()).toMatchObject({ types: ['dungeons'], hidden: ['loot'] });
+    expect(loot.getAttribute('aria-pressed')).toBe('mixed');
+    expect(loot.className).toContain('hidden');
+    fireEvent.click(loot);
+    expect(state()).toMatchObject({ types: ['dungeons'], hidden: [] });
+    expect(loot.getAttribute('aria-pressed')).toBe('false');
+    fireEvent.click(loot);
+    fireEvent.click(loot);
+    expect(state().hidden).toEqual(['loot']);
     fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }));
     expect(state()).toEqual(none);
     expect(screen.queryByRole('button', { name: 'Clear filters' })).toBeNull();
@@ -101,7 +122,7 @@ describe('useFeedFilters', () => {
       <>
         <output data-testid="value">{JSON.stringify(value)}</output>
         <output data-testid="search">{location.search}</output>
-        <button onClick={() => set({ types: ['loot'], characterIds: ['a', 'b'], mine: true, search: 'epic' })}>set</button>
+        <button onClick={() => set({ types: ['loot'], hidden: ['paintings'], characterIds: ['a', 'b'], mine: true, search: 'epic' })}>set</button>
         <button onClick={() => set(none)}>clear</button>
       </>
     );
@@ -109,16 +130,16 @@ describe('useFeedFilters', () => {
 
   it('reads and writes the URL, leaving other parameters alone', () => {
     render(
-      <MemoryRouter initialEntries={['/taverns/1?character=z&types=dungeons,bogus&q=rfc']}>
+      <MemoryRouter initialEntries={['/taverns/1?character=z&types=dungeons,bogus&hide=loot,dungeons,nope&q=rfc']}>
         <UrlHarness />
       </MemoryRouter>,
     );
     expect(JSON.parse(screen.getByTestId('value').textContent!)).toEqual({
-      types: ['dungeons'], characterIds: [], mine: false, search: 'rfc',
+      types: ['dungeons'], hidden: ['loot'], characterIds: [], mine: false, search: 'rfc',
     });
     fireEvent.click(screen.getByText('set'));
     const params = new URLSearchParams(screen.getByTestId('search').textContent!);
-    expect(Object.fromEntries(params)).toEqual({ character: 'z', types: 'loot', chars: 'a,b', mine: '1', q: 'epic' });
+    expect(Object.fromEntries(params)).toEqual({ character: 'z', types: 'loot', hide: 'paintings', chars: 'a,b', mine: '1', q: 'epic' });
     fireEvent.click(screen.getByText('clear'));
     expect(screen.getByTestId('search').textContent).toBe('?character=z');
   });
