@@ -136,6 +136,36 @@ export interface LeaderboardEntry extends TavernCharacter {
   statisticsSyncedAt: string | null;
 }
 
+/** One request the auction price fetch made (see the API's AuctionTraceStep). */
+export interface AuctionTraceStep {
+  path: string;
+  status: number | null;
+  ms: number;
+  bytes?: number;
+  keys?: string[];
+  auctions?: number;
+  priced?: number;
+  error?: string;
+}
+
+export interface AuctionRegionStatus {
+  region: string;
+  attemptedAt: string | null;
+  fetchedAt: string | null;
+  houses: number;
+  items: number;
+  error: string | null;
+  priced: number;
+  trace: AuctionTraceStep[];
+}
+
+export interface AuctionStatus {
+  supported: boolean;
+  /** Tavern admins can fetch prices on demand. */
+  canRefresh: boolean;
+  regions: AuctionRegionStatus[];
+}
+
 export interface TavernSummary {
   id: string;
   name: string;
@@ -398,6 +428,9 @@ export const api = {
     request<{ ok: true }>('DELETE', `/api/taverns/${tavernId}/runs/${runId}`),
   tavernLeaderboard: (id: string) => request<LeaderboardEntry[]>('GET', `/api/taverns/${id}/leaderboard`),
   leaderboard: () => request<LeaderboardEntry[]>('GET', '/api/leaderboard'),
+  auctionStatus: () => request<AuctionStatus>('GET', '/api/auction-prices'),
+  /** Tavern admins: fetch auction prices now and get back what happened. */
+  refreshAuctionPrices: () => request<AuctionStatus>('POST', '/api/auction-prices/refresh'),
   refreshTavern: (id: string) => request<TavernDetail>('POST', `/api/taverns/${id}/refresh`),
   addToTavern: (tavernId: string, characterId: string) =>
     request<{ ok: true }>('PUT', `/api/taverns/${tavernId}/characters/${characterId}`),

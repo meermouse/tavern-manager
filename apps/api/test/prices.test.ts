@@ -51,11 +51,43 @@ describe('Blizzard auction client', () => {
       return json({}, 404);
     }) as typeof fetch;
     const client = createBlizzardClient({ clientId: 'id', clientSecret: 'secret' }, fetchImpl);
-    const snapshot = await client.getAuctionPrices!('eu');
+    const trace: { path: string; status: number | null; priced?: number }[] = [];
+    const snapshot = await client.getAuctionPrices!('eu', { trace: (s) => trace.push(s) });
     expect(snapshot?.houses).toBe(2);
     expect(snapshot?.prices.get(7)).toEqual({ price: 1000, listings: 2 });
     expect(snapshot?.prices.get(8)).toEqual({ price: 50, listings: 1 });
     expect(urls.filter((u) => u.includes('api.blizzard.com')).every((u) => u.includes('namespace=dynamic-forever-eu'))).toBe(true);
+    expect(trace.find((s) => s.path === '/data/wow/ruleset/1/auctions/110')).toMatchObject({ status: 200, priced: 1 });
+    expect(trace.find((s) => s.path === '/data/wow/ruleset/1/auctions/113/commodities')).toMatchObject({ status: 404 });
+  });
+
+  it('reports why, when no auction house answers', async () => {
+    const fetchImpl = (async (url: string) =>
+      url.includes('oauth.battle.net')
+        ? new Response(JSON.stringify({ access_token: 't', expires_in: 3600 }))
+        : new Response('Forbidden', { status: 403 })) as typeof fetch;
+    const client = createBlizzardClient({ clientId: 'id', clientSecret: 'secret' }, fetchImpl);
+    const trace: { status: number | null; error?: string }[] = [];
+    await expect(client.getAuctionPrices!('eu', { trace: (s) => trace.push(s) })).rejects.toThrow(/403/);
+    // Both index calls, then listings and commodities for each known house.
+    expect(trace.length).toBeGreaterThan(2);
+    expect(trace.every((s) => s.status === 403 && s.error === 'Forbidden')).toBe(true);
+  });
+
+  it('gives up on a request that takes too long', async () => {
+    const fetchImpl = (async (url: string, init?: RequestInit) => {
+      if (url.includes('oauth.battle.net')) return new Response(JSON.stringify({ access_token: 't', expires_in: 3600 }));
+      return new Promise<Response>((_, reject) =>
+        init?.signal?.addEventListener('abort', () => reject(init.signal!.reason)),
+      );
+    }) as typeof fetch;
+    const client = createBlizzardClient({ clientId: 'id', clientSecret: 'secret' }, fetchImpl);
+    const trace: { status: number | null; error?: string }[] = [];
+    // A deadline already passed: index calls get the 1s minimum, and no house is started.
+    const result = await client.getAuctionPrices!('eu', { deadline: Date.now() - 10_000, trace: (s) => trace.push(s) });
+    expect(result).toBeNull();
+    expect(trace).toHaveLength(2);
+    expect(trace[0]).toMatchObject({ status: null, error: 'Timed out after 1s' });
   });
 });
 
@@ -109,5 +141,44 @@ describe('gear net worth', () => {
     expect(calls).toBe(1);
     expect(await refreshAuctionPrices(db, failing, 'eu', { force: true })).toBe(0);
     expect(calls).toBe(2);
+  });
+});
+
+describe('auction price status routes', () => {
+  it('shows the status to members and lets tavern admins fetch now, with a trace', async () => {
+    const { login } = await setup();
+    const alice = await login('Alice#1234');
+    const bob = await login('Bob#5678');
+    await alice.post('/api/characters', { name: 'Judgement', surname: 'Judy' });
+
+    const before = (await bob.get('/api/auction-prices')).body;
+    expect(before).toMatchObject({ supported: true, canRefresh: false });
+    expect(before.regions).toEqual([expect.objectContaining({ region: 'eu', priced: 0, fetchedAt: null })]);
+    expect((await bob.post('/api/auction-prices/refresh')).status).toBe(403);
+
+    await alice.post('/api/taverns', { name: 'The Prancing Pony' });
+    expect((await alice.get('/api/auction-prices')).body.canRefresh).toBe(true);
+    const res = await alice.post('/api/auction-prices/refresh');
+    expect(res.status).toBe(200);
+    const [eu] = res.body.regions;
+    expect(eu.priced).toBeGreaterThan(0);
+    expect(eu.fetchedAt).not.toBeNull();
+    expect(eu.error).toBeNull();
+  });
+
+  it('keeps the trace of a failed fetch', async () => {
+    const failing = {
+      async getAuctionPrices(_region: string, opts: { trace?: (s: object) => void }) {
+        opts.trace?.({ path: '/data/wow/ruleset/index', status: 403, ms: 12, error: 'Forbidden' });
+        throw new Error('Blizzard API error (403)');
+      },
+    };
+    const { db, login } = await setup();
+    const alice = await login('Alice#1234');
+    await alice.post('/api/characters', { name: 'Judgement', surname: 'Judy' });
+    await refreshAuctionPrices(db, failing as unknown as BlizzardClient, 'eu');
+    const [eu] = (await alice.get('/api/auction-prices')).body.regions;
+    expect(eu).toMatchObject({ error: 'Blizzard API error (403)', fetchedAt: null });
+    expect(eu.trace).toEqual([{ path: '/data/wow/ruleset/index', status: 403, ms: 12, error: 'Forbidden' }]);
   });
 });

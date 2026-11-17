@@ -802,3 +802,7 @@ button.details-portrait.enlargeable:hover .enlarge-hint, button.details-portrait
 .quest-card .qc-chain dt { color: #9aa3b5; }
 .quest-card .qc-chain dd { margin: 0; }
 .quest-card .qc-wowhead { font-size: 0.8rem; margin-top: 0.35rem; }
+
+.auction-status { margin-top: 1rem; }
+.auction-status summary { cursor: pointer; font-weight: 600; }
+.auction-status code { word-break: break-all; }

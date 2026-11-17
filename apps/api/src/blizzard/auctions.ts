@@ -29,6 +29,23 @@ export interface AuctionSnapshot {
   prices: Map<number, AuctionPrice>;
 }
 
+/** One request made while fetching prices, for the debug view. */
+export interface AuctionTraceStep {
+  path: string;
+  /** HTTP status, or `null` when the request never got an answer (timeout, network error). */
+  status: number | null;
+  ms: number;
+  /** Size of the response body. */
+  bytes?: number;
+  /** The response's top-level keys, to spot a shape we don't parse. */
+  keys?: string[];
+  /** Entries in its `auctions` array, if it has one. */
+  auctions?: number;
+  /** Items priced from it (listings responses only). */
+  priced?: number;
+  error?: string;
+}
+
 /** The ids in the first array of `{ id }` objects in a response, e.g. `{ auctions: [{ id: 110, ... }] }`. */
 export function idsIn(json: unknown): number[] {
   if (!json || typeof json !== 'object') return [];

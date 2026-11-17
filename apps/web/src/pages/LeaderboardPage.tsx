@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useLeaderboard } from '../api/hooks';
 import { useCharacterSelection } from '../characterSelection';
+import { AuctionPriceStatus } from '../components/AuctionPriceStatus';
 import { CharacterDirectory } from '../components/CharacterLink';
 import { LeaderboardTable } from '../components/LeaderboardTable';
 
@@ -31,6 +32,7 @@ export function LeaderboardPage() {
             />
           )}
         </section>
+        <AuctionPriceStatus />
       </div>
     </CharacterDirectory.Provider>
   );
