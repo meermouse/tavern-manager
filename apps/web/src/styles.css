@@ -432,6 +432,9 @@ tr.selected, tr.selected:hover { background: rgba(224, 164, 60, 0.14); box-shado
 .character-card .cc-badges .badge { margin-left: 0; }
 .character-card .cc-stats { display: grid; grid-template-columns: auto 1fr; gap: 0 0.75rem; margin: 0.2rem 0 0; font-size: 0.82rem; }
 .character-card .cc-stats .stat { display: contents; }
+/* Touch screens only: there, tapping a name can show this card rather than open the details pane. */
+.character-card .cc-details-button { display: none; margin-top: 0.4rem; }
+@media (hover: none), (any-pointer: coarse) { .character-card .cc-details-button { display: inline-flex; } }
 .character-card .cc-stats dt { color: var(--muted); }
 .character-card .cc-stats dd { margin: 0; }
 

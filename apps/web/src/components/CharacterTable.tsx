@@ -77,7 +77,11 @@ export function CharacterTable({
         cell: (info) => (
           // Selectable rows are already a tab stop, so the name needn't be one too.
           <span className="char-name-cell">
-            <CharacterLink character={info.row.original} focusable={!selectable}>
+            <CharacterLink
+              character={info.row.original}
+              focusable={!selectable}
+              onDetails={onSelect && (() => onSelect(info.row.original))}
+            >
               <span className="char-cell">
                 <CharacterAvatar character={info.row.original} size="xs" />
                 <strong>{info.getValue()}</strong>
@@ -136,7 +140,7 @@ export function CharacterTable({
         cell: (info) => <CharacterLevel character={info.row.original} />,
       }),
     ],
-    [selectable],
+    [selectable, onSelect],
   );
 
   const table = useReactTable({

@@ -32,8 +32,8 @@ export function HoverCard({
   focusable = true,
   openOnClick = false,
 }: {
-  /** Rendered lazily, only while open. */
-  content: () => ReactNode;
+  /** Rendered lazily, only while open. `close` shuts the card, e.g. after a button on it is used. */
+  content: (close: () => void) => ReactNode;
   children: ReactNode;
   className?: string;
   /** Make the trigger a tab stop. Turn off when it's already inside something focusable. */
@@ -93,6 +93,12 @@ export function HoverCard({
     };
   }, [open]);
 
+  const closeCard = () => {
+    clearTimeout(timer.current);
+    setOpen(false);
+    setPinned(false);
+  };
+
   const toggle = () => {
     clearTimeout(timer.current);
     const next = !pinned;
@@ -137,7 +143,7 @@ export function HoverCard({
             onPointerEnter={cancel}
             onPointerLeave={() => schedule(false, CLOSE_DELAY_MS)}
           >
-            {content()}
+            {content(closeCard)}
           </div>,
           document.body,
         )}

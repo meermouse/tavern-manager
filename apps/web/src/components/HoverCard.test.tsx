@@ -118,4 +118,34 @@ describe('hover cards', () => {
     expect(text).toContain('Total item level612');
     expect(text).not.toContain('51');
   });
+
+  it('put a Details button on character cards that opens the pane without also clicking the row', () => {
+    const onDetails = vi.fn();
+    const onRowClick = vi.fn();
+    render(
+      <div onClick={onRowClick}>
+        <CharacterLink character={{ id: 'c1', name: 'Judgement', surname: 'Judy' }} onDetails={onDetails}>
+          <strong>Judgement</strong>
+        </CharacterLink>
+      </div>,
+    );
+    fireEvent.focus(screen.getByText('Judgement').parentElement!);
+    act(() => vi.advanceTimersByTime(10));
+    fireEvent.click(screen.getByRole('button', { name: 'Details' }));
+    expect(onDetails).toHaveBeenCalledTimes(1);
+    expect(onRowClick).not.toHaveBeenCalled();
+    expect(screen.queryByRole('tooltip')).toBeNull();
+  });
+
+  it('leave the Details button off cards with nowhere to show details', () => {
+    render(
+      <CharacterLink character={{ id: 'c1', name: 'Judgement' }}>
+        <strong>Judgement</strong>
+      </CharacterLink>,
+    );
+    fireEvent.focus(screen.getByText('Judgement').parentElement!);
+    act(() => vi.advanceTimersByTime(10));
+    expect(screen.getByRole('tooltip')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Details' })).toBeNull();
+  });
 });

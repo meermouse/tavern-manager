@@ -96,7 +96,7 @@ export function LeaderboardTable({
                 </td>
                 <td data-label="Character">
                   {/* Selectable rows are already a tab stop, so the name needn't be one too. */}
-                  <CharacterLink character={entry} focusable={!onSelect}>
+                  <CharacterLink character={entry} focusable={!onSelect} onDetails={onSelect && (() => onSelect(entry))}>
                     <span className="char-cell">
                       <CharacterAvatar character={entry} size="xs" />
                       <strong>{entry.name} {entry.surname}</strong>
