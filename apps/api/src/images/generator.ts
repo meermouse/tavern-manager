@@ -42,6 +42,29 @@ export async function downloadReferences(references: ImageReference[], fetchImpl
   return out;
 }
 
+
+/**
+ * Settings we can live without. Models differ in which they accept, so when the API says a model doesn't support
+ * one ("The model 'x' does not support the 'input_fidelity' parameter."), it's dropped and the request tried again.
+ */
+const OPTIONAL_PARAMS = new Set(['input_fidelity', 'quality', 'output_format', 'output_compression', 'size']);
+
+/** The optional setting an error message says the model doesn't support, if that's what it says. */
+export function unsupportedParam(message: string): string | null {
+  const m = /(?:does not support|unsupported|not supported)[^']*'([a-z_]+)'|'([a-z_]+)'[^.]*not supported/i.exec(message);
+  const name = m?.[1] ?? m?.[2];
+  return name && OPTIONAL_PARAMS.has(name) ? name : null;
+}
+
+/** The picture's type from its first bytes (when we couldn't ask for WebP, the API picks the format). */
+export function sniffImageType(data: Uint8Array): string {
+  const hex = Buffer.from(data.subarray(0, 12)).toString('hex');
+  if (hex.startsWith('89504e47')) return 'image/png';
+  if (hex.startsWith('ffd8ff')) return 'image/jpeg';
+  if (hex.startsWith('52494646') && hex.slice(16, 24) === '57454250') return 'image/webp';
+  return 'application/octet-stream';
+}
+
 /**
  * OpenAI Images API. With character renders it uses the edits endpoint, which takes them as reference images;
  * without any, a plain generation.
@@ -50,43 +73,75 @@ export function createOpenAiImageGenerator(config: OpenAiImageConfig, fetchImpl:
   return {
     async generate({ prompt, references }) {
       const refs = await downloadReferences(references, fetchImpl);
-      const common = {
+      const params: Record<string, string> = {
         model: config.model,
         prompt,
+        n: '1',
         size: SIZE,
         quality: config.quality,
         output_format: 'webp',
         output_compression: '85',
-        n: '1',
       };
-      let res: Response;
-      if (refs.length) {
-        const form = new FormData();
-        for (const [k, v] of Object.entries(common)) form.append(k, v);
-        if (config.inputFidelity) form.append('input_fidelity', config.inputFidelity);
-        for (const r of refs) form.append('image[]', r.blob, r.filename);
-        res = await fetchImpl(`${OPENAI}/images/edits`, {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${config.apiKey}` },
-          body: form,
-        });
-      } else {
-        res = await fetchImpl(`${OPENAI}/images/generations`, {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${config.apiKey}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ...common, n: 1, output_compression: 85 }),
-        });
+      // Only the edits endpoint takes reference images, so only it has input_fidelity.
+      if (refs.length && config.inputFidelity && !/^(none|off|false)$/i.test(config.inputFidelity)) {
+        params.input_fidelity = config.inputFidelity;
       }
-      const json = (await res.json().catch(() => null)) as {
-        data?: { b64_json?: string }[];
-        error?: { message?: string };
-      } | null;
-      if (!res.ok) throw new Error(json?.error?.message ?? `Image API error (${res.status})`);
-      const b64 = json?.data?.[0]?.b64_json;
-      if (!b64) throw new Error('The image API returned no picture');
-      return { data: new Uint8Array(Buffer.from(b64, 'base64')), contentType: 'image/webp' };
+
+      for (;;) {
+        const res = refs.length
+          ? await fetchImpl(`${OPENAI}/images/edits`, {
+              method: 'POST',
+              headers: { Authorization: `Bearer ${config.apiKey}` },
+              body: editForm(params, refs),
+            })
+          : await fetchImpl(`${OPENAI}/images/generations`, {
+              method: 'POST',
+              headers: { Authorization: `Bearer ${config.apiKey}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify(generationBody(params)),
+            });
+        const json = (await res.json().catch(() => null)) as {
+          data?: { b64_json?: string; url?: string }[];
+          error?: { message?: string; param?: string | null };
+        } | null;
+
+        if (!res.ok) {
+          const message = json?.error?.message ?? `Image API error (${res.status})`;
+          const drop = unsupportedParam(message) ?? (OPTIONAL_PARAMS.has(json?.error?.param ?? '') ? json!.error!.param! : null);
+          if (res.status === 400 && drop && drop in params) {
+            console.warn(`Image model ${config.model} doesn't support ${drop}; retrying without it`);
+            delete params[drop];
+            if (drop === 'output_format') delete params.output_compression;
+            continue;
+          }
+          throw new Error(message);
+        }
+
+        const first = json?.data?.[0];
+        let data: Uint8Array | null = first?.b64_json ? new Uint8Array(Buffer.from(first.b64_json, 'base64')) : null;
+        // Some models answer with a link instead of the picture itself.
+        if (!data && first?.url) {
+          const img = await fetchImpl(first.url, { signal: AbortSignal.timeout(60_000) });
+          if (img.ok) data = new Uint8Array(await img.arrayBuffer());
+        }
+        if (!data) throw new Error('The image API returned no picture');
+        return { data, contentType: sniffImageType(data) };
+      }
     },
   };
+}
+
+function editForm(params: Record<string, string>, refs: { blob: Blob; filename: string }[]): FormData {
+  const form = new FormData();
+  for (const [k, v] of Object.entries(params)) form.append(k, v);
+  for (const r of refs) form.append('image[]', r.blob, r.filename);
+  return form;
+}
+
+/** The JSON endpoint wants numbers as numbers. */
+function generationBody(params: Record<string, string>) {
+  const body: Record<string, string | number> = { ...params, n: Number(params.n) };
+  if (params.output_compression) body.output_compression = Number(params.output_compression);
+  return body;
 }
 
 function esc(s: string): string {

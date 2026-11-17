@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createOpenAiImageGenerator, type ImageGenerator } from '../src/images/generator.js';
+import { createOpenAiImageGenerator, unsupportedParam, type ImageGenerator } from '../src/images/generator.js';
 import { runImageJob } from '../src/images/jobs.js';
 import { buildScene, type SceneCharacter } from '../src/images/scene.js';
 import { setup } from './helpers.js';
@@ -237,7 +237,7 @@ describe('OpenAI image generator', () => {
           ? new Response(new Uint8Array([9]), { headers: { 'Content-Type': 'image/png' } })
           : new Response('nope', { status: 404 });
       }
-      return Response.json({ data: [{ b64_json: Buffer.from('hello').toString('base64') }] });
+      return Response.json({ data: [{ b64_json: WEBP.toString('base64') }] });
     }) as typeof fetch;
 
     const out = await createOpenAiImageGenerator(config, fetchImpl).generate({
@@ -247,7 +247,7 @@ describe('OpenAI image generator', () => {
         { url: 'https://render.example/missing.jpg', label: 'B' },
       ],
     });
-    expect(Buffer.from(out.data).toString()).toBe('hello');
+    expect(Buffer.from(out.data)).toEqual(WEBP);
     expect(out.contentType).toBe('image/webp');
     const call = requests.find((r) => r.url.includes('api.openai.com'))!;
     expect(call.url).toBe('https://api.openai.com/v1/images/edits');
@@ -269,5 +269,85 @@ describe('OpenAI image generator', () => {
       createOpenAiImageGenerator(config, fetchImpl).generate({ prompt: 'A tavern', references: [] }),
     ).rejects.toThrow('Billing hard limit reached');
     expect(urls).toEqual(['https://api.openai.com/v1/images/generations']);
+  });
+});
+
+/** The first bytes of a WebP file (RIFF....WEBP). */
+const WEBP = Buffer.from('524946460000000057454250', 'hex');
+const PNG = Buffer.from('89504e470d0a1a0a', 'hex');
+
+describe('OpenAI models with different settings', () => {
+  const config = { apiKey: 'sk-test', model: 'gpt-image-2.6-flare', quality: 'medium', inputFidelity: 'high' };
+  const render = () => new Response(new Uint8Array([9]), { headers: { 'Content-Type': 'image/png' } });
+
+  it('recognises "does not support" errors for optional settings only', () => {
+    expect(unsupportedParam("The model 'gpt-image-2.6-flare' does not support the 'input_fidelity' parameter.")).toBe(
+      'input_fidelity',
+    );
+    expect(unsupportedParam("Unsupported parameter: 'output_compression' is not supported with this model.")).toBe(
+      'output_compression',
+    );
+    expect(unsupportedParam("The model 'x' does not support the 'prompt' parameter.")).toBeNull();
+    expect(unsupportedParam('Billing hard limit reached')).toBeNull();
+  });
+
+  it('drops settings the model rejects and tries again', async () => {
+    const sent: string[][] = [];
+    const fetchImpl = (async (url: string, init?: RequestInit) => {
+      if (url.startsWith('https://render.example/')) return render();
+      const keys = [...new Set((init!.body as FormData).keys())];
+      sent.push(keys);
+      if (keys.includes('input_fidelity')) {
+        return Response.json(
+          { error: { message: "The model 'gpt-image-2.6-flare' does not support the 'input_fidelity' parameter." } },
+          { status: 400 },
+        );
+      }
+      if (keys.includes('output_format')) {
+        return Response.json({ error: { message: 'Bad value', param: 'output_format' } }, { status: 400 });
+      }
+      return Response.json({ data: [{ b64_json: PNG.toString('base64') }] });
+    }) as typeof fetch;
+
+    const out = await createOpenAiImageGenerator(config, fetchImpl).generate({
+      prompt: 'A party',
+      references: [{ url: 'https://render.example/a.png', label: 'A' }],
+    });
+    expect(sent).toHaveLength(3);
+    expect(sent[2]).not.toContain('input_fidelity');
+    expect(sent[2]).not.toContain('output_format');
+    expect(sent[2]).not.toContain('output_compression');
+    expect(sent[2]).toEqual(expect.arrayContaining(['model', 'prompt', 'image[]']));
+    // Without output_format, the API picks the format; the stored type follows the bytes.
+    expect(out.contentType).toBe('image/png');
+  });
+
+  it('leaves input_fidelity out when set to none, and follows a picture link', async () => {
+    const sent: string[][] = [];
+    const fetchImpl = (async (url: string, init?: RequestInit) => {
+      if (url.startsWith('https://render.example/')) return render();
+      if (url === 'https://files.example/pic.webp') return new Response(WEBP);
+      sent.push([...new Set((init!.body as FormData).keys())]);
+      return Response.json({ data: [{ url: 'https://files.example/pic.webp' }] });
+    }) as typeof fetch;
+    const out = await createOpenAiImageGenerator({ ...config, inputFidelity: 'none' }, fetchImpl).generate({
+      prompt: 'A party',
+      references: [{ url: 'https://render.example/a.png', label: 'A' }],
+    });
+    expect(sent).toHaveLength(1);
+    expect(sent[0]).not.toContain('input_fidelity');
+    expect(out.contentType).toBe('image/webp');
+  });
+
+  it('does not retry other errors', async () => {
+    let calls = 0;
+    const fetchImpl = (async () => {
+      calls++;
+      return Response.json({ error: { message: "The model 'x' does not support the 'prompt' parameter." } }, { status: 400 });
+    }) as typeof fetch;
+    await expect(
+      createOpenAiImageGenerator(config, fetchImpl).generate({ prompt: 'A tavern', references: [] }),
+    ).rejects.toThrow("does not support the 'prompt' parameter");
+    expect(calls).toBe(1);
   });
 });
