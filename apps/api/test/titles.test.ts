@@ -147,10 +147,10 @@ describe('new titles', () => {
     expect(value('class-clown')).toBe('9 laughs');
     expect(value('tiny-violinist')).toBe('Played 4 times');
     expect(value('the-butcher')).toBe('5,000 kills');
-    expect(value('half-decent')).toBe('125 K/D');
+    expect(value('not-useless')).toBe('125 K/D');
     const kd = (kills: number) =>
       rankTitles([{ id: 'a', user_id: 'u', statistics: { 'Creatures killed': kills, 'Total deaths': 0 } }])
-        .find((t) => t.key === 'half-decent')!.standings[0]?.value;
+        .find((t) => t.key === 'not-useless')!.standings[0]?.value;
     expect(kd(99)).toBeUndefined();
     expect(kd(100)).toBe('100 K/D');
   });
@@ -205,7 +205,7 @@ describe('title routes', () => {
     expect(titleKeys).toEqual([
       'ninja', 'head-chef', 'old-man-sea', 'field-medic', 'altaholic', 'corpse-runner', 'gravity-tester',
       'regular', 'bunny-slayer', 'unimpressed', 'happy-camper', 'punching-bag', 'juiced', 'hello-there',
-      'errand-runner', 'homebody', 'class-clown', 'tiny-violinist', 'the-butcher', 'half-decent', 'best-dressed', 'moneybags', 'town-crier', 'gone-fishin',
+      'errand-runner', 'homebody', 'class-clown', 'tiny-violinist', 'the-butcher', 'not-useless', 'best-dressed', 'moneybags', 'town-crier', 'gone-fishin',
     ]);
     // Feed posts are counted (none left), so both are in the running but nobody holds Town Crier at 0.
     const crier = detail.titles.find((t: { key: string }) => t.key === 'town-crier');

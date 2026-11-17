@@ -244,8 +244,8 @@ export const TITLES: TitleDef[] = [
   statTitle('the-butcher', 'The Butcher', '🗡️', 'Most kills in the tavern.',
     ['Total kills', 'Creatures killed', /^total kills/i, /creatures killed/i], (n) => plural(n, 'kill')),
   {
-    key: 'half-decent',
-    name: 'Actually half decent at Wow',
+    key: 'not-useless',
+    name: 'Not completely useless',
     icon: '⚔️',
     description: `Best kill/death ratio in the tavern (at least ${KD_MIN_KILLS} kills).`,
     subject: 'character',
