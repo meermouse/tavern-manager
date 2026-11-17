@@ -209,7 +209,7 @@ export const METRICS: Metric[] = [
   {
     key: 'gear-value', label: 'Gear value (auction house)', group: 'Adventuring & wealth', format: 'gold', total: 'net worth',
     description:
-      'What their equipped gear would fetch on the auction house, at the going price across the region’s houses. Soulbound gear never gets listed, so it counts for nothing.',
+      'Their equipped gear valued at the going auction house price across the region, or at the vendor price for gear that never gets listed (soulbound). Open a character to see each item.',
     value: (e) => e.gearValue ?? null,
   },
   { key: 'gold-acquired', label: 'Total gold acquired', group: 'Adventuring & wealth', format: 'gold', description: 'Every coin ever earned.', value: stat('Total gold acquired') },

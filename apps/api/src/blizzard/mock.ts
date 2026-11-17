@@ -115,6 +115,8 @@ export function createMockBlizzardClient(): BlizzardClient {
       return MOCK_GEAR.filter((g) => g.minLevel <= level).map(({ minLevel, ...g }) => ({
         ...g,
         itemLevel: minLevel + 5,
+        // Vendors pay more for higher-level gear, as in the game.
+        sellPrice: (minLevel + 5) * (minLevel + 5) * ({ COMMON: 2, UNCOMMON: 5, RARE: 9, EPIC: 15 }[g.quality] ?? 1),
       }));
     },
     async getMedia(region, name, surname) {

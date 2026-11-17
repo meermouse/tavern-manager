@@ -1,11 +1,11 @@
 import { randomInt } from 'node:crypto';
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
-import { GEAR_VALUE_SQL } from '../prices.js';
+import { GEAR_VALUE_SQL, itemPrices } from '../prices.js';
 import { awardTitles, FEED_POSTS_SQL, tavernTitles } from '../titles.js';
 import { badRequest, jsonBody, requireUser, uuidParam, type AppDeps, type AppEnv } from '../context.js';
 import { deleteTavernPost, eventVisibleInTavern, FEED_KINDS, recordEvent, setCheer, tavernFeed, type FeedKind } from '../feed.js';
-import { serializeCharacter, serializeCharacterDetails } from '../serialize.js';
+import { equipmentIds, serializeCharacter, serializeCharacterDetails } from '../serialize.js';
 import { refreshStale, type CharacterRow } from '../sync.js';
 import { IRL_NAME_SQL, adminTavern, tavernMembership, type TavernAccess } from '../tavernAccess.js';
 
@@ -243,7 +243,8 @@ export function tavernRoutes({ db, blizzard }: AppDeps) {
     );
     if (!row) throw new HTTPException(404, { message: 'Character not found' });
     const recent = await tavernFeed(db, tavern.id, user.id, { limit: 5, characterId });
-    return c.json(serializeCharacterDetails(row, recent.events));
+    const prices = await itemPrices(db, row.region, equipmentIds(row));
+    return c.json(serializeCharacterDetails(row, recent.events, prices));
   });
 
   app.put('/taverns/:id/characters/:characterId', async (c) => {

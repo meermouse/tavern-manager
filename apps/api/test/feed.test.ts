@@ -277,7 +277,7 @@ describe('activity feed', () => {
     expect(w.calls.media).toBe(1);
     expect(w.ch).toMatchObject({ avatarUrl: 'https://render.example/1-avatar.jpg', renderUrl: 'https://render.example/main.jpg' });
     const details = (await w.alice.get(`/api/taverns/${w.tavern.id}/characters/${w.ch.id}`)).body;
-    expect(details.equipment).toEqual([item(1, 'COMMON')]);
+    expect(details.equipment).toEqual([{ ...item(1, 'COMMON'), auctionPrice: null, auctionListings: 0, value: null }]);
 
     await w.resync();
     expect(w.calls.media).toBe(1); // no login since: keep the images we have

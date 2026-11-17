@@ -84,13 +84,41 @@ export function gearSummary(equipment: unknown[] | null) {
   return { gearItemLevel: total, gearQualities: qualities };
 }
 
-/** Everything the character details pane shows: profile, owner, saved gear and the given recent posts. */
-export function serializeCharacterDetails(row: CharacterRow & { owner_name: string }, recent: unknown[]) {
+/** Item ids in saved equipment, for looking up their prices. */
+export function equipmentIds(row: CharacterRow): number[] {
+  return (serializeEquipment(row) ?? [])
+    .map((i) => (i as { id?: unknown }).id)
+    .filter((id): id is number => typeof id === 'number');
+}
+
+/**
+ * Saved gear with each item's value for net worth: `auctionPrice` (copper, `null` if not listed) and `value`, the
+ * auction price or else the vendor price. Plus the total.
+ */
+export function pricedEquipment(equipment: unknown[] | null, prices: ReadonlyMap<number, { price: number; listings: number }>) {
+  if (!equipment) return { equipment: null, gearValue: null };
+  let total: number | null = null;
+  const items = equipment.map((raw) => {
+    const item = raw as { id?: number; sellPrice?: number | null };
+    const auction = item.id != null ? prices.get(item.id) : undefined;
+    const value = auction?.price ?? (item.sellPrice || null);
+    if (value != null) total = (total ?? 0) + value;
+    return { ...item, auctionPrice: auction?.price ?? null, auctionListings: auction?.listings ?? 0, value };
+  });
+  return { equipment: items, gearValue: total };
+}
+
+/** Everything the character details pane shows: profile, owner, saved gear (priced) and the given recent posts. */
+export function serializeCharacterDetails(
+  row: CharacterRow & { owner_name: string },
+  recent: unknown[],
+  prices: ReadonlyMap<number, { price: number; listings: number }> = new Map(),
+) {
   return {
     ...serializeCharacter(row),
     ownerId: row.user_id,
     ownerName: row.owner_name,
-    equipment: serializeEquipment(row),
+    ...pricedEquipment(serializeEquipment(row), prices),
     equipmentSyncedAt: row.equipment_synced_at,
     recent,
   };

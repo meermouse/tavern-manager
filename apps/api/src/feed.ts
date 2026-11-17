@@ -17,9 +17,9 @@ export type FeedKind =
 
 /**
  * Bump when `parseEquipment` starts keeping more detail, so gear saved by an older version is re-fetched once
- * instead of waiting for the character's next login. 2 = tooltip details (stats, effects, ...).
+ * instead of waiting for the character's next login. 2 = tooltip details (stats, effects, ...). 3 = vendor sell price.
  */
-export const EQUIPMENT_VERSION = 2;
+export const EQUIPMENT_VERSION = 3;
 
 /** Item qualities worth a post. */
 export const NOTABLE_QUALITIES = new Set(['RARE', 'EPIC', 'LEGENDARY', 'ARTIFACT']);
