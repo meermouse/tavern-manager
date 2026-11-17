@@ -4,13 +4,13 @@ import { useCharacterDetails, useIsTavernAdmin, useMe, useSetRoles, useTavernCha
 import { CharacterLevel } from './CharacterLevel';
 import { Ago, CharacterStats, Stat } from './CharacterStats';
 import { ClassName, classKey } from './ClassName';
+import { Coins } from './Coins';
 import { ItemLink } from './ItemLink';
 import { PortraitViewer } from './PortraitViewer';
 import { ProfessionList } from './ProfessionIcons';
 import { TitleBadges } from './TitleBadges';
 import { completedCount } from './DungeonLog';
 import { dungeons } from '../dungeons';
-import { formatMetric } from '../leaderboard';
 import { RoleIcons, RolePicker } from './RoleIcons';
 import { FeedPost, timeAgo } from './TavernFeed';
 
@@ -26,7 +26,7 @@ function slotRank(slot: string | null): number {
   return i === -1 ? SLOT_ORDER.length : i;
 }
 
-export function sortGear(items: FeedItem[]): FeedItem[] {
+export function sortGear<T extends FeedItem>(items: T[]): T[] {
   return [...items].sort((a, b) => slotRank(a.slot) - slotRank(b.slot) || (a.slot ?? '').localeCompare(b.slot ?? ''));
 }
 
@@ -83,16 +83,24 @@ function CompletedDungeons({ log }: { log: Record<string, string> | undefined })
   );
 }
 
-/** What an item counts for towards net worth, and where that figure came from. */
+/** What an item counts for towards net worth: auction house prices tagged "AH", vendor prices dimmed. */
 function ItemValue({ item }: { item: PricedItem }) {
-  if (item.value == null) return <span className="muted small-text gear-value" title="No auction or vendor price">—</span>;
-  const listed = item.auctionPrice != null;
-  const title = listed
-    ? `Auction house: going price across ${item.auctionListings ?? 0} listing${item.auctionListings === 1 ? '' : 's'}`
-    : 'Vendor price: it isn’t on the auction house (soulbound gear never is)';
+  if (item.value == null) return <span className="muted" title="No auction or vendor price">—</span>;
+  if (item.auctionPrice != null) {
+    const n = item.auctionListings ?? 0;
+    return (
+      <span title={`Going auction house price, from ${n} listing${n === 1 ? '' : 's'} across the region`}>
+        <Coins copper={item.value} /> <span className="price-source">AH</span>
+      </span>
+    );
+  }
+  const why =
+    item.quality === 'POOR'
+      ? 'grey items are vendor trash, whatever the auction house says'
+      : 'it isn’t on the auction house (soulbound gear never is)';
   return (
-    <span className="small-text gear-value" title={title}>
-      {formatMetric(item.value, 'gold')} <span className="muted">{listed ? 'AH' : 'vendor'}</span>
+    <span className="vendor-price" title={`Vendor price: ${why}`}>
+      <Coins copper={item.value} />
     </span>
   );
 }
@@ -110,25 +118,48 @@ function Gear({
   if (!items?.length) {
     return <p className="muted small-text">Gear shows up after the character's next refresh.</p>;
   }
+  // Older API responses don't price gear: leave the value columns out rather than show a column of dashes.
+  const priced = items.some((i) => i.value !== undefined);
   return (
     <>
-      <ul className="details-gear">
-        {sortGear(items).map((i) => (
-          <li key={`${i.slot}-${i.id}`}>
-            <span className="muted gear-slot">{i.slot ?? '—'}</span>
-            <ItemLink item={i} brackets={false} />
-            {i.itemLevel != null ? <span className="muted small-text gear-ilvl">{i.itemLevel}</span> : <span />}
-            <ItemValue item={i} />
-          </li>
-        ))}
-      </ul>
-      {total != null && (
-        <p className="small-text">
-          Gear value: <strong>{formatMetric(total, 'gold')}</strong>{' '}
-          <span className="muted">(auction house price where listed, vendor price otherwise)</span>
-        </p>
-      )}
-      {syncedAt && <p className="muted small-text">As of {timeAgo(syncedAt)}</p>}
+      <table className="gear-table">
+        <thead>
+          <tr>
+            <th scope="col">Item</th>
+            <th scope="col" className="num" title="Item level">iLvl</th>
+            {priced && <th scope="col" className="num">Value</th>}
+          </tr>
+        </thead>
+        <tbody>
+          {sortGear(items).map((i) => (
+            <tr key={`${i.slot}-${i.id}`}>
+              <td className="gear-item">
+                <ItemLink item={i} brackets={false} />
+                {i.slot && <span className="gear-slot">{i.slot}</span>}
+              </td>
+              <td className="num muted">{i.itemLevel ?? '—'}</td>
+              {priced && <td className="num"><ItemValue item={i} /></td>}
+            </tr>
+          ))}
+        </tbody>
+        {priced && total != null && (
+          <tfoot>
+            <tr>
+              <th scope="row" colSpan={2}>Gear value</th>
+              <td className="num"><strong><Coins copper={total} /></strong></td>
+            </tr>
+          </tfoot>
+        )}
+      </table>
+      <p className="muted small-text">
+        {priced && (
+          <>
+            <span className="price-source">AH</span> is the going auction house price; the rest are vendor prices (gear that
+            never gets listed, like soulbound items). Hover a price for more.{' '}
+          </>
+        )}
+        {syncedAt && `Gear as of ${timeAgo(syncedAt)}.`}
+      </p>
     </>
   );
 }

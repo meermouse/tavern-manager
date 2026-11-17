@@ -136,6 +136,32 @@ describe('gear net worth', () => {
     expect(moneybags.standings[0].value).toMatch(/of gear$/);
   });
 
+  it('values grey items at their vendor price, whatever the auction house asks', async () => {
+    const { db, login } = await setup();
+    const alice = await login('Alice#1234');
+    const judy = (await alice.post('/api/characters', { name: 'Judgement', surname: 'Judy' })).body;
+    const tavern = (await alice.post('/api/taverns', { name: 'The Prancing Pony' })).body;
+    await alice.put(`/api/taverns/${tavern.id}/characters/${judy.id}`);
+    await db.query('update characters set equipment = $2::jsonb where id = $1', [
+      judy.id,
+      JSON.stringify([
+        { id: 1, name: 'Ragged Leather Pants', quality: 'POOR', slot: 'Legs', itemLevel: 2, sellPrice: 3 },
+        { id: 2, name: 'Wolfskin Bracers', quality: 'UNCOMMON', slot: 'Wrist', itemLevel: 8, sellPrice: 6 },
+      ]),
+    ]);
+    // Someone's asking 5g for the grey pants; the bracers really do sell for 20s.
+    await db.query(`insert into auction_prices (region, item_id, price, listings) values ('eu', 1, 50000, 1), ('eu', 2, 2000, 4)`);
+
+    const entry = (await alice.get(`/api/taverns/${tavern.id}/leaderboard`)).body[0];
+    expect(entry).toMatchObject({ gearValue: 2003, gearPriced: 1 });
+    const details = (await alice.get(`/api/taverns/${tavern.id}/characters/${judy.id}`)).body;
+    expect(details.equipment.map((i: { auctionPrice: number | null; value: number }) => [i.auctionPrice, i.value])).toEqual([
+      [null, 3],
+      [2000, 2000],
+    ]);
+    expect(details.gearValue).toBe(2003);
+  });
+
   it('records a failure and doesn’t retry straight away', async () => {
     const { db } = await setup();
     let calls = 0;
