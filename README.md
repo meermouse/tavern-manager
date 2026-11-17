@@ -78,7 +78,7 @@ Players sign in with their Battle.net account, add their characters, and join a 
   | 😂 **Class Clown** | Most laughs |
   | 🎻 **Tiny Violinist** | Most times playing the world's smallest violin |
   | 🗡️ **The Butcher** | Most kills (creatures killed, if there's no total) |
-  | ⚔️ **Actually half decent at Wow** | Best kill/death ratio (kills ÷ total deaths, no deaths counting as one) |
+  | ⚔️ **Actually half decent at Wow** | Best kill/death ratio (kills ÷ total deaths, no deaths counting as one), at least 10 kills |
   | ✨ **Best Dressed** | Highest average (equipped) item level |
   | 💰 **Moneybags** | Most valuable equipped gear at auction house prices (see Net worth) |
   | 📣 **Town Crier** | Most feed posts (level-ups, loot, achievements) |

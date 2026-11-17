@@ -103,6 +103,8 @@ export const FEED_POSTS_SQL = `(select count(*)::int from feed_events e
 
 /** Need/greed/disenchant rolls needed before the need percentage counts, so one lucky roll isn't 100%. */
 export const NINJA_MIN_ROLLS = 10;
+/** Kills needed before the kill/death ratio counts, so a fresh character's handful of kills doesn't top it. */
+export const KD_MIN_KILLS = 10;
 /** Characters a player needs in the tavern to be an Altaholic: one main plus at least one alt. */
 export const ALTAHOLIC_MIN_CHARACTERS = 2;
 
@@ -131,11 +133,11 @@ export function needPercent(stats: Record<string, number>): number | null {
   return total >= NINJA_MIN_ROLLS ? (need / total) * 100 : null;
 }
 
-/** Kills per death (The Butcher's kills over total deaths); no deaths counts as one, so it isn't infinite. */
+/** Kills per death (The Butcher's kills over total deaths), once they've made enough kills to count; no deaths counts as one. */
 export function killDeathRatio(stats: Record<string, number>): number | null {
   const kills = findStat(stats, 'Total kills', 'Creatures killed', /^total kills/i, /creatures killed/i);
   const deaths = findStat(stats, 'Total deaths', /^total deaths$/i, /^deaths$/i);
-  if (kills == null || deaths == null) return null;
+  if (kills == null || deaths == null || kills < KD_MIN_KILLS) return null;
   return kills / Math.max(deaths, 1);
 }
 
@@ -245,7 +247,7 @@ export const TITLES: TitleDef[] = [
     key: 'half-decent',
     name: 'Actually half decent at Wow',
     icon: '⚔️',
-    description: 'Best kill/death ratio in the tavern.',
+    description: `Best kill/death ratio in the tavern (at least ${KD_MIN_KILLS} kills).`,
     subject: 'character',
     score: ({ stats }) => killDeathRatio(stats),
     format: (r) => `${r.toLocaleString('en', { maximumFractionDigits: 1 })} K/D`,
