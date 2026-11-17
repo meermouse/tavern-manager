@@ -17,8 +17,8 @@ each character drawn from their Blizzard render.
 
 Only one picture per tavern is painted at a time. Earlier pictures are never used as posts for a new one.
 
-If painting fails, the post stays visible to admins only (for example, the image API's safety system rejects the prompt, or the account runs out of
-credit), the post says why, and admins can **Try again** (same prompt) or **Remove** it. Admins can also remove a
+If painting fails (for example, the image API's safety system rejects the prompt, or the account runs out of credit),
+the post stays visible to admins only. It says why, and admins can **Try again** (same prompt) or **Remove** it. Admins can also remove a
 finished picture. A job that hasn't finished after 20 minutes counts as failed.
 
 ## What goes into the picture
