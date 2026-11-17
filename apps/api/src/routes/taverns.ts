@@ -132,7 +132,7 @@ export function tavernRoutes({ db, blizzard }: AppDeps) {
     const before = c.req.query('before');
     if (before !== undefined && !/^\d{1,18}$/.test(before)) badRequest('Invalid cursor');
     const limit = Math.min(50, Math.max(1, Number(c.req.query('limit')) || 30));
-    return c.json(await tavernFeed(db, tavern.id, user.id, { before, limit }));
+    return c.json(await tavernFeed(db, tavern.id, user.id, { before, limit, unfinishedImages: tavern.is_admin }));
   });
 
   for (const method of ['put', 'delete'] as const) {

@@ -180,6 +180,31 @@ update tavern_members m set is_admin = true from taverns t
 -- The IRL name a tavern admin gave a character in this tavern; null shows the owning player's display name.
 alter table tavern_characters add column if not exists irl_name text;
 
+-- AI paintings an admin commissioned of feed posts (see docs/generated-images.md). Each has one
+-- 'generated_image' feed post; deleting the post deletes the picture.
+create table if not exists generated_images (
+  id uuid primary key default gen_random_uuid(),
+  tavern_id uuid not null references taverns(id) on delete cascade,
+  event_id bigint references feed_events(id) on delete cascade,
+  requested_by uuid references users(id) on delete set null,
+  status text not null default 'pending' check (status in ('pending', 'generating', 'ready', 'failed')),
+  -- What was sent to the image API: the prompt and the character renders used as references ({ url, label }[]).
+  prompt text not null,
+  "references" jsonb not null default '[]',
+  image bytea,
+  content_type text,
+  error text,
+  attempts integer not null default 0,
+  created_at timestamptz not null default now(),
+  started_at timestamptz,
+  finished_at timestamptz
+);
+create index if not exists generated_images_event_idx on generated_images(event_id);
+-- The post it's a painting of (null once that post is deleted).
+alter table generated_images add column if not exists source_event_id bigint references feed_events(id) on delete set null;
+create index if not exists generated_images_source_idx on generated_images(source_event_id);
+create index if not exists generated_images_tavern_idx on generated_images(tavern_id, created_at desc);
+
 select pg_advisory_unlock(727274);
 `;
 

@@ -168,3 +168,70 @@ describe('cheers', () => {
     expect(screen.queryByRole('button')).toBeNull();
   });
 });
+
+describe('generated image posts', () => {
+  const image = (over: Partial<NonNullable<FeedEvent['data']['image']>>) =>
+    post({
+      kind: 'generated_image',
+      character: null,
+      data: {
+        caption: 'The Deadmines with Grim and Judy',
+        sourceEventId: '7',
+        image: { id: 'img1', status: 'ready', error: null, url: '/api/taverns/t1/images/img1?v=1', ...over },
+      },
+    });
+
+  it('shows the finished picture', () => {
+    const li = renderPost(image({}));
+    expect(li.textContent).toContain('Alice commissioned a painting: The Deadmines with Grim and Judy');
+    const img = li.querySelector('img')!;
+    expect(img.getAttribute('src')).toBe('/api/taverns/t1/images/img1?v=1');
+    expect(img.getAttribute('alt')).toBe('The Deadmines with Grim and Judy');
+  });
+
+  it('shows progress while painting', () => {
+    const li = renderPost(image({ status: 'generating', url: null }));
+    expect(li.querySelector('img')).toBeNull();
+    expect(screen.getByRole('status').textContent).toContain('painting');
+  });
+
+  it('shows failures, with retry and remove for admins only', () => {
+    const failed = image({ status: 'failed', url: null, error: 'Rejected by the safety system' });
+    expect(renderPost(failed).textContent).toContain('Rejected by the safety system');
+    expect(screen.queryByText('Try again')).toBeNull();
+    cleanup();
+
+    const retry = vi.fn();
+    const remove = vi.fn();
+    render(<ul><FeedPost event={failed} now={NOW} imageActions={{ retry, remove }} /></ul>);
+    fireEvent.click(screen.getByText('Try again'));
+    fireEvent.click(screen.getByText('Remove'));
+    expect(retry).toHaveBeenCalledWith('img1');
+    expect(remove).toHaveBeenCalledWith('img1');
+  });
+});
+
+describe('Commission painting', () => {
+  it('shows the button when given, and calls back', () => {
+    const onClick = vi.fn();
+    render(<ul><FeedPost event={post({})} now={NOW} commission={{ onClick }} /></ul>);
+    fireEvent.click(screen.getByRole('button', { name: /Commission painting/ }));
+    expect(onClick).toHaveBeenCalled();
+  });
+
+  it('is disabled with a reason while another picture is painting', () => {
+    render(
+      <ul>
+        <FeedPost event={post({})} now={NOW} commission={{ onClick: vi.fn(), disabledReason: 'Already painting' }} />
+      </ul>,
+    );
+    const button = screen.getByRole('button', { name: /Commission painting/ });
+    expect(button).toHaveProperty('disabled', true);
+    expect(button.getAttribute('title')).toBe('Already painting');
+  });
+
+  it('is absent by default (non-admins)', () => {
+    renderPost(post({}));
+    expect(screen.queryByText(/Commission painting/)).toBeNull();
+  });
+});

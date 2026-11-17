@@ -97,7 +97,25 @@ export function useTavernFeed(id: string) {
     queryFn: ({ pageParam }) => api.tavernFeed(id, pageParam),
     initialPageParam: null as string | null,
     getNextPageParam: (last) => last.nextCursor,
+    // While a generated picture is being painted, check back until it's done.
+    refetchInterval: (query) =>
+      query.state.data?.pages.some((p) =>
+        p.events.some((e) => e.data.image && (e.data.image.status === 'pending' || e.data.image.status === 'generating')),
+      )
+        ? 5000
+        : false,
   });
+}
+
+/** Admin actions on generated pictures: commission one of a post, retry a failed one, or take one down. */
+export function useGeneratedImages(tavernId: string) {
+  const qc = useQueryClient();
+  const refetch = () => qc.invalidateQueries({ queryKey: keys.feed(tavernId) });
+  return {
+    generate: useMutation({ mutationFn: (eventId: string) => api.generateImage(tavernId, eventId), onSuccess: refetch }),
+    retry: useMutation({ mutationFn: (imageId: string) => api.retryImage(tavernId, imageId), onSuccess: refetch }),
+    remove: useMutation({ mutationFn: (imageId: string) => api.deleteImage(tavernId, imageId), onSuccess: refetch }),
+  };
 }
 
 /** Apply a change to one character inside any cached tavern or character-details data. */

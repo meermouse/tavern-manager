@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient, type InfiniteData } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { api, type Cheers, type FeedEvent, type FeedPage } from '../api/client';
-import { keys, useTavernFeed } from '../api/hooks';
+import { keys, useGeneratedImages, useIsTavernAdmin, useTavernFeed } from '../api/hooks';
 import { CharacterAvatar } from './CharacterAvatar';
 import { CharacterLink } from './CharacterLink';
 import { ItemLink } from './ItemLink';
@@ -140,6 +140,16 @@ function headline(event: FeedEvent): { icon: string; text: ReactNode; className?
       return { icon: '👋', text: <>{user} joined the tavern</> };
     case 'tavern_founded':
       return { icon: '🏠', text: <>{user} founded <strong>{d.tavernName ?? 'the tavern'}</strong></> };
+    case 'generated_image':
+      return {
+        icon: '🎨',
+        className: 'generated-image',
+        text: (
+          <>
+            {user} commissioned a painting{d.caption ? <>: <strong>{d.caption}</strong></> : null}
+          </>
+        ),
+      };
     default:
       return { icon: '•', text: <>Something happened</> };
   }
@@ -162,7 +172,63 @@ function PartyNames({ characters }: { characters: NonNullable<FeedEvent['data'][
   );
 }
 
-function Details({ event }: { event: FeedEvent }) {
+/** Admin controls for a generated picture that failed. */
+export interface ImageActions {
+  retry: (imageId: string) => void;
+  remove: (imageId: string) => void;
+  busy?: boolean;
+}
+
+function GeneratedPicture({ event, actions }: { event: FeedEvent; actions?: ImageActions }) {
+  const image = event.data.image;
+  if (!image) return null;
+  if (image.status === 'ready' && image.url) {
+    return (
+      <figure className="feed-picture">
+        <a href={image.url} target="_blank" rel="noreferrer" title="Open full size">
+          <img src={image.url} alt={event.data.caption ?? 'A painting of the tavern’s adventures'} loading="lazy" />
+        </a>
+        {actions && (
+          <figcaption className="small-text muted">
+            <button type="button" className="link small-text" disabled={actions.busy} onClick={() => actions.remove(image.id)}>
+              Remove
+            </button>
+          </figcaption>
+        )}
+      </figure>
+    );
+  }
+  if (image.status === 'failed') {
+    return (
+      <div className="feed-picture failed">
+        <p className="small-text">
+          The painting didn’t work out{image.error ? <span className="muted">: {image.error}</span> : null}. Only admins can see this post.
+        </p>
+        {actions && (
+          <div className="feed-picture-actions">
+            <button type="button" className="ghost small" disabled={actions.busy} onClick={() => actions.retry(image.id)}>
+              Try again
+            </button>
+            <button type="button" className="ghost small" disabled={actions.busy} onClick={() => actions.remove(image.id)}>
+              Remove
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  }
+  return (
+    <div className="feed-picture painting" role="status">
+      <span className="small-text muted">
+        The tavern artist is painting… this usually takes a minute or two. Only admins see this post until the
+        picture is finished; then it's posted for everyone.
+      </span>
+    </div>
+  );
+}
+
+function Details({ event, imageActions }: { event: FeedEvent; imageActions?: ImageActions }) {
+  if (event.kind === 'generated_image') return <GeneratedPicture event={event} actions={imageActions} />;
   if (event.kind === 'dungeon_run' && event.data.bosses?.length) {
     return <p className="feed-bosses small-text"><span className="muted">Bosses:</span> {event.data.bosses.join(' · ')}</p>;
   }
@@ -247,7 +313,37 @@ function useCheer(tavernId: string, viewerName: string | undefined) {
   });
 }
 
-export function FeedPost({ event, now, onCheer }: { event: FeedEvent; now?: number; onCheer?: () => void }) {
+/** Posts worth a painting: the ones with characters in them (matches the API's PAINTABLE_KINDS). */
+export const PAINTABLE_KINDS = new Set<FeedEvent['kind']>([
+  'dungeon_run',
+  'dungeon_cleared',
+  'loot',
+  'level_up',
+  'achievement',
+  'character_joined',
+]);
+
+/** Admins only: the post's "Commission painting" button. */
+export interface Commission {
+  onClick: () => void;
+  /** Why it can't be pressed right now, if it can't. */
+  disabledReason?: string;
+}
+
+export function FeedPost({
+  event,
+  now,
+  onCheer,
+  imageActions,
+  commission,
+}: {
+  event: FeedEvent;
+  now?: number;
+  onCheer?: () => void;
+  /** Admins only: retry or remove a generated picture. */
+  imageActions?: ImageActions;
+  commission?: Commission;
+}) {
   const { icon, text, className } = headline(event);
   const showOwner = !!event.character && event.kind !== 'character_joined';
   return (
@@ -263,11 +359,24 @@ export function FeedPost({ event, now, onCheer }: { event: FeedEvent; now?: numb
         <p className="feed-headline">
           <span className="feed-icon" aria-hidden="true">{icon}</span> {text}
         </p>
-        <Details event={event} />
-        {onCheer && event.cheers && (
+        <Details event={event} imageActions={imageActions} />
+        {((onCheer && event.cheers) || commission) && (
           <div className="feed-actions">
-            <CheerButton cheers={event.cheers} onToggle={onCheer} />
-            {event.cheers.count > 0 && <span className="muted small-text cheer-names">{cheersLabel(event.cheers)}</span>}
+            {onCheer && event.cheers && <CheerButton cheers={event.cheers} onToggle={onCheer} />}
+            {commission && (
+              <button
+                type="button"
+                className="ghost small commission"
+                disabled={!!commission.disabledReason}
+                title={commission.disabledReason ?? 'Have an AI paint this post in the World of Warcraft art style'}
+                onClick={commission.onClick}
+              >
+                <span aria-hidden="true">🎨</span> Commission painting
+              </button>
+            )}
+            {onCheer && event.cheers && event.cheers.count > 0 && (
+              <span className="muted small-text cheer-names">{cheersLabel(event.cheers)}</span>
+            )}
           </div>
         )}
       </div>
@@ -287,12 +396,45 @@ export function TavernFeed({
 }) {
   const feed = useTavernFeed(tavernId);
   const cheer = useCheer(tavernId, viewerName);
+  const isAdmin = useIsTavernAdmin(tavernId);
+  const images = useGeneratedImages(tavernId);
+  const imageActions: ImageActions | undefined = isAdmin
+    ? {
+        retry: (id) => images.retry.mutate(id),
+        remove: (id) => {
+          if (window.confirm('Remove this picture from the feed?')) images.remove.mutate(id);
+        },
+        busy: images.retry.isPending || images.remove.isPending,
+      }
+    : undefined;
 
   if (feed.isPending) return <p className="muted">Loading the feed…</p>;
   if (feed.error) return <p className="error">{feed.error.message}</p>;
 
   const all = feed.data.pages.flatMap((p) => p.events);
   const events = include ? all.filter(include) : all;
+
+  // Each post gets one painting (a failed one can be commissioned again), and one is painted at a time.
+  const painted = new Set(
+    all.filter((e) => e.data.image && e.data.image.status !== 'failed').map((e) => e.data.sourceEventId),
+  );
+  const painting = all.some((e) => e.data.image?.status === 'pending' || e.data.image?.status === 'generating');
+  const commissionFor = (e: FeedEvent): Commission | undefined => {
+    if (!isAdmin || !PAINTABLE_KINDS.has(e.kind) || painted.has(e.id)) return undefined;
+    return {
+      onClick: () => {
+        if (window.confirm('Commission an AI painting of this post? Everyone will see it once it’s finished.')) {
+          images.generate.mutate(e.id);
+        }
+      },
+      disabledReason: images.generate.isPending
+        ? 'Starting…'
+        : painting
+          ? 'A picture is already being painted — wait for it to finish'
+          : undefined,
+    };
+  };
+  const imageError = images.generate.error ?? images.retry.error ?? images.remove.error;
   if (!all.length) {
     return (
       <div className="card feed-empty">
@@ -307,6 +449,7 @@ export function TavernFeed({
 
   return (
     <div className="feed">
+      {imageError && <p className="error small-text">{imageError.message}</p>}
       {!events.length && <p className="muted">No posts from characters of this faction yet.</p>}
       <ol className="feed-list">
         {events.map((e) => (
@@ -314,6 +457,8 @@ export function TavernFeed({
             key={e.id}
             event={e}
             onCheer={() => cheer.mutate({ eventId: e.id, on: !e.cheers.cheeredByMe })}
+            imageActions={imageActions}
+            commission={commissionFor(e)}
           />
         ))}
       </ol>

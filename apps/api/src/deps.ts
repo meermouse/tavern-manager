@@ -3,6 +3,7 @@ import { createBlizzardClient, type BlizzardClient } from './blizzard/client.js'
 import { createMockBlizzardClient } from './blizzard/mock.js';
 import { loadConfig, type Config } from './config.js';
 import { createDb } from './db.js';
+import { createMockImageGenerator, createOpenAiImageGenerator, type ImageGenerator } from './images/generator.js';
 import type { AppDeps } from './context.js';
 import { migrate } from './schema.js';
 
@@ -10,6 +11,11 @@ export function createBlizzard(config: Config): BlizzardClient {
   if (config.blizzardMock) return createMockBlizzardClient();
   if (!config.bnet) throw new Error('BNET_CLIENT_ID / BNET_CLIENT_SECRET are required (or set BLIZZARD_MOCK=true)');
   return createBlizzardClient(config.bnet);
+}
+
+export function createImageGenerator(config: Config): ImageGenerator | null {
+  if (config.openai) return createOpenAiImageGenerator(config.openai);
+  return config.imageMock ? createMockImageGenerator() : null;
 }
 
 export async function createDeps(config: Config = loadConfig()): Promise<AppDeps> {
@@ -23,6 +29,7 @@ export async function createDeps(config: Config = loadConfig()): Promise<AppDeps
     config,
     blizzard: createBlizzard(config),
     oauth: config.bnet ? createBattleNetOAuth(config.bnet) : null,
+    images: createImageGenerator(config),
   };
 }
 

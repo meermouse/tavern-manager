@@ -220,6 +220,23 @@ button.cheer.cheered span[aria-hidden] { display: inline-block; animation: cheer
 @keyframes cheer-clink { 40% { transform: rotate(-18deg) scale(1.25); } }
 @media (prefers-reduced-motion: reduce) { button.cheer.cheered span[aria-hidden] { animation: none; } }
 .feed-empty { width: 100%; text-align: center; }
+
+/* Generated pictures (admin "Commission painting"). */
+.feed-picture-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.feed-post.generated-image { border-left: 3px solid var(--accent); }
+.feed-picture { margin: 0.55rem 0 0; }
+.feed-picture img { display: block; width: 100%; height: auto; aspect-ratio: 3 / 2; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-input); }
+.feed-picture figcaption { display: flex; justify-content: flex-end; margin-top: 0.3rem; }
+.feed-picture.failed { padding: 0.5rem 0.7rem; background: var(--bg-input); border-radius: 8px; }
+.feed-picture.failed p { margin: 0 0 0.4rem; }
+.feed-picture.painting {
+  aspect-ratio: 3 / 2; display: grid; place-items: center; padding: 1rem; text-align: center; border-radius: 8px;
+  border: 1px dashed var(--border);
+  background: linear-gradient(110deg, var(--bg-input) 30%, color-mix(in srgb, var(--accent) 14%, var(--bg-input)) 50%, var(--bg-input) 70%);
+  background-size: 250% 100%; animation: painting 2.4s linear infinite;
+}
+@keyframes painting { from { background-position: 100% 0; } to { background-position: -150% 0; } }
+@media (prefers-reduced-motion: reduce) { .feed-picture.painting { animation: none; } }
 .quality { font-weight: 600; }
 .q-poor { color: #9d9d9d; }
 .q-common { color: var(--text); }

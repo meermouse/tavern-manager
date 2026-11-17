@@ -23,6 +23,20 @@ export interface Config {
   blizzardMock: boolean;
   /** How often (minutes) characters are refreshed by the scheduler. */
   refreshIntervalMinutes: number;
+  /** OpenAI image generation for admin "Commission painting" pictures. `null` when no API key is set. */
+  openai: OpenAiImageConfig | null;
+  /** Draw placeholder images instead of calling the image API (local development). */
+  imageMock: boolean;
+}
+
+export interface OpenAiImageConfig {
+  apiKey: string;
+  /** e.g. `gpt-image-1`. */
+  model: string;
+  /** `low`, `medium`, `high` or `auto`. */
+  quality: string;
+  /** `high` keeps the characters' reference renders more faithful (costs more input tokens); empty to leave it out. */
+  inputFidelity: string;
 }
 
 function bool(value: string | undefined, fallback: boolean): boolean {
@@ -57,5 +71,14 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     devLogin: bool(env.DEV_LOGIN, !production && !bnet),
     blizzardMock: bool(env.BLIZZARD_MOCK, !production && !bnet),
     refreshIntervalMinutes: Number(env.REFRESH_INTERVAL_MINUTES ?? 30),
+    openai: env.OPENAI_API_KEY
+      ? {
+          apiKey: env.OPENAI_API_KEY,
+          model: env.OPENAI_IMAGE_MODEL || 'gpt-image-1',
+          quality: env.OPENAI_IMAGE_QUALITY || 'medium',
+          inputFidelity: env.OPENAI_IMAGE_INPUT_FIDELITY ?? 'high',
+        }
+      : null,
+    imageMock: bool(env.IMAGE_MOCK, !production && !env.OPENAI_API_KEY),
   };
 }
