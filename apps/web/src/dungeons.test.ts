@@ -83,4 +83,21 @@ describe('dungeon quests', () => {
   it('only lists quests for dungeons that exist', () => {
     for (const name of Object.keys(DUNGEON_QUESTS)) expect(findDungeon(name), name).toBeDefined();
   });
+
+  it('has an ID and sharing details for every original Classic quest', () => {
+    const classic = Object.entries(DUNGEON_QUESTS).filter(([name]) => findDungeon(name)?.bosses).flatMap(([, quests]) => quests);
+    expect(classic.length).toBeGreaterThan(100);
+    for (const quest of classic) {
+      expect(quest.id, quest.name).toBeTypeOf('number');
+      expect(quest.shareable, quest.name).toBeTypeOf('boolean');
+    }
+  });
+
+  it('gives each chain a first and last quest, one of them possibly this one', () => {
+    for (const quest of Object.values(DUNGEON_QUESTS).flat()) {
+      if (!quest.chain) continue;
+      expect(quest.chain.length, quest.name).toBeGreaterThan(1);
+      expect(quest.chain.first.id, quest.name).not.toBe(quest.chain.last.id);
+    }
+  });
 });
