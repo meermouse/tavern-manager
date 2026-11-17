@@ -352,6 +352,9 @@ export const api = {
     request<{ eventId: string; imageId: string }>('POST', `/api/taverns/${tavernId}/images`, { eventId }),
   retryImage: (tavernId: string, imageId: string) =>
     request<{ ok: true }>('POST', `/api/taverns/${tavernId}/images/${imageId}/retry`),
+  /** Admin only: delete a post from the tavern's feed (a character's post is only hidden from this tavern). */
+  deleteFeedPost: (tavernId: string, eventId: string) =>
+    request<{ ok: true }>('DELETE', `/api/taverns/${tavernId}/feed/${eventId}`),
   deleteImage: (tavernId: string, imageId: string) =>
     request<{ ok: true }>('DELETE', `/api/taverns/${tavernId}/images/${imageId}`),
   characterDetails: (tavernId: string, characterId: string) =>

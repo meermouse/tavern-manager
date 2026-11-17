@@ -1,7 +1,8 @@
 import { useMutation, useQueryClient, type InfiniteData } from '@tanstack/react-query';
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { api, type Cheers, type FeedEvent, type FeedPage } from '../api/client';
-import { keys, useGeneratedImages, useIsTavernAdmin, useTavernFeed } from '../api/hooks';
+import { keys, useDeleteFeedPost, useGeneratedImages, useIsTavernAdmin, useTavernFeed } from '../api/hooks';
+import { ConfirmDialog } from './ConfirmDialog';
 import { CharacterAvatar } from './CharacterAvatar';
 import { CharacterLink } from './CharacterLink';
 import { ItemLink } from './ItemLink';
@@ -336,6 +337,7 @@ export function FeedPost({
   onCheer,
   imageActions,
   commission,
+  onDelete,
 }: {
   event: FeedEvent;
   now?: number;
@@ -343,6 +345,8 @@ export function FeedPost({
   /** Admins only: retry or remove a generated picture. */
   imageActions?: ImageActions;
   commission?: Commission;
+  /** Admins only: ask to delete the post (the caller confirms first). */
+  onDelete?: () => void;
 }) {
   const { icon, text, className } = headline(event);
   const showOwner = !!event.character && event.kind !== 'character_joined';
@@ -360,7 +364,7 @@ export function FeedPost({
           <span className="feed-icon" aria-hidden="true">{icon}</span> {text}
         </p>
         <Details event={event} imageActions={imageActions} />
-        {((onCheer && event.cheers) || commission) && (
+        {((onCheer && event.cheers) || commission || onDelete) && (
           <div className="feed-actions">
             {onCheer && event.cheers && <CheerButton cheers={event.cheers} onToggle={onCheer} />}
             {commission && (
@@ -376,6 +380,11 @@ export function FeedPost({
             )}
             {onCheer && event.cheers && event.cheers.count > 0 && (
               <span className="muted small-text cheer-names">{cheersLabel(event.cheers)}</span>
+            )}
+            {onDelete && (
+              <button type="button" className="ghost small danger feed-delete" title="Delete this post" onClick={onDelete}>
+                Delete
+              </button>
             )}
           </div>
         )}
@@ -398,6 +407,8 @@ export function TavernFeed({
   const cheer = useCheer(tavernId, viewerName);
   const isAdmin = useIsTavernAdmin(tavernId);
   const images = useGeneratedImages(tavernId);
+  const deletePost = useDeleteFeedPost(tavernId);
+  const [deleting, setDeleting] = useState<FeedEvent | null>(null);
   const imageActions: ImageActions | undefined = isAdmin
     ? {
         retry: (id) => images.retry.mutate(id),
@@ -459,9 +470,37 @@ export function TavernFeed({
             onCheer={() => cheer.mutate({ eventId: e.id, on: !e.cheers.cheeredByMe })}
             imageActions={imageActions}
             commission={commissionFor(e)}
+            onDelete={
+              isAdmin
+                ? () => {
+                    deletePost.reset();
+                    setDeleting(e);
+                  }
+                : undefined
+            }
           />
         ))}
       </ol>
+      {deleting && (
+        <ConfirmDialog
+          title="Delete this post?"
+          confirmLabel="Delete post"
+          danger
+          busy={deletePost.isPending}
+          error={deletePost.error?.message}
+          onCancel={() => setDeleting(null)}
+          onConfirm={() => deletePost.mutate(deleting.id, { onSuccess: () => setDeleting(null) })}
+        >
+          <p>
+            <span aria-hidden="true">{headline(deleting).icon}</span> {headline(deleting).text}
+          </p>
+          <p className="small-text">
+            {deleting.character && deleting.kind !== 'character_joined' && deleting.kind !== 'generated_image'
+              ? 'It will be removed from this tavern’s feed for everyone. Other taverns this character is in will still see it. This can’t be undone.'
+              : 'It will be removed for everyone, along with its cheers. This can’t be undone.'}
+          </p>
+        </ConfirmDialog>
+      )}
       {feed.hasNextPage && (
         <button className="ghost small" onClick={() => feed.fetchNextPage()} disabled={feed.isFetchingNextPage}>
           {feed.isFetchingNextPage ? 'Loading…' : 'Load older posts'}
