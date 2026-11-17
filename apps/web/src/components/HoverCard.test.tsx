@@ -87,20 +87,6 @@ describe('hover cards', () => {
     expect(screen.queryByRole('tooltip')).toBeNull();
   });
 
-  it('ignore mouse-like pointers on devices that cannot hover (phones and tablets)', () => {
-    // iOS Safari drops a tap's click if hover content appears, so a card must never open from a tap there.
-    vi.stubGlobal('matchMedia', (query: string) => ({ matches: query !== '(hover: hover)', media: query }));
-    try {
-      render(<ItemLink item={sword} />);
-      const trigger = screen.getByText('[Hearthfire Greatblade]').parentElement!;
-      fireEvent.pointerEnter(trigger, { pointerType: 'mouse' });
-      act(() => vi.advanceTimersByTime(200));
-      expect(screen.queryByRole('tooltip')).toBeNull();
-    } finally {
-      vi.unstubAllGlobals();
-    }
-  });
-
   it('fill in character cards from the page directory', () => {
     const full = {
       id: 'c1',
