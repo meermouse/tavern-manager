@@ -133,10 +133,11 @@ export function tavernRoutes({ db, blizzard }: AppDeps) {
     const before = c.req.query('before');
     if (before !== undefined && !/^\d{1,18}$/.test(before)) badRequest('Invalid cursor');
     const limit = Math.min(50, Math.max(1, Number(c.req.query('limit')) || 30));
-    // Optional filters: ?kinds=a,b  ?characters=id,id  ?mine=1  ?q=text
+    // Optional filters: ?kinds=a,b  ?hide=a,b  ?characters=id,id  ?mine=1  ?q=text
     const list = (name: string) => c.req.query(name)?.split(',').filter(Boolean) ?? [];
     const kinds = list('kinds');
-    if (kinds.some((k) => !FEED_KINDS.includes(k as FeedKind))) badRequest('Unknown post type');
+    const hide = list('hide');
+    if ([...kinds, ...hide].some((k) => !FEED_KINDS.includes(k as FeedKind))) badRequest('Unknown post type');
     const characterIds = list('characters');
     if (characterIds.length > 100) badRequest('Too many characters');
     const search = c.req.query('q')?.trim().slice(0, 100) || undefined;
@@ -146,6 +147,7 @@ export function tavernRoutes({ db, blizzard }: AppDeps) {
         limit,
         unfinishedImages: tavern.is_admin,
         kinds: kinds.length ? (kinds as FeedKind[]) : undefined,
+        excludeKinds: hide.length ? (hide as FeedKind[]) : undefined,
         characterIds: characterIds.length ? characterIds : undefined,
         ownedBy: c.req.query('mine') === '1' ? user.id : undefined,
         search,

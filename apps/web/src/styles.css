@@ -244,7 +244,9 @@ textarea.commission-prompt { display: block; box-sizing: border-box; width: 100%
 .feed-filter-types button.active,
 .feed-filter-characters summary.active,
 .feed-filter-mine.active { color: var(--text); border-color: var(--accent); background: rgba(224, 164, 60, 0.16); }
-.feed-filter-types button:not(.active) { color: var(--muted); }
+.feed-filter-types button:not(.active):not(.hidden) { color: var(--muted); }
+.feed-filter-types button.hidden { color: var(--danger); border-color: var(--danger); background: rgba(226, 104, 90, 0.12); }
+.feed-filter-types button.hidden .feed-filter-label { text-decoration: line-through; }
 .feed-filter-clear { margin-left: auto; color: var(--muted); }
 .feed-filter-mine {
   display: inline-flex; align-items: center; gap: 0.4rem; cursor: pointer; white-space: nowrap;

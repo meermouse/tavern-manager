@@ -530,7 +530,7 @@ export function TavernFeed({
   };
   // The commission dialog shows its own errors while it's open.
   const imageError = (commissioning ? null : images.generate.error) ?? images.retry.error ?? images.remove.error;
-  const filtered = !!(filters.kinds || filters.characterIds || filters.mine || filters.search);
+  const filtered = !!(filters.kinds || filters.excludeKinds || filters.characterIds || filters.mine || filters.search);
   if (!all.length && !filtered) {
     return (
       <div className="card feed-empty">
