@@ -1,11 +1,11 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import { Link, Navigate, useNavigate, useParams } from 'react-router';
 import { api, type FeedEvent, type TavernCharacter, type TavernDetail } from '../api/client';
 import { keys, useCharacters, useLeaderboard, useMe, useTavern } from '../api/hooks';
 import { AddCharacterForm } from '../components/AddCharacterForm';
 import { CharacterAvatar } from '../components/CharacterAvatar';
-import { CharacterDirectory, CharacterLink } from '../components/CharacterLink';
+import { CharacterDirectory, CharacterLink, CharacterSelect } from '../components/CharacterLink';
 import { CharacterTable } from '../components/CharacterTable';
 import { DUNGEON_VIEWS, TavernDungeons, type DungeonView } from '../components/DungeonRuns';
 import { LeaderboardTable } from '../components/LeaderboardTable';
@@ -185,6 +185,25 @@ function CharacterRoster({ tavern, characters }: { tavern: TavernDetail; charact
   );
 }
 
+/**
+ * A tab whose character names (hover cards) open the same details pane as the roster's, shown at the top of the tab.
+ */
+function WithCharacterDetails({ tavernId, characters, children }: { tavernId: string; characters: TavernCharacter[]; children: ReactNode }) {
+  const { details, onSelect } = useCharacterSelection(tavernId, characters);
+  const select = useCallback(
+    (c: { id: string }) => onSelect(characters.find((x) => x.id === c.id) ?? null),
+    [characters, onSelect],
+  );
+  return (
+    <CharacterSelect.Provider value={select}>
+      <div className="stack">
+        {details}
+        {children}
+      </div>
+    </CharacterSelect.Provider>
+  );
+}
+
 /** The tavern's leaderboard, limited to the characters the faction filter shows, with a details pane like the roster's. */
 function TavernLeaderboard({ tavernId, visible }: { tavernId: string; visible: TavernCharacter[] }) {
   const board = useLeaderboard(tavernId);
@@ -319,18 +338,22 @@ export function TavernDetailPage() {
           {view !== 'titles' && <FactionPicker value={faction} onChange={setFaction} />}
         </div>
         {view === 'feed' && (
-          <TavernFeed tavernId={t.id} viewerName={me.data?.displayName} include={faction === 'both' ? undefined : includePost} />
+          <WithCharacterDetails tavernId={t.id} characters={t.characters}>
+            <TavernFeed tavernId={t.id} viewerName={me.data?.displayName} include={faction === 'both' ? undefined : includePost} />
+          </WithCharacterDetails>
         )}
         {view === 'characters' && <CharacterRoster tavern={t} characters={visible} />}
         {view === 'dungeons' && (
-          <TavernDungeons
-            tavernId={t.id}
-            characters={t.characters}
-            visible={visible}
-            questFaction={faction === 'horde' ? 'Horde' : faction === 'alliance' ? 'Alliance' : null}
-            view={dungeonView}
-            onViewChange={setDungeonView}
-          />
+          <WithCharacterDetails tavernId={t.id} characters={t.characters}>
+            <TavernDungeons
+              tavernId={t.id}
+              characters={t.characters}
+              visible={visible}
+              questFaction={faction === 'horde' ? 'Horde' : faction === 'alliance' ? 'Alliance' : null}
+              view={dungeonView}
+              onViewChange={setDungeonView}
+            />
+          </WithCharacterDetails>
         )}
         {view === 'leaderboard' && <TavernLeaderboard tavernId={t.id} visible={visible} />}
         {view === 'titles' && <TitlesView titles={t.titles ?? []} selectedKey={titleKey} onSelect={setTitleKey} />}

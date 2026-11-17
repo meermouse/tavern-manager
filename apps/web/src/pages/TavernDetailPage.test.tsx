@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { TavernDetail } from '../api/client';
+import type { TavernCharacter, TavernDetail } from '../api/client';
 import { keys } from '../api/hooks';
 import { TavernDetailPage } from './TavernDetailPage';
 
@@ -24,9 +24,25 @@ function Where() {
   return null;
 }
 
-function renderAt(url: string) {
+const judy: TavernCharacter = {
+  id: 'c1',
+  region: 'eu',
+  name: 'Judgement',
+  surname: 'Judy',
+  ruleset: 'PvP',
+  class: 'Paladin',
+  race: 'Human',
+  level: 42,
+  status: 'ok',
+  syncError: null,
+  lastSyncedAt: '2026-11-12T09:00:00Z',
+  ownerId: 'u1',
+  ownerName: 'Alice',
+};
+
+function renderAt(url: string, t: TavernDetail = tavern) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  qc.setQueryData(keys.tavern('t1'), tavern);
+  qc.setQueryData(keys.tavern('t1'), t);
   qc.setQueryData(keys.me, null);
   qc.setQueryData(keys.characters, []);
   qc.setQueryData(keys.feed('t1'), { pages: [{ events: [], nextCursor: null }], pageParams: [null] });
@@ -79,5 +95,15 @@ describe('TavernDetailPage routing', () => {
     renderAt('/taverns/t1/nonsense');
     expect(location).toBe('/taverns/t1');
     expect(pressed('Feed')).toBe('true');
+  });
+});
+
+describe('TavernDetailPage character details', () => {
+  it('opens the details pane when a character name in the dungeon finder is clicked', () => {
+    renderAt('/taverns/t1/dungeons', { ...tavern, characters: [judy] });
+    expect(screen.queryByRole('region', { name: /Judgement/ })).toBeNull();
+    fireEvent.click(screen.getAllByRole('button', { name: /Judgement Judy/ })[0]);
+    expect(location).toBe('/taverns/t1/dungeons?character=c1');
+    expect(screen.getByRole('button', { name: 'Close character details' })).toBeTruthy();
   });
 });

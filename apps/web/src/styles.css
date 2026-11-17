@@ -406,6 +406,7 @@ tr.selected, tr.selected:hover { background: rgba(224, 164, 60, 0.14); box-shado
 .item-link { cursor: help; }
 .item-link:hover .quality { text-decoration: underline; text-underline-offset: 3px; }
 .character-link { cursor: default; }
+.character-link.clickable { cursor: pointer; }
 .character-link:hover strong { text-decoration: underline; text-decoration-color: currentColor; text-underline-offset: 3px; }
 .hover-card {
   position: fixed; z-index: 1000; pointer-events: auto; max-width: min(340px, calc(100vw - 16px));

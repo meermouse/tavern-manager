@@ -18,6 +18,12 @@ export type CharacterLike = Pick<TavernCharacter, 'id' | 'name'> & Partial<Omit<
  */
 export const CharacterDirectory = createContext<ReadonlyMap<string, CharacterLike>>(new Map());
 
+/**
+ * Opens a character's details pane, for pages that show one. Inside it, clicking any CharacterLink (that doesn't
+ * bring its own `onDetails`, e.g. a selectable table row's) opens that character's details.
+ */
+export const CharacterSelect = createContext<((character: CharacterLike) => void) | null>(null);
+
 export function CharacterCard({ character: c, onDetails }: { character: CharacterLike; onDetails?: () => void }) {
   const key = classKey(c.class ?? null);
   const image = c.insetUrl ?? null;
@@ -112,10 +118,16 @@ export function CharacterLink({
   onDetails?: () => void;
 }) {
   const directory = useContext(CharacterDirectory);
+  const select = useContext(CharacterSelect);
+  // Selectable table rows pass their own onDetails and handle clicks on the row; elsewhere a click on the name opens
+  // the page's details pane, if it has one.
+  const activate = !onDetails && select ? () => select(character) : undefined;
+  onDetails ??= activate;
   return (
     <HoverCard
-      className="character-link"
+      className={`character-link${activate ? ' clickable' : ''}`}
       focusable={focusable}
+      onActivate={activate}
       content={(close) => (
         <CharacterCard
           character={{ ...character, ...directory.get(character.id) }}

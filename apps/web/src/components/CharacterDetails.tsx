@@ -190,7 +190,10 @@ export function CharacterDetails({
   const isAdmin = useIsTavernAdmin(tavernId);
 
   useEffect(() => {
-    ref.current?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
+    // Bring the pane's top into view: it sits above whatever was clicked, which may be far down the page.
+    const top = ref.current?.getBoundingClientRect().top;
+    const block = top !== undefined && (top < 0 || top > window.innerHeight / 2) ? 'start' : 'nearest';
+    ref.current?.scrollIntoView?.({ block, behavior: 'smooth' });
   }, [character.id]);
 
   useEffect(() => {
