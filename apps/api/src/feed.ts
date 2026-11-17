@@ -1,5 +1,6 @@
 import type { BlizzardClient, CompletedAchievement, EquippedItem } from './blizzard/client.js';
 import type { Db } from './db.js';
+import { IMAGE_ERROR_SQL, IMAGE_STATUS_SQL } from './images/jobs.js';
 import type { CharacterRow } from './sync.js';
 
 /** Kinds of feed post. See docs/activity-feed.md. */
@@ -11,7 +12,8 @@ export type FeedKind =
   | 'dungeon_run'
   | 'character_joined'
   | 'member_joined'
-  | 'tavern_founded';
+  | 'tavern_founded'
+  | 'generated_image';
 
 /**
  * Bump when `parseEquipment` starts keeping more detail, so gear saved by an older version is re-fetched once
@@ -165,6 +167,18 @@ interface FeedRow {
   owner_name: string | null;
   cheer_names: string[] | string;
   cheered: boolean;
+  image_id: string | null;
+  image_status: string | null;
+  image_error: string | null;
+  image_attempts: number | null;
+}
+
+export interface FeedOptions {
+  before?: string | null;
+  limit: number;
+  characterId?: string;
+  /** Leave out posts of these kinds. */
+  excludeKinds?: FeedKind[];
 }
 
 /** Which events a tavern can see: its own posts, plus posts about characters currently in it. */
@@ -185,7 +199,7 @@ export function tavernFeed(
   db: Db,
   tavernId: string,
   viewerId: string,
-  opts: { before?: string | null; limit: number; characterId?: string },
+  opts: FeedOptions,
 ) {
   return feedEvents(db, { param: tavernId, visible: VISIBLE_IN_TAVERN, cheerTaverns: 'select $1::uuid' }, viewerId, opts);
 }
@@ -199,7 +213,7 @@ const VISIBLE_TO_USER = `(
 export function userFeed(
   db: Db,
   viewerId: string,
-  opts: { before?: string | null; limit: number; characterId?: string },
+  opts: FeedOptions,
 ) {
   return feedEvents(
     db,
@@ -217,7 +231,7 @@ async function feedEvents(
   db: Db,
   scope: { param: string; visible: string; cheerTaverns: string },
   viewerId: string,
-  opts: { before?: string | null; limit: number; characterId?: string },
+  opts: FeedOptions,
 ) {
   const params: unknown[] = [scope.param, opts.limit + 1, viewerId];
   let cursor = '';
@@ -229,6 +243,10 @@ async function feedEvents(
     params.push(opts.characterId);
     cursor += ` and e.character_id = $${params.length}`;
   }
+  if (opts.excludeKinds?.length) {
+    params.push(opts.excludeKinds);
+    cursor += ` and not (e.kind = any($${params.length}::text[]))`;
+  }
   const rows = await db.query<FeedRow>(
     `select e.id::text as id, e.kind, e.tavern_id, e.character_id, e.data, e.created_at,
        c.name, c.surname, c.class, c.race, c.level, c.avatar_url,
@@ -237,9 +255,12 @@ async function feedEvents(
        (select coalesce(json_agg(ru.display_name order by r.created_at), '[]'::json)
           from feed_reactions r join users ru on ru.id = r.user_id
           where r.event_id = e.id and r.tavern_id in (${scope.cheerTaverns})) as cheer_names,
-       exists(select 1 from feed_reactions r where r.event_id = e.id and r.tavern_id in (${scope.cheerTaverns}) and r.user_id = $3) as cheered
+       exists(select 1 from feed_reactions r where r.event_id = e.id and r.tavern_id in (${scope.cheerTaverns}) and r.user_id = $3) as cheered,
+       gi.id as image_id, ${IMAGE_STATUS_SQL} as image_status, ${IMAGE_ERROR_SQL} as image_error,
+       gi.attempts as image_attempts
      from feed_events e
      left join characters c on c.id = e.character_id
+     left join generated_images gi on gi.event_id = e.id
      left join users u on u.id = coalesce(e.user_id, c.user_id)
      where ${scope.visible} ${cursor}
      order by e.id desc
@@ -264,10 +285,25 @@ async function feedEvents(
           }
         : null,
       user: r.owner_id ? { id: r.owner_id, displayName: r.owner_name } : null,
-      data: withItemDetails(typeof r.data === 'string' ? JSON.parse(r.data) : r.data, r.equipment),
+      data: withImage(r, withItemDetails(typeof r.data === 'string' ? JSON.parse(r.data) : r.data, r.equipment)),
       cheers: cheersOf(r),
     })),
     nextCursor: rows.length > opts.limit ? page[page.length - 1].id : null,
+  };
+}
+
+/** Generated pictures: where to load it from and how painting is going. */
+function withImage(r: FeedRow, data: Record<string, unknown>): Record<string, unknown> {
+  if (r.kind !== 'generated_image' || !r.image_id || !r.tavern_id) return data;
+  return {
+    ...data,
+    image: {
+      id: r.image_id,
+      status: r.image_status,
+      error: r.image_status === 'failed' ? r.image_error ?? 'Something went wrong' : null,
+      // The attempt number makes a retried picture a new URL, so caches don't keep the old one.
+      url: r.image_status === 'ready' ? `/api/taverns/${r.tavern_id}/images/${r.image_id}?v=${r.image_attempts ?? 1}` : null,
+    },
   };
 }
 

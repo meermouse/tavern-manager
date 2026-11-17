@@ -4,6 +4,7 @@
 #   /api/*       → netlify/functions/api.ts  (path set in the function's config)
 #   /auth/*      → netlify/functions/api.ts
 #   (scheduled)  → netlify/functions/refresh.ts every 30 minutes
+#   (background) → netlify/functions/generate-image-background.ts paints admin "Generate image" posts
 
 [build]
   command = "npm run build -w apps/web"

@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient, type InfiniteData } from '@tanstack/react-query';
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { api, type Cheers, type FeedEvent, type FeedPage } from '../api/client';
-import { keys, useTavernFeed } from '../api/hooks';
+import { keys, useGeneratedImages, useIsTavernAdmin, useTavernFeed } from '../api/hooks';
 import { CharacterAvatar } from './CharacterAvatar';
 import { CharacterLink } from './CharacterLink';
 import { ItemLink } from './ItemLink';
@@ -140,6 +140,16 @@ function headline(event: FeedEvent): { icon: string; text: ReactNode; className?
       return { icon: '👋', text: <>{user} joined the tavern</> };
     case 'tavern_founded':
       return { icon: '🏠', text: <>{user} founded <strong>{d.tavernName ?? 'the tavern'}</strong></> };
+    case 'generated_image':
+      return {
+        icon: '🎨',
+        className: 'generated-image',
+        text: (
+          <>
+            {user} commissioned a painting{d.caption ? <>: <strong>{d.caption}</strong></> : null}
+          </>
+        ),
+      };
     default:
       return { icon: '•', text: <>Something happened</> };
   }
@@ -162,7 +172,66 @@ function PartyNames({ characters }: { characters: NonNullable<FeedEvent['data'][
   );
 }
 
-function Details({ event }: { event: FeedEvent }) {
+/** Admin controls for a generated picture that failed. */
+export interface ImageActions {
+  retry: (imageId: string) => void;
+  remove: (imageId: string) => void;
+  busy?: boolean;
+}
+
+function GeneratedPicture({ event, actions }: { event: FeedEvent; actions?: ImageActions }) {
+  const image = event.data.image;
+  if (!image) return null;
+  const from = event.data.postCount
+    ? `Painted from the latest ${event.data.postCount === 1 ? 'post' : `${event.data.postCount} posts`}`
+    : null;
+  if (image.status === 'ready' && image.url) {
+    return (
+      <figure className="feed-picture">
+        <a href={image.url} target="_blank" rel="noreferrer" title="Open full size">
+          <img src={image.url} alt={event.data.caption ?? 'A painting of the tavern’s adventures'} loading="lazy" />
+        </a>
+        {(from || actions) && (
+          <figcaption className="small-text muted">
+            {from}
+            {actions && (
+              <button type="button" className="link small-text" disabled={actions.busy} onClick={() => actions.remove(image.id)}>
+                Remove
+              </button>
+            )}
+          </figcaption>
+        )}
+      </figure>
+    );
+  }
+  if (image.status === 'failed') {
+    return (
+      <div className="feed-picture failed">
+        <p className="small-text">
+          The painting didn’t work out{image.error ? <span className="muted">: {image.error}</span> : null}
+        </p>
+        {actions && (
+          <div className="feed-picture-actions">
+            <button type="button" className="ghost small" disabled={actions.busy} onClick={() => actions.retry(image.id)}>
+              Try again
+            </button>
+            <button type="button" className="ghost small" disabled={actions.busy} onClick={() => actions.remove(image.id)}>
+              Remove
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  }
+  return (
+    <div className="feed-picture painting" role="status">
+      <span className="small-text muted">The tavern artist is painting… this usually takes a minute or two.</span>
+    </div>
+  );
+}
+
+function Details({ event, imageActions }: { event: FeedEvent; imageActions?: ImageActions }) {
+  if (event.kind === 'generated_image') return <GeneratedPicture event={event} actions={imageActions} />;
   if (event.kind === 'dungeon_run' && event.data.bosses?.length) {
     return <p className="feed-bosses small-text"><span className="muted">Bosses:</span> {event.data.bosses.join(' · ')}</p>;
   }
@@ -247,7 +316,18 @@ function useCheer(tavernId: string, viewerName: string | undefined) {
   });
 }
 
-export function FeedPost({ event, now, onCheer }: { event: FeedEvent; now?: number; onCheer?: () => void }) {
+export function FeedPost({
+  event,
+  now,
+  onCheer,
+  imageActions,
+}: {
+  event: FeedEvent;
+  now?: number;
+  onCheer?: () => void;
+  /** Admins only: retry or remove a generated picture. */
+  imageActions?: ImageActions;
+}) {
   const { icon, text, className } = headline(event);
   const showOwner = !!event.character && event.kind !== 'character_joined';
   return (
@@ -263,7 +343,7 @@ export function FeedPost({ event, now, onCheer }: { event: FeedEvent; now?: numb
         <p className="feed-headline">
           <span className="feed-icon" aria-hidden="true">{icon}</span> {text}
         </p>
-        <Details event={event} />
+        <Details event={event} imageActions={imageActions} />
         {onCheer && event.cheers && (
           <div className="feed-actions">
             <CheerButton cheers={event.cheers} onToggle={onCheer} />
@@ -272,6 +352,76 @@ export function FeedPost({ event, now, onCheer }: { event: FeedEvent; now?: numb
         )}
       </div>
     </li>
+  );
+}
+
+const POST_COUNTS = [1, 2, 3, 5, 8, 10, 15, 20];
+
+/**
+ * Admin only: paint an AI picture of the latest posts, e.g. the party in the dungeon they just ran. Shows which
+ * posts it will use before you commit.
+ */
+function GenerateImage({ tavernId, posts }: { tavernId: string; posts: FeedEvent[] }) {
+  const [open, setOpen] = useState(false);
+  const [count, setCount] = useState(5);
+  const { generate } = useGeneratedImages(tavernId);
+  const painting = posts.some((e) => e.data.image?.status === 'pending' || e.data.image?.status === 'generating');
+  const sources = posts.filter((e) => e.kind !== 'generated_image');
+  const picked = sources.slice(0, count);
+
+  if (!open) {
+    return (
+      <div className="generate-image-bar">
+        <button type="button" className="ghost small" onClick={() => setOpen(true)} disabled={!sources.length}>
+          <span aria-hidden="true">🎨</span> Generate image
+        </button>
+      </div>
+    );
+  }
+  return (
+    <form
+      className="card generate-image"
+      onSubmit={(e) => {
+        e.preventDefault();
+        generate.mutate(count, { onSuccess: () => setOpen(false) });
+      }}
+    >
+      <div className="generate-image-head">
+        <label>
+          Paint the latest{' '}
+          <select value={count} onChange={(e) => setCount(Number(e.target.value))}>
+            {POST_COUNTS.map((n) => (
+              <option key={n} value={n}>{n}</option>
+            ))}
+          </select>{' '}
+          {count === 1 ? 'post' : 'posts'}
+        </label>
+        <span className="muted small-text">in the World of Warcraft art style, with the characters’ portraits</span>
+      </div>
+      {picked.length > 0 && (
+        <ol className="generate-image-sources small-text">
+          {picked.map((e) => {
+            const { icon, text } = headline(e);
+            return (
+              <li key={e.id}>
+                <span aria-hidden="true">{icon}</span> {text}
+              </li>
+            );
+          })}
+          {sources.length < count && <li className="muted">…and older posts</li>}
+        </ol>
+      )}
+      {generate.error && <p className="error small-text">{generate.error.message}</p>}
+      {painting && <p className="muted small-text">A picture is already being painted. Wait for it to finish first.</p>}
+      <div className="generate-image-actions">
+        <button type="submit" className="small" disabled={generate.isPending || painting}>
+          {generate.isPending ? 'Starting…' : 'Generate'}
+        </button>
+        <button type="button" className="ghost small" onClick={() => setOpen(false)}>
+          Cancel
+        </button>
+      </div>
+    </form>
   );
 }
 
@@ -287,6 +437,17 @@ export function TavernFeed({
 }) {
   const feed = useTavernFeed(tavernId);
   const cheer = useCheer(tavernId, viewerName);
+  const isAdmin = useIsTavernAdmin(tavernId);
+  const images = useGeneratedImages(tavernId);
+  const imageActions: ImageActions | undefined = isAdmin
+    ? {
+        retry: (id) => images.retry.mutate(id),
+        remove: (id) => {
+          if (window.confirm('Remove this picture from the feed?')) images.remove.mutate(id);
+        },
+        busy: images.retry.isPending || images.remove.isPending,
+      }
+    : undefined;
 
   if (feed.isPending) return <p className="muted">Loading the feed…</p>;
   if (feed.error) return <p className="error">{feed.error.message}</p>;
@@ -307,6 +468,10 @@ export function TavernFeed({
 
   return (
     <div className="feed">
+      {isAdmin && <GenerateImage tavernId={tavernId} posts={all} />}
+      {(images.retry.error || images.remove.error) && (
+        <p className="error small-text">{(images.retry.error ?? images.remove.error)!.message}</p>
+      )}
       {!events.length && <p className="muted">No posts from characters of this faction yet.</p>}
       <ol className="feed-list">
         {events.map((e) => (
@@ -314,6 +479,7 @@ export function TavernFeed({
             key={e.id}
             event={e}
             onCheer={() => cheer.mutate({ eventId: e.id, on: !e.cheers.cheeredByMe })}
+            imageActions={imageActions}
           />
         ))}
       </ol>

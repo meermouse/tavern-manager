@@ -26,6 +26,7 @@ Players sign in with their Battle.net account, add their characters, and join a 
 - **Dungeon runs.** A tavern's **Dungeons** tab has three views: **Finder** (who's in range, with **+ Log run** on every dungeon), **Runs** and **Bosses**. Any member can log a run for the whole group: the dungeon, the date, which of the tavern's characters were there, the bosses killed, whether they cleared it, and optional notes. A clear ticks the dungeon off in every party member's dungeon log, keeping the date if it was already ticked. Each run gets one feed post naming the whole party ("🗝️ Judy, Grim and Thorn cleared Ragefire Chasm", or "⚔️ … ran Uldaman (3 bosses down)" for a partial run). **Runs** lists every logged run, newest first. Tavern admins can edit a run (dungeon, date, party, bosses, outcome, notes), which updates its feed post too; making it a clear ticks the dungeon off for the party, but an edit never unticks anything. Whoever logged a run, or a tavern admin, can delete it, which also removes its post but leaves dungeon log ticks alone. **Bosses** shows, for each dungeon the tavern has run, how many runs and clears there have been and every boss with its kill count; bosses not yet killed are dimmed. The original dungeons come with their boss lists (`apps/web/src/dungeons.ts`). The new Forever dungeons don't have lists yet, so the group types boss names in as they log runs, and the run form offers names the tavern has logged before. Stored in `dungeon_runs` and `dungeon_run_characters`; see `apps/api/src/routes/runs.ts`.
 - **Map of Azeroth.** The home page embeds the interactive [Forever Map](https://wowforevermap.com/) by wowforevermap.com, a separate fan site, credited with a link to the full map. A "Simple map" tab switches to our own stylised map (classic continents plus Zephras Isle, Riverglades, Shen'dralas and Mount Hyjal, with capitals, towns and dungeon entrances), which also serves as a fallback if the embed doesn't load. The choice is remembered per browser.
 - **Activity feed.** Each Tavern's home tab is a social-style feed of level-ups (with milestone and max-level highlights), newly equipped rare/epic/legendary gear, achievements, and new members and characters. Friends can raise a 🍺 **Cheers** on any post. The first sync of each character records a silent baseline, so adding a character doesn't flood the feed. See [docs/activity-feed.md](docs/activity-feed.md).
+- **Generated images.** Tavern admins can press **🎨 Generate image** on the Feed tab to have the latest posts (1–20) painted as one picture in the World of Warcraft art style, posted to the feed for everyone. The characters' Blizzard renders go along as reference images, with their race, class, gear and the dungeon they ran, so a run becomes an action shot of that party in that dungeon. Uses the OpenAI Images API (`OPENAI_API_KEY`); painting takes a minute or two and runs in the background. See [docs/generated-images.md](docs/generated-images.md).
 - **Character portraits.** Each character's Blizzard render headshot (from the character-media endpoint) is shown as a class-coloured icon wherever the character appears: the character table, feed posts, the dungeon finder, My characters and the tavern sidebar. Characters without an image yet (e.g. pending) show their initial instead.
 - **Hover cards.** Hover over (or tab to) any character, anywhere in the app, to see a quick profile card: portrait, level, race and class, title, guild, faction, ruleset, player, item level and achievement points. Hover over any item (feed loot posts, the details pane's gear) for a WoW-style tooltip: item level, binding, slot and type, armour or weapon damage, stats, enchants, durability, required level, equip effects, set and flavour text, as far as the Blizzard API provides them. Touch screens skip these, since there's no hover.
 - **Character details.** Click a row in a tavern's character table to open a details pane above it: the full-body render, title, guild, faction, ruleset, total item level (every equipped item added up, shirts and tabards excluded), achievement points, last seen in game, everything they have equipped (quality-coloured, in paper-doll order), and their latest feed posts. Click the portrait to open it full-screen at Blizzard's largest render size, then scroll, double-click or use +/− to zoom and drag to pan. Click the row again, press Esc or ✕ to close.
@@ -195,6 +196,8 @@ SESSION_SECRET=a_long_random_string
 | `DEV_LOGIN` | on when no Battle.net creds | Never enabled in production |
 | `BLIZZARD_MOCK` | on when no Battle.net creds | Fake character data |
 | `REFRESH_INTERVAL_MINUTES` | `30` | How stale a character must be before the scheduler refreshes it |
+| `OPENAI_API_KEY` | — | Turns on admin **Generate image** (see [docs/generated-images.md](docs/generated-images.md) for the other `OPENAI_IMAGE_*` settings) |
+| `IMAGE_MOCK` | on when no OpenAI key | Placeholder pictures instead of calling the image API; never in production |
 
 In the web app, `VITE_API_URL` (see `apps/web/.env.example`) only sets where the Vite dev server proxies `/api` and `/auth`. The browser always talks to the same origin, so cookies stay first-party.
 
@@ -220,6 +223,7 @@ The repo is ready to deploy to Netlify as-is (`netlify.toml`):
 | React app | Static site from `apps/web/dist`, with an SPA fallback |
 | API (`/api/*`, `/auth/*`) | One Netlify Function (`netlify/functions/api.ts`) running the same Hono app via `hono/netlify` |
 | Scheduled refresh | Scheduled Function (`netlify/functions/refresh.ts`), every 30 minutes |
+| Generated images | Background Function (`netlify/functions/generate-image-background.ts`), up to 15 minutes per picture |
 | Database | Postgres: [Netlify DB](https://docs.netlify.com/build/data-and-storage/netlify-db/) (Neon) sets `NETLIFY_DATABASE_URL` automatically, or any Postgres via `DATABASE_URL` |
 
 Because the API is served from the same origin as the site, there's no CORS to configure, and the session cookie is first-party.
@@ -230,7 +234,8 @@ Because the API is served from the same origin as the site, there's no CORS to c
 2. Add a database: either enable Netlify DB, or set `DATABASE_URL` to a Postgres (e.g. Neon or Supabase) connection string. Tables are created automatically on first request.
 3. In your Blizzard API client, add the redirect URI `https://<your-site>.netlify.app/auth/callback`.
 4. Set environment variables (Site configuration → Environment variables), scoped to **Functions**:
-   `BNET_CLIENT_ID`, `BNET_CLIENT_SECRET`, `BNET_REDIRECT_URI`, `BNET_REGION`, `SESSION_SECRET` (16+ random characters).
+   `BNET_CLIENT_ID`, `BNET_CLIENT_SECRET`, `BNET_REDIRECT_URI`, `BNET_REGION`, `SESSION_SECRET` (16+ random characters),
+   and optionally `OPENAI_API_KEY` for generated images.
 5. Deploy.
 
 Deployed functions always run in production mode: Secure cookies, no dev login, no mock data. `netlify dev` keeps the local defaults.

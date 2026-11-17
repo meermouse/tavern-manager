@@ -4,6 +4,7 @@ import type { OAuthProvider } from './auth/oauth.js';
 import type { BlizzardClient } from './blizzard/client.js';
 import type { Config } from './config.js';
 import type { Db } from './db.js';
+import type { ImageGenerator } from './images/generator.js';
 
 export interface UserRow {
   id: string;
@@ -24,6 +25,13 @@ export interface AppDeps {
   config: Config;
   blizzard: BlizzardClient;
   oauth: OAuthProvider | null;
+  /** Paints admin "Generate image" posts; `null`/absent turns the feature off. */
+  images?: ImageGenerator | null;
+  /**
+   * Starts painting a saved picture (`origin` is the site's URL). Absent: painted in-process, in the background.
+   * Netlify hands it to a background function instead, since a picture takes longer than a normal function may run.
+   */
+  dispatchImageJob?: (imageId: string, origin: string) => Promise<void>;
 }
 
 export type AppEnv = {
