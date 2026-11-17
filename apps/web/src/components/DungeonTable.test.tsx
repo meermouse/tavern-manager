@@ -96,6 +96,21 @@ describe('Dungeon quest markers', () => {
     expect(within(smQuests).queryByText(/Into the Scarlet Monastery/)).toBeNull();
   });
 
+  it('marks class quests in orange and names the class on the card', () => {
+    render(<DungeonTable characters={[]} />);
+    const marker = within(row('Razorfen Kraul')).getByText(/^Fire Hardened Mail:/).closest('.quest-marker') as HTMLElement;
+    expect(marker.className).toContain('class-quest');
+    expect(marker.className).not.toContain('alliance');
+    expect(marker.textContent).toContain('Warrior class quest');
+    const other = within(row('Razorfen Kraul')).getByText(/^Mortality Wanes:/).closest('.quest-marker') as HTMLElement;
+    expect(other.className).not.toContain('class-quest');
+    fireEvent.focus(marker);
+    act(() => { vi.runAllTimers(); });
+    const card = within(screen.getByRole('tooltip'));
+    expect(card.getByText('Warrior').className).toContain('class-warrior');
+    expect(card.getByText('Alliance only')).toBeTruthy();
+  });
+
   it('covers the new Forever dungeons', () => {
     render(<DungeonTable characters={[]} />);
     const thanes = within(row('Hall of Thanes')).getByRole('list', { name: /quests for Hall of Thanes/ });

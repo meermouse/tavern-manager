@@ -1,7 +1,9 @@
 /**
  * Quests that send you into a dungeon, shown as ! markers in the dungeon finder. These tend to carry the best rewards
  * for the level, so they're worth picking up before a run. Class quests are left out, as are quests that start from an
- * item dropped inside. The new WoW Forever dungeons' quests come from the mmonster.co dungeon quest list
+ * item dropped inside. Class quests that send you into a dungeon are listed too, marked with the classes that can take
+ * them; the Dire Maul class books (which start from an item) and the dungeon set 2 upgrade quests are left out. The new
+ * WoW Forever dungeons' quests come from the mmonster.co dungeon quest list
  * (https://mmonster.co/wow-forever/guides/dungeons/quests); there, quests that start from an item are left out along
  * with their follow-ups, and some givers aren't on record yet.
  *
@@ -28,7 +30,11 @@ export interface DungeonQuest {
   shareable?: boolean;
   /** Set when the quest is one step in a chain: its first and last quests and how many steps there are. */
   chain?: { length: number; first: QuestRef; last: QuestRef };
+  /** Set for a class quest: the only classes that can take it. */
+  classes?: QuestClass[];
 }
+
+export type QuestClass = 'Warrior' | 'Paladin' | 'Hunter' | 'Rogue' | 'Priest' | 'Shaman' | 'Mage' | 'Warlock' | 'Druid';
 
 export interface QuestRef {
   id: number;
@@ -44,6 +50,24 @@ const q = (
   faction: QuestFaction = 'Both',
   details: QuestDetails = {},
 ): DungeonQuest => ({ name, giver, location, faction, ...details });
+
+/** A class quest: like `q`, for the given classes only. */
+const cq = (
+  classes: QuestClass[],
+  name: string,
+  giver: string | null,
+  location: string | null,
+  faction: QuestFaction = 'Both',
+  details: QuestDetails = {},
+): DungeonQuest => ({ ...q(name, giver, location, faction, details), classes });
+
+const ch = (length: number, firstId: number, firstName: string, lastId: number, lastName: string) => ({
+  length, first: { id: firstId, name: firstName }, last: { id: lastId, name: lastName },
+});
+
+// Class quests that take you through more than one dungeon.
+const orbOfSoranruk = cq(['Warlock'], 'The Orb of Soran\'ruk', 'Doan Karhan', 'The Barrens', 'Both', { id: 1740, shareable: true });
+const testOfRighteousness = cq(['Paladin'], 'The Test of Righteousness', 'Jordan Stilwell', 'Dun Morogh, outside the Ironforge gates', 'Alliance', { id: 1654, shareable: false, chain: ch(7, 1649, 'The Tome of Valor', 1806, 'The Test of Righteousness') });
 
 /** The quest's Wowhead page, or a Wowhead search for it when its ID isn't known. */
 export function wowheadQuestUrl(quest: { name: string; id?: number }): string {
@@ -72,6 +96,7 @@ export const DUNGEON_QUESTS: Record<string, DungeonQuest[]> = {
     q('Collecting Memories', 'Wilder Thistlenettle', 'Stormwind, Dwarven District', 'Alliance', { id: 168, shareable: true }),
     q('Oh Brother. . .', 'Wilder Thistlenettle', 'Stormwind, Dwarven District', 'Alliance', { id: 167, shareable: true }),
     q('Underground Assault', 'Shoni the Shilent', 'Stormwind, Dwarven District', 'Alliance', { id: 2040, shareable: true }),
+    testOfRighteousness,
   ],
   'Wailing Caverns': [
     q('Deviate Hides', 'Nalpak', 'The Barrens, cave above the Wailing Caverns entrance', 'Both', { id: 1486, shareable: true }),
@@ -85,6 +110,8 @@ export const DUNGEON_QUESTS: Record<string, DungeonQuest[]> = {
     q('Deathstalkers in Shadowfang', 'High Executor Hadrec', 'Silverpine Forest, The Sepulcher', 'Horde', { id: 1098, shareable: true }),
     q('Arugal Must Die', 'Dalar Dawnweaver', 'Silverpine Forest, The Sepulcher', 'Horde', { id: 1014, shareable: true }),
     q('The Book of Ur', 'Keeper Bel\'dugur', 'Undercity, The Apothecarium', 'Horde', { id: 1013, shareable: true }),
+    testOfRighteousness,
+    orbOfSoranruk,
   ],
   'The Stockade': [
     q('Quell The Uprising', 'Warden Thelwater', 'Stormwind, outside The Stockade', 'Alliance', { id: 387, shareable: true }),
@@ -103,6 +130,8 @@ export const DUNGEON_QUESTS: Record<string, DungeonQuest[]> = {
     q('Blackfathom Villainy', 'Bashana Runetotem', 'Thunder Bluff, Elder Rise', 'Horde', { id: 6561, shareable: true }),
     q('The Essence of Aku\'Mai', 'Je\'neu Sancrea', 'Ashenvale, Zoram\'gar Outpost', 'Horde', { id: 6563, shareable: true, chain: { length: 2, first: { id: 6562, name: 'Trouble in the Deeps' }, last: { id: 6563, name: 'The Essence of Aku\'Mai' } } }),
     q('Amongst the Ruins', 'Je\'neu Sancrea', 'Ashenvale, Zoram\'gar Outpost', 'Horde', { id: 6921, shareable: true }),
+    cq(['Paladin'], 'Seeking the Kor Gem', 'Thundris Windweaver', 'Darkshore, Auberdine', 'Alliance', { id: 1442, shareable: true, chain: ch(6, 1649, 'The Tome of Valor', 1442, 'Seeking the Kor Gem') }),
+    orbOfSoranruk,
   ],
   'Scarlet Monastery: Graveyard': [
     q('Vorrel\'s Revenge', 'Vorrel Sengutz', 'Inside the Scarlet Monastery Graveyard', 'Both', { id: 1051, shareable: true }),
@@ -122,6 +151,7 @@ export const DUNGEON_QUESTS: Record<string, DungeonQuest[]> = {
     q('Compendium of the Fallen', 'Sage Truthseeker', 'Thunder Bluff, Elder Rise', 'Horde', { id: 1049, shareable: true }),
     q('Hearts of Zeal', 'Master Apothecary Faranell', 'Undercity, The Apothecarium', 'Horde', { id: 1113, shareable: true, chain: { length: 2, first: { id: 1109, name: 'Going, Going, Guano!' }, last: { id: 1113, name: 'Hearts of Zeal' } } }),
     ...scarletLeaders,
+    cq(['Mage'], 'Rituals of Power', 'Magus Tirth', 'Thousand Needles, Shimmering Flats', 'Both', { id: 1951, shareable: true, chain: ch(5, 1947, 'Journey to the Marsh', 1952, 'Mage\'s Wand') }),
   ],
   'Razorfen Kraul': [
     q('Blueleaf Tubers', 'Mebok Mizzyrix', 'The Barrens, Ratchet', 'Both', { id: 1221, shareable: false }),
@@ -130,6 +160,8 @@ export const DUNGEON_QUESTS: Record<string, DungeonQuest[]> = {
     q('The Crone of the Kraul', 'Falfindel Waywarder', 'Feralas, Thalanaar', 'Alliance', { id: 1101, shareable: true, chain: { length: 2, first: { id: 1100, name: 'Lonebrow\'s Journal' }, last: { id: 1101, name: 'The Crone of the Kraul' } } }),
     q('Going, Going, Guano!', 'Master Apothecary Faranell', 'Undercity, The Apothecarium', 'Horde', { id: 1109, shareable: true, chain: { length: 2, first: { id: 1109, name: 'Going, Going, Guano!' }, last: { id: 1113, name: 'Hearts of Zeal' } } }),
     q('A Vengeful Fate', 'Auld Stonespire', 'Thunder Bluff, Elder Rise', 'Horde', { id: 1102, shareable: true }),
+    cq(['Warrior'], 'Fire Hardened Mail', 'Furen Longbeard', 'Stormwind, Dwarven District', 'Alliance', { id: 1701, shareable: false, chain: ch(4, 1698, 'Yorus Barleybrew', 1701, 'Fire Hardened Mail') }),
+    cq(['Warrior'], 'Brutal Armor', 'Thun\'grim Firegaze', 'The Barrens', 'Horde', { id: 1838, shareable: false, chain: ch(4, 1823, 'Speak with Ruga', 1838, 'Brutal Armor') }),
   ],
   'Scarlet Monastery: Armory': [...scarletLeaders],
   'Scarlet Monastery: Cathedral': [...scarletLeaders],
@@ -148,6 +180,7 @@ export const DUNGEON_QUESTS: Record<string, DungeonQuest[]> = {
     q('Reclaimed Treasures', 'Krom Stoutarm', 'Ironforge, Hall of Explorers', 'Alliance', { id: 1360, shareable: true }),
     q('Back to Uldaman', 'Talvash del Kissel', 'Ironforge, The Mystic Ward', 'Alliance', { id: 2200, shareable: false, chain: { length: 6, first: { id: 2198, name: 'The Shattered Necklace' }, last: { id: 2361, name: 'Restoring the Necklace' } } }),
     q('Uldaman Reagent Run', 'Jarkal Mossmeld', 'Badlands, Kargath', 'Horde', { id: 2202, shareable: true, chain: { length: 3, first: { id: 2258, name: 'Badlands Reagent Run' }, last: { id: 2203, name: 'Badlands Reagent Run II' } } }),
+    cq(['Mage'], 'Power in Uldaman', 'Tabetha', 'Dustwallow Marsh, Tabetha\'s Farm', 'Both', { id: 1956, shareable: true, chain: ch(6, 1953, 'Return to the Marsh', 1958, 'Celestial Power') }),
   ],
   'Zul\'Farrak': [
     q('Divino-matic Rod', 'Chief Engineer Bilgewhizzle', 'Tanaris, Gadgetzan', 'Both', { id: 2768, shareable: true }),
@@ -175,6 +208,15 @@ export const DUNGEON_QUESTS: Record<string, DungeonQuest[]> = {
     q('Into The Temple of Atal\'Hakkar', 'Brohann Caskbelly', 'Stormwind, Dwarven District', 'Alliance', { id: 1475, shareable: true, chain: { length: 7, first: { id: 1448, name: 'In Search of The Temple' }, last: { id: 1475, name: 'Into The Temple of Atal\'Hakkar' } } }),
     q('Jammal\'an the Prophet', 'Atal\'ai Exile', 'The Hinterlands, Shadra\'Alor', 'Alliance', { id: 1446, shareable: true }),
     q('The Temple of Atal\'Hakkar', 'Fel\'Zerul', 'Swamp of Sorrows, Stonard', 'Horde', { id: 1445, shareable: true, chain: { length: 4, first: { id: 1424, name: 'Pool of Tears' }, last: { id: 1445, name: 'The Temple of Atal\'Hakkar' } } }),
+    cq(['Druid'], 'A Better Ingredient', 'Torwa Pathfinder', 'Un\'Goro Crater', 'Both', { id: 9053, shareable: false, chain: ch(4, 9063, 'Torwa Pathfinder', 9053, 'A Better Ingredient') }),
+    cq(['Hunter'], 'The Green Drake', 'Ogtinc', 'Azshara, cliffs northeast of the Ruins of Eldarath', 'Both', { id: 8232, shareable: false, chain: ch(4, 8151, 'The Hunter\'s Charm', 8232, 'The Green Drake') }),
+    cq(['Mage'], 'Destroy Morphaz', 'Archmage Xylem', 'Azshara, Forlorn Ridge', 'Both', { id: 8253, shareable: false, chain: ch(4, 8250, 'Magecraft', 8253, 'Destroy Morphaz') }),
+    cq(['Paladin'], 'Forging the Mightstone', 'Commander Ashlam Valorfist', 'Western Plaguelands, Chillwind Camp', 'Alliance', { id: 8418, shareable: true, chain: ch(4, 8415, 'Chillwind Point', 8418, 'Forging the Mightstone') }),
+    cq(['Priest'], 'Blood of Morphaz', 'Ogtinc', 'Azshara, cliffs northeast of the Ruins of Eldarath', 'Both', { id: 8257, shareable: false, chain: ch(4, 8254, 'Cenarion Aid', 8257, 'Blood of Morphaz') }),
+    cq(['Rogue'], 'The Azure Key', 'Archmage Xylem', 'Azshara, Forlorn Ridge', 'Both', { id: 8236, shareable: false, chain: ch(4, 8233, 'A Simple Request', 8236, 'The Azure Key') }),
+    cq(['Shaman'], 'Da Voodoo', 'Bath\'rah the Windwatcher', 'Alterac Mountains', 'Horde', { id: 8413, shareable: false, chain: ch(3, 8410, 'Elemental Mastery', 8413, 'Da Voodoo') }),
+    cq(['Warlock'], 'Trolls of a Feather', 'Impsy', 'Felwood', 'Both', { id: 8422, shareable: false, chain: ch(2, 8421, 'The Wrong Stuff', 8422, 'Trolls of a Feather') }),
+    cq(['Warrior'], 'Voodoo Feathers', 'Fallen Hero of the Horde', 'Swamp of Sorrows, by the Blasted Lands entrance', 'Both', { id: 8425, shareable: false, chain: ch(3, 8423, 'Warrior Kinship', 8425, 'Voodoo Feathers') }),
   ],
   'Blackrock Depths': [
     q('Dark Iron Legacy', 'Franclorn Forgewright', 'Blackrock Mountain, by the Molten Bridge', 'Both', { id: 3802, shareable: true, chain: { length: 2, first: { id: 3801, name: 'Dark Iron Legacy' }, last: { id: 3802, name: 'Dark Iron Legacy' } } }),
@@ -198,6 +240,8 @@ export const DUNGEON_QUESTS: Record<string, DungeonQuest[]> = {
     q('Shards of the Felvine', 'Rabine Saturna', 'Moonglade, Nighthaven', 'Both', { id: 5526, shareable: false, chain: { length: 2, first: { id: 5527, name: 'A Reliquary of Purity' }, last: { id: 5526, name: 'Shards of the Felvine' } } }),
     q('Lethtendris\'s Web', 'Latronicus Moonspear', 'Feralas, Feathermoon Stronghold', 'Alliance', { id: 7488, shareable: true, chain: { length: 2, first: { id: 7494, name: 'Feathermoon Stronghold' }, last: { id: 7488, name: 'Lethtendris\'s Web' } } }),
     q('Lethtendris\'s Web', 'Talo Thornhoof', 'Feralas, Camp Mojache', 'Horde', { id: 7489, shareable: true, chain: { length: 2, first: { id: 7492, name: 'Camp Mojache' }, last: { id: 7489, name: 'Lethtendris\'s Web' } } }),
+    cq(['Mage'], 'Arcane Refreshment', 'Lorekeeper Lydros', 'Inside Dire Maul, the Athenaeum', 'Both', { id: 7463, shareable: true }),
+    cq(['Warlock'], 'The Prison\'s Bindings', 'Daio the Decrepit', 'Blasted Lands, The Tainted Scar', 'Both', { id: 7581, shareable: true, chain: ch(2, 7581, 'The Prison\'s Bindings', 7583, 'Suppression') }),
   ],
   'Lower Blackrock Spire': [
     q('Seal of Ascension', 'Vaelan', 'Inside Lower Blackrock Spire, near the entrance', 'Both', { id: 4742, shareable: true, chain: { length: 2, first: { id: 4742, name: 'Seal of Ascension' }, last: { id: 4743, name: 'Seal of Ascension' } } }),
@@ -209,6 +253,7 @@ export const DUNGEON_QUESTS: Record<string, DungeonQuest[]> = {
   ],
   'Dire Maul: West': [
     q('The Madness Within', 'Shen\'dralar Ancient', 'Inside Dire Maul, the Athenaeum', 'Both', { id: 7461, shareable: true }),
+    cq(['Warlock'], 'Dreadsteed of Xoroth', 'Mor\'zul Bloodbringer', 'Burning Steppes', 'Both', { id: 7631, shareable: false }),
   ],
   'Dire Maul: North': [
     q('Free Knot!', 'Knot Thimblejack', 'Inside Dire Maul North', 'Both', { id: 5525, shareable: true }),
@@ -223,6 +268,9 @@ export const DUNGEON_QUESTS: Record<string, DungeonQuest[]> = {
     q('Plagued Hatchlings', 'Apothecary Dithers', 'Tirisfal Glades, The Bulwark', 'Horde', { id: 5529, shareable: true }),
     q('Barov Family Fortune', 'Weldon Barov', 'Western Plaguelands, Chillwind Camp', 'Alliance', { id: 5343, shareable: true, chain: { length: 2, first: { id: 5343, name: 'Barov Family Fortune' }, last: { id: 5344, name: 'The Last Barov' } } }),
     q('Barov Family Fortune', 'Alexi Barov', 'Tirisfal Glades, The Bulwark', 'Horde', { id: 5341, shareable: true, chain: { length: 2, first: { id: 5341, name: 'Barov Family Fortune' }, last: { id: 5342, name: 'The Last Barov' } } }),
+    cq(['Paladin'], 'Judgment and Redemption', 'Lord Grayson Shadowbreaker', 'Stormwind, Cathedral of Light', 'Alliance', { id: 7647, shareable: false, chain: ch(11, 7638, 'Lord Grayson Shadowbreaker', 7666, 'Again Into the Great Ossuary') }),
+    cq(['Shaman'], 'The Darkreaver Menace', 'Sagorne Creststrider', 'Orgrimmar, Valley of Wisdom', 'Horde', { id: 8258, shareable: false, chain: ch(2, 7667, 'Material Assistance', 8258, 'The Darkreaver Menace') }),
+    cq(['Warlock'], 'Imp Delivery', 'Gorzeeki Wildeyes', 'Burning Steppes', 'Both', { id: 7629, shareable: false, chain: ch(2, 7629, 'Imp Delivery', 7631, 'Dreadsteed of Xoroth') }),
   ],
   Stratholme: [
     q('The Archivist', 'Duke Nicholas Zverenhoff', 'Eastern Plaguelands, Light\'s Hope Chapel', 'Both', { id: 5251, shareable: true, chain: { length: 5, first: { id: 5251, name: 'The Archivist' }, last: { id: 5265, name: 'The Argent Hold' } } }),
@@ -233,6 +281,7 @@ export const DUNGEON_QUESTS: Record<string, DungeonQuest[]> = {
     q('Dead Man\'s Plea', 'Anthion Harmon', 'Eastern Plaguelands, outside Stratholme', 'Both', { id: 8945, shareable: true, chain: { length: 8, first: { id: 8929, name: 'In Search of Anthion' }, last: { id: 9015, name: 'The Challenge' } } }),
     q('Aurius\' Reckoning', 'Aurius', 'Inside Stratholme', 'Both', { id: 5125, shareable: true }),
     q('Ramstein', 'Nathanos Blightcaller', 'Eastern Plaguelands, Marris Stead', 'Horde', { id: 6163, shareable: true, chain: { length: 3, first: { id: 6133, name: 'The Ranger Lord\'s Behest' }, last: { id: 6163, name: 'Ramstein' } } }),
+    cq(['Paladin'], 'Collection of Goods', 'Grimand Elmore', 'Stormwind, Dwarven District', 'Alliance', { id: 7642, shareable: false, chain: ch(6, 7638, 'Lord Grayson Shadowbreaker', 7642, 'Collection of Goods') }),
   ],
   'Upper Blackrock Spire': [
     q('The Matron Protectorate', 'Haleh', 'Winterspring, Mazthoril', 'Both', { id: 5160, shareable: false, chain: { length: 4, first: { id: 5160, name: 'The Matron Protectorate' }, last: { id: 5164, name: 'Catalogue of the Wayward' } } }),

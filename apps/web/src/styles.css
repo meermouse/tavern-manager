@@ -783,11 +783,13 @@ button.details-portrait.enlargeable:hover .enlarge-hint, button.details-portrait
 }
 .quest-marker.alliance { color: #6fa0ec; background: rgba(111, 160, 236, 0.12); border-color: rgba(111, 160, 236, 0.5); }
 .quest-marker.horde { color: #e2685a; background: rgba(226, 104, 90, 0.12); border-color: rgba(226, 104, 90, 0.5); }
+.quest-marker.class-quest { color: #ff8c1a; background: rgba(255, 140, 26, 0.12); border-color: rgba(255, 140, 26, 0.5); }
 .quest-marker:hover, .quest-marker:focus-visible, .quest-marker[aria-expanded='true'] { border-color: currentColor; outline: none; }
 .quest-card { display: grid; gap: 0.1rem; min-width: 200px; }
 .quest-card .qc-name { color: #ffd100; font-weight: 700; font-size: 0.98rem; }
 .quest-card .qc-location { color: #9aa3b5; }
 .quest-card .faction { font-size: 0.8rem; margin-top: 0.15rem; }
+.quest-card .qc-classes { font-size: 0.8rem; margin-top: 0.15rem; color: #ff8c1a; }
 .quest-card .qc-tags { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.3rem; }
 .quest-card .qc-tag {
   font-size: 0.75rem; padding: 0.05rem 0.45rem; border-radius: 999px; border: 1px solid var(--border); color: var(--muted);
