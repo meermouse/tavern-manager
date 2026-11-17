@@ -8,7 +8,7 @@ import { assignCharactersToDungeons } from '../dungeons';
 import { questsFor, wowheadQuestUrl, type DungeonQuest, type QuestRef } from '../dungeonQuests';
 import { HoverCard } from './HoverCard';
 
-/** A grid of ! markers, one per quest that leads into the dungeon; hover or focus one for its details, click it for Wowhead. */
+/** A grid of ! markers, one per quest that leads into the dungeon; hover, focus or click one for its details and Wowhead links. */
 export function QuestMarkers({ dungeon, faction }: { dungeon: string; faction?: 'Alliance' | 'Horde' | null }) {
   const quests = questsFor(dungeon, faction ?? null);
   if (!quests.length) return null;
@@ -19,12 +19,10 @@ export function QuestMarkers({ dungeon, faction }: { dungeon: string; faction?: 
           <HoverCard
             className={`quest-marker ${quest.faction.toLowerCase()}`}
             content={() => <QuestCard quest={quest} />}
-            focusable={false}
+            openOnClick
           >
-            <a href={wowheadQuestUrl(quest)} target="_blank" rel="noreferrer">
-              <span aria-hidden="true">!</span>
-              <span className="sr-only">{quest.name}: {questGiverText(quest)}{questTagText(quest)}</span>
-            </a>
+            <span aria-hidden="true">!</span>
+            <span className="sr-only">{quest.name}: {questGiverText(quest)}{questTagText(quest)}</span>
           </HoverCard>
         </li>
       ))}
