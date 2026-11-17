@@ -55,15 +55,20 @@ Pictures come from the **OpenAI Images API** (`apps/api/src/images/generator.ts`
 - Without any (e.g. characters with no render yet): `POST /v1/images/generations` from the prompt alone.
 - 1536×1024, WebP. The picture is stored in the database (`generated_images.image`), typically a few hundred KB.
 
+Models differ in which settings they accept. When the API answers that the model doesn't support one of the optional
+settings (`input_fidelity`, `quality`, `output_format`, `output_compression` or `size`), it's dropped and the request is
+sent again, so switching `OPENAI_IMAGE_MODEL` doesn't need any other change. Without `output_format`, the API picks the
+format, and the stored type is worked out from the picture itself. A picture returned as a link is downloaded.
+
 Renders the API can't take (non-`https`, or not PNG/JPEG/WebP) are skipped, and the character is described in words
 only.
 
 | Variable | Default | Notes |
 |---|---|---|
 | `OPENAI_API_KEY` | — | Turns the feature on. Without it, production answers 503 and local dev draws a placeholder |
-| `OPENAI_IMAGE_MODEL` | `gpt-image-1` | Any model the Images edits endpoint supports |
+| `OPENAI_IMAGE_MODEL` | `gpt-image-1` | Any model the Images API supports. Settings a model rejects are dropped automatically |
 | `OPENAI_IMAGE_QUALITY` | `medium` | `low`, `medium`, `high` or `auto`. Higher costs more and takes longer |
-| `OPENAI_IMAGE_INPUT_FIDELITY` | `high` | Set it empty to leave it out (for models that don't support it) |
+| `OPENAI_IMAGE_INPUT_FIDELITY` | `high` | `none` (or empty) leaves it out. Models that don't support it are handled automatically (see below) |
 | `IMAGE_MOCK` | on without a key, never in production | Draws a parchment "sketch" naming the setting and cast instead of calling the API |
 
 Each picture is one paid API call (two or more if an admin retries). That's why only admins can generate.
