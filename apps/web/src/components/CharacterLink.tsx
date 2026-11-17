@@ -3,11 +3,11 @@ import type { TavernCharacter } from '../api/client';
 import { TitleBadges } from './TitleBadges';
 import { CharacterAvatar } from './CharacterAvatar';
 import { CharacterLevel } from './CharacterLevel';
+import { CharacterStats, Stat } from './CharacterStats';
 import { ClassName, classKey } from './ClassName';
 import { HoverCard } from './HoverCard';
 import { ProfessionGlyph, primaryProfessions, professionKey } from './ProfessionIcons';
 import { ROLES, ROLE_LABELS, RoleGlyph } from './RoleIcons';
-import { timeAgo } from '../time';
 
 /** Anything with an id and a name; the more fields, the richer the card. */
 export type CharacterLike = Pick<TavernCharacter, 'id' | 'name'> & Partial<Omit<TavernCharacter, 'id' | 'name'>>;
@@ -60,30 +60,11 @@ export function CharacterCard({ character: c }: { character: CharacterLike }) {
           ))}
         </div>
         <TitleBadges titles={c.titles} labelled />
-        <dl className="cc-stats">
-          {c.ownerName && (
-            <>
-              <dt>Player</dt>
-              <dd>{c.ownerName}</dd>
-            </>
-          )}
-          {c.itemLevel != null && (
-            <>
-              <dt>Item level</dt>
-              <dd>{c.itemLevel}</dd>
-            </>
-          )}
-          {c.achievementPoints != null && (
-            <>
-              <dt>Achievement points</dt>
-              <dd>{c.achievementPoints}</dd>
-            </>
-          )}
+        <CharacterStats character={c} className="cc-stats">
           {/* Spelled out rather than icon-only: this card is itself a tooltip, so the icons can't have their own. */}
           {primaryProfessions(c.professions).length > 0 && (
-            <>
-              <dt>Professions</dt>
-              <dd className="cc-professions">
+            <Stat label="Professions">
+              <span className="cc-professions">
                 {primaryProfessions(c.professions).map((p) => (
                   <span key={p.name} className="cc-profession">
                     <span className={`profession-slot profession-${professionKey(p.name)}`}>
@@ -93,16 +74,10 @@ export function CharacterCard({ character: c }: { character: CharacterLike }) {
                     {p.skill != null && <span className="muted"> {p.skill}</span>}
                   </span>
                 ))}
-              </dd>
-            </>
+              </span>
+            </Stat>
           )}
-          {c.lastLoginAt && (
-            <>
-              <dt>Last seen</dt>
-              <dd>{timeAgo(c.lastLoginAt)}</dd>
-            </>
-          )}
-        </dl>
+        </CharacterStats>
       </div>
     </div>
   );

@@ -78,7 +78,10 @@ export interface Character {
   faction?: string | null;
   gender?: string | null;
   title?: string | null;
+  /** Blizzard's average item level. The app shows `gearItemLevel` instead. */
   itemLevel?: number | null;
+  /** Sum of equipped item levels (shirt and tabard excluded); `null` before gear has synced. */
+  gearItemLevel?: number | null;
   achievementPoints?: number | null;
   /** Blizzard character render images (see the API's `/character-media` sync). */
   avatarUrl?: string | null;
@@ -102,8 +105,6 @@ export interface TavernCharacter extends Character {
 export interface CharacterDetails extends TavernCharacter {
   /** Everything equipped as of the last gear sync; `null` if we haven't been able to fetch it. */
   equipment: FeedItem[] | null;
-  /** Sum of equipped item levels (shirt and tabard excluded); `null` before gear has synced. */
-  gearItemLevel: number | null;
   equipmentSyncedAt: string | null;
   /** This character's latest feed posts in this tavern. */
   recent: FeedEvent[];

@@ -30,6 +30,8 @@ export function serializeCharacter(row: CharacterRow) {
     gender: row.gender,
     title: row.title,
     itemLevel: row.item_level,
+    /** Sum of equipped item levels (see `gearSummary`): what the app shows as a character's item level. */
+    gearItemLevel: gearSummary(serializeEquipment(row)).gearItemLevel,
     achievementPoints: row.achievement_points,
     avatarUrl: row.avatar_url,
     insetUrl: row.inset_url,
@@ -84,13 +86,11 @@ export function gearSummary(equipment: unknown[] | null) {
 
 /** Everything the character details pane shows: profile, owner, saved gear and the given recent posts. */
 export function serializeCharacterDetails(row: CharacterRow & { owner_name: string }, recent: unknown[]) {
-  const equipment = serializeEquipment(row);
   return {
     ...serializeCharacter(row),
     ownerId: row.user_id,
     ownerName: row.owner_name,
-    equipment,
-    gearItemLevel: gearSummary(equipment).gearItemLevel,
+    equipment: serializeEquipment(row),
     equipmentSyncedAt: row.equipment_synced_at,
     recent,
   };
