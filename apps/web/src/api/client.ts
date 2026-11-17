@@ -174,7 +174,7 @@ export type FeedKind =
   | 'tavern_founded'
   | 'generated_image';
 
-/** An AI picture an admin generated from the latest posts, and how painting it is going. */
+/** An AI painting an admin commissioned of a post, and how painting it is going. */
 export interface GeneratedImage {
   id: string;
   status: 'pending' | 'generating' | 'ready' | 'failed';
@@ -231,9 +231,9 @@ export interface FeedEvent {
     cleared?: boolean;
     bosses?: string[];
     characters?: Pick<Character, 'id' | 'name' | 'surname' | 'class' | 'level' | 'avatarUrl'>[];
-    /** generated_image: what it shows (e.g. "The Deadmines with Judy and Grim"), how many posts it was painted from. */
+    /** generated_image: what it shows (e.g. "The Deadmines with Judy and Grim") and the post it's a painting of. */
     caption?: string;
-    postCount?: number;
+    sourceEventId?: string;
     image?: GeneratedImage;
   };
   cheers: Cheers;
@@ -347,9 +347,9 @@ export const api = {
     request<FeedPage>('GET', `/api/taverns/${id}/feed${before ? `?before=${encodeURIComponent(before)}` : ''}`),
   setCheer: (tavernId: string, eventId: string, on: boolean) =>
     request<Cheers>(on ? 'PUT' : 'DELETE', `/api/taverns/${tavernId}/feed/${eventId}/cheers`),
-  /** Admin only: paint a picture of the latest `count` feed posts. It's painted in the background. */
-  generateImage: (tavernId: string, count: number) =>
-    request<{ eventId: string; imageId: string }>('POST', `/api/taverns/${tavernId}/images`, { count }),
+  /** Admin only: commission a painting of a feed post. It's painted in the background. */
+  generateImage: (tavernId: string, eventId: string) =>
+    request<{ eventId: string; imageId: string }>('POST', `/api/taverns/${tavernId}/images`, { eventId }),
   retryImage: (tavernId: string, imageId: string) =>
     request<{ ok: true }>('POST', `/api/taverns/${tavernId}/images/${imageId}/retry`),
   deleteImage: (tavernId: string, imageId: string) =>

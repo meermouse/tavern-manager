@@ -221,18 +221,12 @@ button.cheer.cheered span[aria-hidden] { display: inline-block; animation: cheer
 @media (prefers-reduced-motion: reduce) { button.cheer.cheered span[aria-hidden] { animation: none; } }
 .feed-empty { width: 100%; text-align: center; }
 
-/* Generated pictures (admin "Generate image"). */
-.generate-image-bar { width: 100%; display: flex; justify-content: flex-end; }
-.generate-image { width: 100%; display: grid; gap: 0.6rem; }
-.generate-image-head { display: flex; flex-wrap: wrap; gap: 0.35rem 0.75rem; align-items: baseline; }
-.generate-image-head select { width: auto; display: inline-block; }
-.generate-image-sources { margin: 0; padding: 0.45rem 0.7rem 0.45rem 2rem; background: var(--bg-input); border-radius: 8px; display: grid; gap: 0.2rem; }
-.generate-image-sources li { overflow-wrap: anywhere; }
-.generate-image-actions, .feed-picture-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+/* Generated pictures (admin "Commission painting"). */
+.feed-picture-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
 .feed-post.generated-image { border-left: 3px solid var(--accent); }
 .feed-picture { margin: 0.55rem 0 0; }
 .feed-picture img { display: block; width: 100%; height: auto; aspect-ratio: 3 / 2; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-input); }
-.feed-picture figcaption { display: flex; gap: 0.75rem; justify-content: space-between; margin-top: 0.3rem; }
+.feed-picture figcaption { display: flex; justify-content: flex-end; margin-top: 0.3rem; }
 .feed-picture.failed { padding: 0.5rem 0.7rem; background: var(--bg-input); border-radius: 8px; }
 .feed-picture.failed p { margin: 0 0 0.4rem; }
 .feed-picture.painting {

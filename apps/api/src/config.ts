@@ -23,7 +23,7 @@ export interface Config {
   blizzardMock: boolean;
   /** How often (minutes) characters are refreshed by the scheduler. */
   refreshIntervalMinutes: number;
-  /** OpenAI image generation for admin "Generate image" posts. `null` when no API key is set. */
+  /** OpenAI image generation for admin "Commission painting" pictures. `null` when no API key is set. */
   openai: OpenAiImageConfig | null;
   /** Draw placeholder images instead of calling the image API (local development). */
   imageMock: boolean;

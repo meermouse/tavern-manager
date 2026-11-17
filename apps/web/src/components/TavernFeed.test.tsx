@@ -176,7 +176,7 @@ describe('generated image posts', () => {
       character: null,
       data: {
         caption: 'The Deadmines with Grim and Judy',
-        postCount: 3,
+        sourceEventId: '7',
         image: { id: 'img1', status: 'ready', error: null, url: '/api/taverns/t1/images/img1?v=1', ...over },
       },
     });
@@ -187,7 +187,6 @@ describe('generated image posts', () => {
     const img = li.querySelector('img')!;
     expect(img.getAttribute('src')).toBe('/api/taverns/t1/images/img1?v=1');
     expect(img.getAttribute('alt')).toBe('The Deadmines with Grim and Judy');
-    expect(li.textContent).toContain('Painted from the latest 3 posts');
   });
 
   it('shows progress while painting', () => {
@@ -209,5 +208,30 @@ describe('generated image posts', () => {
     fireEvent.click(screen.getByText('Remove'));
     expect(retry).toHaveBeenCalledWith('img1');
     expect(remove).toHaveBeenCalledWith('img1');
+  });
+});
+
+describe('Commission painting', () => {
+  it('shows the button when given, and calls back', () => {
+    const onClick = vi.fn();
+    render(<ul><FeedPost event={post({})} now={NOW} commission={{ onClick }} /></ul>);
+    fireEvent.click(screen.getByRole('button', { name: /Commission painting/ }));
+    expect(onClick).toHaveBeenCalled();
+  });
+
+  it('is disabled with a reason while another picture is painting', () => {
+    render(
+      <ul>
+        <FeedPost event={post({})} now={NOW} commission={{ onClick: vi.fn(), disabledReason: 'Already painting' }} />
+      </ul>,
+    );
+    const button = screen.getByRole('button', { name: /Commission painting/ });
+    expect(button).toHaveProperty('disabled', true);
+    expect(button.getAttribute('title')).toBe('Already painting');
+  });
+
+  it('is absent by default (non-admins)', () => {
+    renderPost(post({}));
+    expect(screen.queryByText(/Commission painting/)).toBeNull();
   });
 });

@@ -36,20 +36,25 @@ async function world(opts: { fail?: string; dispatch?: 'sync' | 'never' } = {}) 
   await bob.put(`/api/taverns/${tavern.id}/characters/${grim.id}`);
   // Real characters have Blizzard render URLs; the mock's are data: SVGs.
   await ctx.db.query(`update characters set render_url = 'https://render.example/' || name || '.png'`);
-  return { ...ctx, ...fake, alice, bob, tavern, judy, grim };
+  const feed = async () => (await alice.get(`/api/taverns/${tavern.id}/feed`)).body.events;
+  /** The id of the newest post of this kind. */
+  const postOf = async (kind: string) => (await feed()).find((e: { kind: string }) => e.kind === kind).id as string;
+  const commission = (eventId: string, as = alice) => as.post(`/api/taverns/${tavern.id}/images`, { eventId });
+  return { ...ctx, ...fake, alice, bob, tavern, judy, grim, feed, postOf, commission };
 }
 
 describe('generated images', () => {
-  it('lets only admins generate, and needs posts', async () => {
+  it('lets only admins commission a painting, of a post with characters in it', async () => {
     const w = await world();
-    const res = await w.bob.post(`/api/taverns/${w.tavern.id}/images`, { count: 3 });
-    expect(res.status).toBe(403);
-    expect((await w.alice.post(`/api/taverns/${w.tavern.id}/images`, { count: 0 })).status).toBe(400);
-    expect((await w.alice.post(`/api/taverns/${w.tavern.id}/images`, { count: 21 })).status).toBe(400);
+    const joined = await w.postOf('character_joined');
+    expect((await w.commission(joined, w.bob)).status).toBe(403);
+    expect((await w.alice.post(`/api/taverns/${w.tavern.id}/images`, {})).status).toBe(400);
+    expect((await w.commission('999999')).status).toBe(404);
+    expect((await w.commission(await w.postOf('tavern_founded'))).status).toBe(400);
     expect(w.calls).toHaveLength(0);
   });
 
-  it('paints a dungeon run from the latest posts, with the party’s renders as references', async () => {
+  it('paints a dungeon run post with the party’s renders as references', async () => {
     const w = await world();
     await w.alice.post(`/api/taverns/${w.tavern.id}/runs`, {
       dungeon: 'The Deadmines',
@@ -57,8 +62,9 @@ describe('generated images', () => {
       bosses: ['Mr. Smite', 'Edwin VanCleef'],
       cleared: true,
     });
+    const run = await w.postOf('dungeon_run');
 
-    const res = await w.alice.post(`/api/taverns/${w.tavern.id}/images`, { count: 2 });
+    const res = await w.commission(run);
     expect(res.status).toBe(202);
     expect(w.calls).toHaveLength(1);
     const { prompt, references } = w.calls[0];
@@ -71,7 +77,8 @@ describe('generated images', () => {
       'https://render.example/Grimtusk.png',
       'https://render.example/Judgement.png',
     ]);
-    // IRL names never go to the image API.
+    // Only that post: not the characters joining, and no IRL names.
+    expect(prompt).not.toContain('arrived at the tavern');
     expect(prompt).not.toContain('Alice');
 
     const feed = (await w.bob.get(`/api/taverns/${w.tavern.id}/feed`)).body;
@@ -79,7 +86,7 @@ describe('generated images', () => {
     expect(post).toMatchObject({
       kind: 'generated_image',
       user: { displayName: 'Alice' },
-      data: { caption: 'The Deadmines with Grimtusk and Judgement', dungeon: 'The Deadmines', postCount: 2 },
+      data: { caption: 'The Deadmines with Grimtusk and Judgement', dungeon: 'The Deadmines', sourceEventId: run },
     });
     expect(post.data.characters.map((c: { name: string }) => c.name)).toEqual(['Grimtusk', 'Judgement']);
     expect(post.data.image).toMatchObject({ id: res.body.imageId, status: 'ready', error: null });
@@ -96,38 +103,36 @@ describe('generated images', () => {
     // Outsiders can't.
     const carol = await w.login('Carol#0001');
     expect((await carol.get(post.data.image.url)).status).toBe(404);
-  });
 
-  it('leaves earlier pictures out of the next one', async () => {
-    const w = await world();
-    await w.alice.post(`/api/taverns/${w.tavern.id}/images`, { count: 1 });
-    await w.alice.post(`/api/taverns/${w.tavern.id}/images`, { count: 1 });
-    // The second picture's single post is the newest real post, not the first picture.
-    expect(w.calls[1].prompt).toContain('Grimtusk');
-    expect(w.calls[1].prompt).toContain('tavern');
+    // A post gets one painting, and paintings can't be painted.
+    expect((await w.commission(run)).status).toBe(409);
+    expect((await w.commission(post.id)).status).toBe(400);
   });
 
   it('paints one picture at a time per tavern', async () => {
     const w = await world({ dispatch: 'never' });
-    expect((await w.alice.post(`/api/taverns/${w.tavern.id}/images`, {})).status).toBe(202);
-    const feed = (await w.alice.get(`/api/taverns/${w.tavern.id}/feed`)).body;
-    expect(feed.events[0].data.image).toMatchObject({ status: 'pending', url: null });
+    const [judyJoined, grimJoined] = (await w.feed())
+      .filter((e: { kind: string }) => e.kind === 'character_joined')
+      .map((e: { id: string }) => e.id);
+    expect((await w.commission(judyJoined)).status).toBe(202);
+    expect((await w.feed())[0].data.image).toMatchObject({ status: 'pending', url: null });
     // Only admins see it until it's finished.
     const bobFeed = (await w.bob.get(`/api/taverns/${w.tavern.id}/feed`)).body;
     expect(bobFeed.events.map((e: { kind: string }) => e.kind)).not.toContain('generated_image');
-    expect((await w.alice.post(`/api/taverns/${w.tavern.id}/images`, {})).status).toBe(409);
+    expect((await w.commission(grimJoined)).status).toBe(409);
 
     // A job that never ran counts as failed after a while, and can be retried.
     await w.db.query(`update generated_images set created_at = now() - interval '1 hour'`);
-    const stale = (await w.alice.get(`/api/taverns/${w.tavern.id}/feed`)).body.events[0].data.image;
+    const stale = (await w.feed())[0].data.image;
     expect(stale.status).toBe('failed');
     expect((await w.alice.post(`/api/taverns/${w.tavern.id}/images/${stale.id}/retry`)).status).toBe(202);
   });
 
   it('records failures, which admins can retry or delete', async () => {
     const w = await world({ fail: 'Your request was rejected by the safety system' });
-    const { imageId } = (await w.alice.post(`/api/taverns/${w.tavern.id}/images`, { count: 3 })).body;
-    let post = (await w.alice.get(`/api/taverns/${w.tavern.id}/feed`)).body.events[0];
+    const joined = await w.postOf('character_joined');
+    const { imageId } = (await w.commission(joined)).body;
+    const post = (await w.feed())[0];
     expect(post.data.image).toMatchObject({
       status: 'failed',
       error: 'Your request was rejected by the safety system',
@@ -141,17 +146,20 @@ describe('generated images', () => {
     expect(w.calls).toHaveLength(2);
     expect(w.calls[1].prompt).toBe(w.calls[0].prompt);
 
+    // A failed painting doesn't stop the post being commissioned again.
+    expect((await w.commission(joined)).status).toBe(202);
+
     expect((await w.bob.del(`/api/taverns/${w.tavern.id}/images/${imageId}`)).status).toBe(403);
     expect((await w.alice.del(`/api/taverns/${w.tavern.id}/images/${imageId}`)).status).toBe(200);
-    post = (await w.alice.get(`/api/taverns/${w.tavern.id}/feed`)).body.events[0];
-    expect(post.kind).not.toBe('generated_image');
+    const ids = (await w.feed()).map((e: { data: { image?: { id: string } } }) => e.data.image?.id);
+    expect(ids).not.toContain(imageId);
   });
 
   it('is unavailable without an image generator', async () => {
     const ctx = await setup({ images: null });
     const alice = await ctx.login('Alice#1234');
     const tavern = (await alice.post('/api/taverns', { name: 'Pony' })).body;
-    expect((await alice.post(`/api/taverns/${tavern.id}/images`, {})).status).toBe(503);
+    expect((await alice.post(`/api/taverns/${tavern.id}/images`, { eventId: '1' })).status).toBe(503);
   });
 });
 

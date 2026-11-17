@@ -15,7 +15,7 @@ characters in it.
 | `character_joined` | A player adds a character to the Tavern. | Tavern | App |
 | `member_joined` | A player joins via an invite. | Tavern | App |
 | `tavern_founded` | The Tavern is created. | Tavern | App |
-| `generated_image` | A tavern admin presses **Generate image**: an AI picture of the latest posts. See [generated-images.md](generated-images.md). Removing it deletes the picture. | Tavern | App (OpenAI Images API) |
+| `generated_image` | A tavern admin presses **Commission painting** on a post: an AI picture of it, shown to everyone once finished. See [generated-images.md](generated-images.md). Removing it deletes the picture. | Tavern | App (OpenAI Images API) |
 
 **Character-scoped** posts appear in every Tavern the character is currently in, including posts from before it joined,
 so a new Tavern starts with some history. Removing a character from a Tavern hides its posts there. Deleting the

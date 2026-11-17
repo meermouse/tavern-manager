@@ -179,6 +179,8 @@ export interface FeedOptions {
   characterId?: string;
   /** Leave out posts of these kinds. */
   excludeKinds?: FeedKind[];
+  /** Just this post (if visible). */
+  eventId?: string;
   /**
    * Include generated pictures that are still being painted or failed (for admins, who can retry or remove them).
    * Everyone else only sees a picture's post once it's finished.
@@ -251,6 +253,10 @@ async function feedEvents(
   if (opts.excludeKinds?.length) {
     params.push(opts.excludeKinds);
     cursor += ` and not (e.kind = any($${params.length}::text[]))`;
+  }
+  if (opts.eventId) {
+    params.push(opts.eventId);
+    cursor += ` and e.id = $${params.length}::bigint`;
   }
   if (!opts.unfinishedImages) cursor += ` and (gi.id is null or ${IMAGE_STATUS_SQL} = 'ready')`;
   const rows = await db.query<FeedRow>(

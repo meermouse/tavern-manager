@@ -49,6 +49,16 @@ export interface Scene {
   dungeon: string | null;
 }
 
+/** Posts worth a painting: the ones with characters in them. */
+export const PAINTABLE_KINDS = new Set([
+  'dungeon_run',
+  'dungeon_cleared',
+  'loot',
+  'level_up',
+  'achievement',
+  'character_joined',
+]);
+
 /** More characters than this crowds the picture (and the image API's reference limit). */
 export const MAX_SCENE_CHARACTERS = 8;
 const MAX_LEVEL = 60;

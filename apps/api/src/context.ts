@@ -25,7 +25,7 @@ export interface AppDeps {
   config: Config;
   blizzard: BlizzardClient;
   oauth: OAuthProvider | null;
-  /** Paints admin "Generate image" posts; `null`/absent turns the feature off. */
+  /** Paints admin "Commission painting" pictures; `null`/absent turns the feature off. */
   images?: ImageGenerator | null;
   /**
    * Starts painting a saved picture (`origin` is the site's URL). Absent: painted in-process, in the background.

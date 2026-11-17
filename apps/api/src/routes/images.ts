@@ -3,15 +3,11 @@ import { HTTPException } from 'hono/http-exception';
 import { badRequest, jsonBody, requireUser, uuidParam, type AppDeps, type AppEnv } from '../context.js';
 import { tavernFeed } from '../feed.js';
 import { IMAGE_STATUS_SQL, runImageJob } from '../images/jobs.js';
-import { buildScene, type SceneCharacter } from '../images/scene.js';
+import { buildScene, PAINTABLE_KINDS, type SceneCharacter } from '../images/scene.js';
 import { adminTavern, tavernMembership } from '../tavernAccess.js';
 
-/** How many of the latest posts an admin can paint at once. */
-export const MAX_IMAGE_POSTS = 20;
-export const DEFAULT_IMAGE_POSTS = 5;
-
 /**
- * Admin-only AI pictures of the latest feed posts (see docs/generated-images.md). Generating takes a minute or so,
+ * Admin-only AI pictures of feed posts (see docs/generated-images.md). Generating takes a minute or so,
  * so the request only saves the job and its feed post; the picture is painted in the background and the post shows
  * it once it's ready.
  */
@@ -42,25 +38,31 @@ export function imageRoutes(deps: AppDeps) {
     return !!row;
   }
 
-  /** `{ count }`: paint the latest `count` posts (default 5). Returns the new post's id. */
+  /**
+   * `{ eventId }`: commission a painting of one feed post, e.g. a dungeon run. Only posts with characters in them can
+   * be painted, and each post once (unless its painting failed or was removed). Returns the new post's id.
+   */
   app.post('/taverns/:id/images', async (c) => {
     const user = requireUser(c);
     const tavern = await adminTavern(db, uuidParam(c, 'id'), user.id);
     if (!deps.images) throw new HTTPException(503, { message: 'Image generation is not set up on this server' });
     const body = await jsonBody(c);
-    const count = body.count === undefined ? DEFAULT_IMAGE_POSTS : Number(body.count);
-    if (!Number.isInteger(count) || count < 1 || count > MAX_IMAGE_POSTS) {
-      badRequest(`count must be a whole number from 1 to ${MAX_IMAGE_POSTS}`);
-    }
+    const eventId = typeof body.eventId === 'string' && /^\d{1,18}$/.test(body.eventId) ? body.eventId : null;
+    if (!eventId) badRequest('eventId must be a post id');
+
+    const { events: posts } = await tavernFeed(db, tavern.id, user.id, { limit: 1, eventId });
+    const post = posts[0];
+    if (!post) throw new HTTPException(404, { message: 'Post not found' });
+    if (!PAINTABLE_KINDS.has(post.kind)) badRequest('That post has nothing to paint');
+    const [existing] = await db.query(
+      `select 1 from generated_images gi where gi.tavern_id = $1 and gi.source_event_id = $2::bigint
+         and ${IMAGE_STATUS_SQL} <> 'failed'`,
+      [tavern.id, eventId],
+    );
+    if (existing) throw new HTTPException(409, { message: 'That post already has a painting' });
     if (await inFlight(tavern.id)) {
       throw new HTTPException(409, { message: 'A picture is already being painted — wait for it to finish' });
     }
-
-    const { events: posts } = await tavernFeed(db, tavern.id, user.id, {
-      limit: count,
-      excludeKinds: ['generated_image'],
-    });
-    if (!posts.length) badRequest('There are no posts to paint yet');
 
     const ids = new Set<string>();
     for (const p of posts) {
@@ -84,7 +86,7 @@ export function imageRoutes(deps: AppDeps) {
         JSON.stringify({
           caption: scene.caption,
           dungeon: scene.dungeon,
-          postCount: posts.length,
+          sourceEventId: eventId,
           characters: cast.map((ch) => ({
             id: ch.id, name: ch.name, surname: ch.surname, class: ch.class, level: ch.level, avatarUrl: ch.avatar_url,
           })),
@@ -92,9 +94,9 @@ export function imageRoutes(deps: AppDeps) {
       ],
     );
     const [image] = await db.query<{ id: string }>(
-      `insert into generated_images (tavern_id, event_id, requested_by, prompt, "references")
-       values ($1, $2::bigint, $3, $4, $5) returning id`,
-      [tavern.id, event.id, user.id, scene.prompt, JSON.stringify(scene.references)],
+      `insert into generated_images (tavern_id, event_id, source_event_id, requested_by, prompt, "references")
+       values ($1, $2::bigint, $3::bigint, $4, $5, $6) returning id`,
+      [tavern.id, event.id, eventId, user.id, scene.prompt, JSON.stringify(scene.references)],
     );
     await dispatch(image.id, new URL(c.req.url).origin);
     return c.json({ eventId: event.id, imageId: image.id }, 202);

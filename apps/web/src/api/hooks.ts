@@ -107,12 +107,12 @@ export function useTavernFeed(id: string) {
   });
 }
 
-/** Admin actions on generated pictures: paint one from the latest posts, retry a failed one, or take one down. */
+/** Admin actions on generated pictures: commission one of a post, retry a failed one, or take one down. */
 export function useGeneratedImages(tavernId: string) {
   const qc = useQueryClient();
   const refetch = () => qc.invalidateQueries({ queryKey: keys.feed(tavernId) });
   return {
-    generate: useMutation({ mutationFn: (count: number) => api.generateImage(tavernId, count), onSuccess: refetch }),
+    generate: useMutation({ mutationFn: (eventId: string) => api.generateImage(tavernId, eventId), onSuccess: refetch }),
     retry: useMutation({ mutationFn: (imageId: string) => api.retryImage(tavernId, imageId), onSuccess: refetch }),
     remove: useMutation({ mutationFn: (imageId: string) => api.deleteImage(tavernId, imageId), onSuccess: refetch }),
   };
