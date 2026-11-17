@@ -131,6 +131,14 @@ export function needPercent(stats: Record<string, number>): number | null {
   return total >= NINJA_MIN_ROLLS ? (need / total) * 100 : null;
 }
 
+/** Kills per death (The Butcher's kills over total deaths); no deaths counts as one, so it isn't infinite. */
+export function killDeathRatio(stats: Record<string, number>): number | null {
+  const kills = findStat(stats, 'Total kills', 'Creatures killed', /^total kills/i, /creatures killed/i);
+  const deaths = findStat(stats, 'Total deaths', /^total deaths$/i, /^deaths$/i);
+  if (kills == null || deaths == null) return null;
+  return kills / Math.max(deaths, 1);
+}
+
 /** A profession's skill, or `null` if the character hasn't learned it (or professions haven't synced). */
 export function professionSkill(professions: CharacterProfession[], name: string): number | null {
   return professions.find((p) => p.name.toLowerCase() === name.toLowerCase())?.skill ?? null;
@@ -233,6 +241,15 @@ export const TITLES: TitleDef[] = [
     [/smallest violin/i, /violin/i], (n) => `Played ${plural(n, 'time')}`),
   statTitle('the-butcher', 'The Butcher', '🗡️', 'Most kills in the tavern.',
     ['Total kills', 'Creatures killed', /^total kills/i, /creatures killed/i], (n) => plural(n, 'kill')),
+  {
+    key: 'half-decent',
+    name: 'Actually half decent at Wow',
+    icon: '⚔️',
+    description: 'Best kill/death ratio in the tavern.',
+    subject: 'character',
+    score: ({ stats }) => killDeathRatio(stats),
+    format: (r) => `${r.toLocaleString('en', { maximumFractionDigits: 1 })} K/D`,
+  },
   {
     key: 'best-dressed',
     name: 'Best Dressed',
