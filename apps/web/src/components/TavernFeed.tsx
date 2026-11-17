@@ -54,7 +54,10 @@ function CharName({ event }: { event: FeedEvent }) {
   );
 }
 
-function headline(event: FeedEvent): { icon: string; text: ReactNode; className?: string } {
+type Headline = { icon: string; text: ReactNode; className?: string };
+
+/** The post's one-line summary, or null for a kind this version of the app doesn't know how to show. */
+function headline(event: FeedEvent): Headline | null {
   const user = <strong>{event.user?.displayName ?? 'Someone'}</strong>;
   const d = event.data;
   switch (event.kind) {
@@ -152,7 +155,7 @@ function headline(event: FeedEvent): { icon: string; text: ReactNode; className?
         ),
       };
     default:
-      return { icon: '•', text: <>Something happened</> };
+      return null;
   }
 }
 
@@ -348,7 +351,10 @@ export function FeedPost({
   /** Admins only: ask to delete the post (the caller confirms first). */
   onDelete?: () => void;
 }) {
-  const { icon, text, className } = headline(event);
+  const head = headline(event);
+  // A post we can't describe (e.g. one meant only for admins, or a kind newer than this page) shows nothing.
+  if (!head) return null;
+  const { icon, text, className } = head;
   const showOwner = !!event.character && event.kind !== 'character_joined';
   return (
     <li className={`feed-post card ${className ?? ''}`} data-kind={event.kind}>
@@ -422,8 +428,11 @@ export function TavernFeed({
   if (feed.isPending) return <p className="muted">Loading the feed…</p>;
   if (feed.error) return <p className="error">{feed.error.message}</p>;
 
-  const all = feed.data.pages.flatMap((p) => p.events);
-  const events = include ? all.filter(include) : all;
+  // Only admins see paintings that aren't finished yet (the API already leaves them out for everyone else).
+  const all = feed.data.pages
+    .flatMap((p) => p.events)
+    .filter((e) => isAdmin || !e.data.image || e.data.image.status === 'ready');
+  const events = (include ? all.filter(include) : all).filter((e) => headline(e) !== null);
 
   // Each post gets one painting (a failed one can be commissioned again), and one is painted at a time.
   const painted = new Set(
@@ -492,7 +501,7 @@ export function TavernFeed({
           onConfirm={() => deletePost.mutate(deleting.id, { onSuccess: () => setDeleting(null) })}
         >
           <p>
-            <span aria-hidden="true">{headline(deleting).icon}</span> {headline(deleting).text}
+            <span aria-hidden="true">{headline(deleting)?.icon}</span> {headline(deleting)?.text}
           </p>
           <p className="small-text">
             {deleting.character && deleting.kind !== 'character_joined' && deleting.kind !== 'generated_image'
