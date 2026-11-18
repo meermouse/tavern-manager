@@ -243,6 +243,36 @@ create table if not exists auction_snapshots (
 -- Every request the last fetch made (AuctionTraceStep[]), for the debug view.
 alter table auction_snapshots add column if not exists trace jsonb;
 
+-- "Yesterday on the auction house" (see auctionActivity.ts): estimated sales per item per day (UTC), from comparing
+-- each hourly fetch with the one before. Kept for two weeks.
+create table if not exists auction_sales (
+  region text not null,
+  day text not null,
+  item_id integer not null,
+  purchases integer not null default 0,
+  units bigint not null default 0,
+  copper bigint not null default 0,
+  primary key (region, day, item_id)
+);
+-- One row per region per day: how many hourly comparisons went into it, the priciest believable listings seen
+-- (PriceyListing[]), and when its feed post went up.
+create table if not exists auction_daily (
+  region text not null,
+  day text not null,
+  comparisons integer not null default 0,
+  houses integer not null default 0,
+  priciest jsonb,
+  posted_at timestamptz,
+  primary key (region, day)
+);
+-- Item names and qualities from the static game data, for auction house posts.
+create table if not exists item_names (
+  id integer primary key,
+  name text not null,
+  quality text not null,
+  fetched_at timestamptz not null default now()
+);
+
 select pg_advisory_unlock(727274);
 `;
 

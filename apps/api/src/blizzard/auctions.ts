@@ -27,6 +27,8 @@ export interface AuctionSnapshot {
   /** Auction houses that answered. */
   houses: number;
   prices: Map<number, AuctionPrice>;
+  /** Every listing, house by house, for spotting sales between fetches (see auctionActivity.ts). */
+  listings?: HouseListings[];
 }
 
 /** One request made while fetching prices, for the debug view. */
@@ -57,6 +59,19 @@ export function idsIn(json: unknown): number[] {
     if (ids.length) return ids;
   }
   return [];
+}
+
+/** House id → name ("Horde Auction House") from the auction house index. */
+export function houseNames(json: unknown): Map<number, string> {
+  const out = new Map<number, string>();
+  const list = json && typeof json === 'object' ? (json as Json).auctions : null;
+  if (!Array.isArray(list)) return out;
+  for (const h of list) {
+    if (h && typeof h === 'object' && typeof (h as Json).id === 'number' && typeof (h as Json).name === 'string') {
+      out.set((h as Json).id as number, (h as Json).name as string);
+    }
+  }
+  return out;
 }
 
 /** Cheapest copper-per-unit for each item in one house's listings (auctions and commodities responses alike). */
@@ -101,4 +116,50 @@ export function combineHouses(houses: Map<number, { price: number; listings: num
   const out = new Map<number, AuctionPrice>();
   for (const [id, { prices, listings }] of byItem) out.set(id, { price: Math.round(median(prices)), listings });
   return out;
+}
+
+/** `time_left` codes, shortest first. */
+export const TIME_LEFT = ['SHORT', 'MEDIUM', 'LONG', 'VERY_LONG'] as const;
+
+/**
+ * Every listing in one auction house (its auctions and commodities together), kept compactly so the next hourly
+ * fetch can be compared with it to spot what sold. Parallel arrays, one entry per listing.
+ */
+export interface HouseListings {
+  house: number;
+  /** e.g. "Horde Auction House". */
+  name: string | null;
+  /** When Blizzard last rebuilt this house's data (ISO), from `Last-Modified`. */
+  lastModified: string | null;
+  ids: number[];
+  items: number[];
+  quantities: number[];
+  /** Copper per unit, rounded; 0 for bid-only listings. */
+  units: number[];
+  /** Index into TIME_LEFT, or -1 if unknown. */
+  timeLeft: number[];
+}
+
+export function emptyHouse(house: number, name: string | null = null): HouseListings {
+  return { house, name, lastModified: null, ids: [], items: [], quantities: [], units: [], timeLeft: [] };
+}
+
+/** Add one listings or commodities response to a house's listings. */
+export function addListings(house: HouseListings, json: unknown): void {
+  const auctions = json && typeof json === 'object' ? (json as Json).auctions : null;
+  if (!Array.isArray(auctions)) return;
+  for (const raw of auctions) {
+    if (!raw || typeof raw !== 'object') continue;
+    const a = raw as Json;
+    const item = a.item as Json | undefined;
+    if (typeof a.id !== 'number' || typeof item?.id !== 'number') continue;
+    const quantity = typeof a.quantity === 'number' && a.quantity > 0 ? a.quantity : 1;
+    const unit =
+      typeof a.unit_price === 'number' ? a.unit_price : typeof a.buyout === 'number' ? a.buyout / quantity : 0;
+    house.ids.push(a.id);
+    house.items.push(item.id);
+    house.quantities.push(quantity);
+    house.units.push(unit > 0 ? Math.round(unit) : 0);
+    house.timeLeft.push(TIME_LEFT.indexOf(a.time_left as (typeof TIME_LEFT)[number]));
+  }
 }

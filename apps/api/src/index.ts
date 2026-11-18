@@ -49,7 +49,7 @@ setInterval(async () => {
 
 // Auction house prices for gear net worth: once at start-up, then hourly (refreshAllAuctionPrices skips fresh regions).
 const refreshPrices = () =>
-  refreshAllAuctionPrices(deps.db, deps.blizzard)
+  refreshAllAuctionPrices(deps.db, deps.blizzard, { listings: deps.auctionListings })
     .then((n) => n && console.log(`Auction prices: ${n} item(s) priced`))
     .catch((err) => console.error('Auction price refresh failed', err));
 void refreshPrices();

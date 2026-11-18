@@ -55,6 +55,38 @@ describe('isMilestone', () => {
 });
 
 describe('FeedPost', () => {
+  it('shows yesterday on the auction house', () => {
+    const li = renderPost(
+      post({
+        kind: 'auction_daily',
+        character: null,
+        user: null,
+        data: {
+          region: 'eu',
+          day: '2026-11-11',
+          hours: 24,
+          houses: 12,
+          totals: { purchases: 15000, units: 90000, copper: 123_456_789 },
+          hottest: [
+            { id: 2589, name: 'Linen Cloth', quality: 'COMMON', purchases: 812, units: 9300, copper: 50_000 },
+            { id: 858, name: 'Lesser Healing Potion', quality: 'COMMON', purchases: 400, units: 400, copper: 20_000 },
+          ],
+          bigSpender: { id: 12360, name: 'Arcanite Bar', quality: 'UNCOMMON', purchases: 30, units: 60, copper: 9_000_000 },
+          priciest: { id: 12640, name: 'Lionheart Helm', quality: 'EPIC', unit: 15_000_000, quantity: 1, going: 12_000_000, house: 'Horde Auction House' },
+        },
+      }),
+    );
+    expect(li.textContent).toContain('Wednesday 11 November on the auction house');
+    expect(li.textContent).toContain('[Linen Cloth] ~812 sales, 9,300 units');
+    expect(li.textContent).toContain('[Lesser Healing Potion] ~400 sales');
+    expect(li.textContent).not.toContain('400 units');
+    expect(li.textContent).toContain('[Arcanite Bar] ~900g 0s over 30 sales');
+    expect(li.textContent).toContain('[Lionheart Helm] 1,500g 0s');
+    expect(li.textContent).toContain('going rate 1,200g 0s, Horde Auction House');
+    expect(li.textContent).toContain('Roughly 15,000 sales worth 12,345g 67s across 12 auction houses');
+    expect(li.querySelector('.q-epic')).not.toBeNull();
+  });
+
   it('shows a title gained, tagging whoever it was taken from', () => {
     const grim = { id: 'c2', name: 'Grimble', surname: 'Thornwick', class: 'Warrior', level: 40 };
     const title = { key: 'ninja', name: 'The Ninja', icon: '🎲', value: '90.0% need rolls' };

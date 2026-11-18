@@ -4,7 +4,7 @@ import { requireUser, type AppDeps, type AppEnv } from '../context.js';
 import { auctionStatus, refreshAuctionPrices } from '../prices.js';
 
 /** Auction price fetching status, and a way for tavern admins to run it now and see what happened. */
-export function priceRoutes({ db, blizzard }: AppDeps) {
+export function priceRoutes({ db, blizzard, auctionListings }: AppDeps) {
   const app = new Hono<AppEnv>();
 
   const isAnyAdmin = async (userId: string) =>
@@ -32,7 +32,7 @@ export function priceRoutes({ db, blizzard }: AppDeps) {
     const regions = await db.query<{ region: string }>('select distinct region from characters');
     // Stay inside a serverless function's time limit.
     const deadline = Date.now() + 20_000;
-    for (const { region } of regions) await refreshAuctionPrices(db, blizzard, region, { force: true, deadline });
+    for (const { region } of regions) await refreshAuctionPrices(db, blizzard, region, { force: true, deadline, listings: auctionListings });
     return c.json({
       supported: !!blizzard.getAuctionPrices,
       canRefresh: true,
