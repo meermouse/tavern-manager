@@ -13,7 +13,8 @@ export type FeedKind =
   | 'character_joined'
   | 'member_joined'
   | 'tavern_founded'
-  | 'generated_image';
+  | 'generated_image'
+  | 'title_gained';
 
 /**
  * Bump when `parseEquipment` starts keeping more detail, so gear saved by an older version is re-fetched once
@@ -206,6 +207,7 @@ export const FEED_KINDS: readonly FeedKind[] = [
   'member_joined',
   'tavern_founded',
   'generated_image',
+  'title_gained',
 ];
 
 /** Ids of the characters a post is about: its own character, plus a group run's party or a painting's cast. */
@@ -228,6 +230,8 @@ const SEARCHABLE_PATHS = [
   'lax $.characters[*].surname',
   'lax $.caption',
   'lax $.tavernName',
+  'lax $.title.name',
+  'lax $.previous.player.displayName',
 ];
 
 /** An `ilike` pattern matching `text` anywhere, with `%`, `_` and `\` taken literally. */

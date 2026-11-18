@@ -10,6 +10,7 @@ export const POST_TYPES = [
   { key: 'loot', label: 'Loot', icon: '💎', kinds: ['loot'] },
   { key: 'achievements', label: 'Achievements', icon: '🏆', kinds: ['achievement'] },
   { key: 'dungeons', label: 'Dungeons', icon: '🗝️', kinds: ['dungeon_run', 'dungeon_cleared'] },
+  { key: 'titles', label: 'Titles', icon: '👑', kinds: ['title_gained'] },
   { key: 'paintings', label: 'Paintings', icon: '🎨', kinds: ['generated_image'] },
   { key: 'arrivals', label: 'Arrivals', icon: '🍺', kinds: ['character_joined', 'member_joined', 'tavern_founded'] },
 ] as const satisfies readonly { key: string; label: string; icon: string; kinds: readonly FeedKind[] }[];

@@ -15,6 +15,7 @@ characters in it.
 | `character_joined` | A player adds a character to the Tavern. | Tavern | App |
 | `member_joined` | A player joins via an invite. | Tavern | App |
 | `tavern_founded` | The Tavern is created. | Tavern | App |
+| `title_gained` | A character (or, for player titles like Altaholic, a player) becomes the holder of a tavern title. If they overtook the previous holder, the post tags both characters ("Grim took The Ninja from Judy") and shows both scores. Titles are worked out whenever the tavern or a player's profile is loaded, so the post appears then; saving the new holder is conditional on the old one, so two requests at once can't both post. A holder who left the tavern isn't tagged. | Tavern | App (tavern titles) |
 | `generated_image` | A tavern admin presses **Commission painting** on a post: an AI picture of it, shown to everyone once finished. See [generated-images.md](generated-images.md). Removing it deletes the picture. | Tavern | App (OpenAI Images API) |
 
 **Character-scoped** posts appear in every Tavern the character is currently in, including posts from before it joined,
@@ -86,7 +87,8 @@ feed_reactions           -- cheers
 ```
 
 `data` holds the kind-specific payload, such as `{from, to}` for a level-up, `{items: [{id, name, quality, slot, itemLevel}]}`
-for loot, `{achievements: [{id, name, completedAt}]}` for achievements, or `{tavernName}` for a founding. Character
+for loot, `{achievements: [{id, name, completedAt}]}` for achievements, `{tavernName}` for a founding, or `{title: {key, name, icon, value}, characters: [newHolder, previousHolder?],
+previous: {characterId, player: {id, displayName}, value} | null}` for a title gained. Character
 name, class and owner are joined in when the feed is read, so renames show up everywhere.
 
 ## API
@@ -134,7 +136,7 @@ adds or removes your cheer and returns the post's updated `cheers`. Both are ide
   added.
 - The empty state explains what will appear and that updates arrive when characters log out.
 - A filter bar above the feed: a search box, a character picker, **Just my characters**, and post-type toggles
-  (Level ups, Loot, Achievements, Dungeons, Paintings, Arrivals). Filters live in the URL (`?q=`, `?chars=`,
+  (Level ups, Loot, Achievements, Dungeons, Titles, Paintings, Arrivals). Filters live in the URL (`?q=`, `?chars=`,
   `?mine=1`, `?types=`), so a refresh or shared link keeps them, and they're applied by the API so older pages are
   filtered too. The faction picker still applies on top.
 

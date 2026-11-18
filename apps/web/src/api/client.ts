@@ -219,7 +219,8 @@ export type FeedKind =
   | 'character_joined'
   | 'member_joined'
   | 'tavern_founded'
-  | 'generated_image';
+  | 'generated_image'
+  | 'title_gained';
 
 /** An AI painting an admin commissioned of a post, and how painting it is going. */
 export interface GeneratedImage {
@@ -282,6 +283,11 @@ export interface FeedEvent {
     caption?: string;
     sourceEventId?: string;
     image?: GeneratedImage;
+    /** title_gained: the tavern title and the new holder's winning score. `characters` tags the new holder, then
+     * the one they took it from (character titles). */
+    title?: { key: string; name: string; icon: string; value: string };
+    /** title_gained: whoever held the title before, if it was taken from them (`null` if it was free). */
+    previous?: { characterId: string | null; player: { id: string; displayName: string }; value: string } | null;
   };
   cheers: Cheers;
 }
