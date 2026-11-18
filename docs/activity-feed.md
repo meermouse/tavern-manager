@@ -15,7 +15,7 @@ characters in it.
 | `character_joined` | A player adds a character to the Tavern. | Tavern | App |
 | `member_joined` | A player joins via an invite. | Tavern | App |
 | `tavern_founded` | The Tavern is created. | Tavern | App |
-| `title_gained` | A character (or, for player titles like Altaholic, a player) becomes the holder of a tavern title. If they overtook the previous holder, the post tags both characters ("Grim took The Ninja from Judy") and shows both scores. Titles are worked out whenever the tavern or a player's profile is loaded, so the post appears then; saving the new holder is conditional on the old one, so two requests at once can't both post. A holder who left the tavern isn't tagged. | Tavern | App (tavern titles) |
+| `title_gained` | A character (or, for player titles like Altaholic, a player) becomes the holder of a tavern title. If they overtook the previous holder, the post tags both characters ("Grim took The Ninja from Judy") and shows both scores. Titles are worked out whenever the tavern or a player's profile is loaded, so the post appears then; saving the new holder is conditional on the old one, so two requests at once can't both post. A holder who left the tavern isn't tagged. A tavern's first titles are handed out without posts (see baselines below). | Tavern | App (tavern titles) |
 | `generated_image` | A tavern admin presses **Commission painting** on a post: an AI picture of it, shown to everyone once finished. See [generated-images.md](generated-images.md). Removing it deletes the picture. | Tavern | App (OpenAI Images API) |
 
 **Character-scoped** posts appear in every Tavern the character is currently in, including posts from before it joined,
@@ -30,6 +30,11 @@ The first time we successfully read a character's equipment or achievements, we 
 posting**. Only things that appear *after* that baseline become posts. Likewise, no `level_up` post is made the first time
 a character's level is seen. So adding a level-60 character with a full set of epics creates a single "brought X to
 the tavern" post, not twenty loot posts.
+
+Titles work the same way per tavern: the first time anyone in a tavern holds a title, every title held then is saved
+silently (`taverns.titles_baseline_at`), so the first character in a new tavern doesn't post every title at once.
+From then on each new holder gets a `title_gained` post. Taverns that already had title holders before posts existed
+count as baselined.
 
 Each item or achievement is only ever posted once per character (unique on `character_id` + id), so swapping gear back
 and forth doesn't post again. The level-up check reads and updates the level in one statement, under a row lock, so two

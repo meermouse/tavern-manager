@@ -396,7 +396,9 @@ const standingId = (s: TitleStanding) => s.character?.id ?? s.player.userId;
 /**
  * Rank a tavern's titles against its saved holders, and save any change of holder: a new holder starts their
  * reign now, and a title nobody holds any more (left the tavern, tie with no holder, dropped below the bar) is
- * cleared. Each new holder gets a `title_gained` post in the tavern's feed, naming whoever they took it from.
+ * cleared. Each new holder gets a `title_gained` post in the tavern's feed, naming whoever they took it from, except
+ * for the tavern's first titles: those are handed out silently (like gear and achievement baselines), so the first
+ * character in a new tavern doesn't post a burst of every title at once.
  */
 export async function tavernTitles(db: Db, tavernId: string, characters: TitleCandidate[]): Promise<TitleStandings[]> {
   const saved = await db.query<{ title_key: string; subject_id: string; since: Date | string }>(
@@ -405,6 +407,14 @@ export async function tavernTitles(db: Db, tavernId: string, characters: TitleCa
   );
   const incumbents = new Map(saved.map((r) => [r.title_key, { subjectId: r.subject_id, since: new Date(r.since) }]));
   const ranked = rankTitles(characters, incumbents);
+  const [tavern] = await db.query<{ titles_baseline_at: Date | null }>(
+    'select titles_baseline_at from taverns where id = $1',
+    [tavernId],
+  );
+  const announce = !!tavern?.titles_baseline_at;
+  if (!announce && ranked.some((t) => holderOf(t))) {
+    await db.query('update taverns set titles_baseline_at = now() where id = $1 and titles_baseline_at is null', [tavernId]);
+  }
   for (const t of ranked) {
     const holder = holderOf(t);
     const holderId = holder && standingId(holder);
@@ -424,7 +434,7 @@ export async function tavernTitles(db: Db, tavernId: string, characters: TitleCa
              on conflict (tavern_id, title_key) do nothing returning 1`,
             [tavernId, t.key, holderId, t.holderSince],
           );
-      if (!taken.length) continue;
+      if (!taken.length || !announce) continue;
       // Overtaken, rather than left the tavern: they're still in the standings.
       const previous = was ? (t.standings.find((s) => standingId(s) === was) ?? null) : null;
       try {

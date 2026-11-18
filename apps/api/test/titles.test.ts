@@ -288,8 +288,7 @@ describe('title routes', () => {
       db.query('update characters set statistics = $2::jsonb where id = $1', [id, JSON.stringify(rolls(need, greed))]);
     await setRolls(judy.id, 15, 5);
     await setRolls(grim.id, 5, 15);
-    await alice.put(`/api/taverns/${tavern.id}/characters/${judy.id}`);
-    await bob.put(`/api/taverns/${tavern.id}/characters/${grim.id}`);
+    await db.query('update characters set professions = $2::jsonb where id = $1', [judy.id, JSON.stringify(cooking(150))]);
     const titlePosts = async () => {
       await alice.get(`/api/taverns/${tavern.id}`);
       const feed = (await bob.get(`/api/taverns/${tavern.id}/feed?kinds=title_gained`)).body;
@@ -298,12 +297,24 @@ describe('title routes', () => {
       return feed.events as { character: Tagged | null; data: Data }[];
     };
 
-    // Judy takes The Ninja, which nobody held.
+    // The tavern's first titles (Judy's Ninja and Head Chef) are handed out without a burst of posts.
+    expect(await titlePosts()).toEqual([]);
+    await alice.put(`/api/taverns/${tavern.id}/characters/${judy.id}`);
+    expect(await titlePosts()).toEqual([]);
+    expect((await alice.get(`/api/taverns/${tavern.id}`)).body.characters[0].titles.map((t: { key: string }) => t.key))
+      .toEqual(['ninja', 'head-chef']);
+
+    // Grim arrives and takes a title nobody held.
+    await db.query('update characters set professions = $2::jsonb where id = $1', [
+      grim.id,
+      JSON.stringify([{ name: 'Fishing', kind: 'secondary', skill: 75, maxSkill: 150 }]),
+    ]);
+    await bob.put(`/api/taverns/${tavern.id}/characters/${grim.id}`);
     let posts = await titlePosts();
     expect(posts).toHaveLength(1);
-    expect(posts[0].character!.id).toBe(judy.id);
-    expect(posts[0].data.title).toEqual({ key: 'ninja', name: 'The Ninja', icon: '🎲', value: '75.0% need rolls' });
-    expect(posts[0].data.characters.map((c) => c.id)).toEqual([judy.id]);
+    expect(posts[0].character!.id).toBe(grim.id);
+    expect(posts[0].data.title).toEqual({ key: 'old-man-sea', name: 'Old Man and the Sea', icon: '🎣', value: '75 Fishing' });
+    expect(posts[0].data.characters.map((c) => c.id)).toEqual([grim.id]);
     expect(posts[0].data.previous).toBeNull();
     // Looking again doesn't post again.
     expect(await titlePosts()).toHaveLength(1);
@@ -314,6 +325,7 @@ describe('title routes', () => {
     expect(posts).toHaveLength(2);
     expect(posts[0].character!.id).toBe(grim.id);
     expect(posts[0].data.characters.map((c) => c.id)).toEqual([grim.id, judy.id]);
+    expect(posts[0].data.title).toEqual({ key: 'ninja', name: 'The Ninja', icon: '🎲', value: '90.0% need rolls' });
     expect(posts[0].data.previous).toEqual({
       characterId: judy.id,
       player: { id: expect.any(String), displayName: expect.any(String) },
@@ -321,9 +333,9 @@ describe('title routes', () => {
     });
     // Both characters' filters find it (Judy was tagged), and so does searching for the title.
     const judyPosts = (await alice.get(`/api/taverns/${tavern.id}/feed?kinds=title_gained&characters=${judy.id}`)).body;
-    expect(judyPosts.events).toHaveLength(2);
+    expect(judyPosts.events).toHaveLength(1);
     const search = (await alice.get(`/api/taverns/${tavern.id}/feed?q=ninja`)).body;
-    expect(search.events).toHaveLength(2);
+    expect(search.events).toHaveLength(1);
 
     // Grim leaves: Judy gets it back, but there's nobody to tag.
     await bob.del(`/api/taverns/${tavern.id}/characters/${grim.id}`);
