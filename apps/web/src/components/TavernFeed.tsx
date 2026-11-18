@@ -367,6 +367,7 @@ export const PAINTABLE_KINDS = new Set<FeedEvent['kind']>([
   'level_up',
   'achievement',
   'character_joined',
+  'title_gained',
 ]);
 
 /** Posts that belong to one tavern (deleting them deletes them outright), even when they're about a character. */
@@ -551,6 +552,8 @@ export function TavernFeed({
   const painting = all.some((e) => e.data.image?.status === 'pending' || e.data.image?.status === 'generating');
   const commissionFor = (e: FeedEvent): Commission | undefined => {
     if (!isAdmin || !PAINTABLE_KINDS.has(e.kind) || painted.has(e.id)) return undefined;
+    // Player titles (Altaholic) have no character to paint.
+    if (e.kind === 'title_gained' && !e.character) return undefined;
     return {
       onClick: () => {
         images.generate.reset();

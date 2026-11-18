@@ -49,7 +49,10 @@ export function imageRoutes(deps: AppDeps) {
     const { events: posts } = await tavernFeed(db, tavern.id, userId, { limit: 1, eventId });
     const post = posts[0];
     if (!post) throw new HTTPException(404, { message: 'Post not found' });
-    if (!PAINTABLE_KINDS.has(post.kind)) badRequest('That post has nothing to paint');
+    // A player title (Altaholic) isn't held by a character, so there's nobody to paint.
+    if (!PAINTABLE_KINDS.has(post.kind) || (post.kind === 'title_gained' && !post.character)) {
+      badRequest('That post has nothing to paint');
+    }
 
     const ids = new Set<string>();
     for (const p of posts) {

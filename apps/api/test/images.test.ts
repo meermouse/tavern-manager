@@ -109,6 +109,40 @@ describe('generated images', () => {
     expect((await w.commission(post.id)).status).toBe(400);
   });
 
+  it('paints a title post with both characters, but not a player title', async () => {
+    const w = await world();
+    const title = { key: 'ninja', name: 'The Ninja', icon: '🎲', value: '90.0% need rolls' };
+    const insert = async (characterId: string | null, data: unknown) =>
+      (
+        await w.db.query<{ id: string }>(
+          `insert into feed_events (kind, tavern_id, character_id, data) values ('title_gained', $1, $2, $3)
+           returning id::text as id`,
+          [w.tavern.id, characterId, JSON.stringify(data)],
+        )
+      )[0].id;
+    const taken = await insert(w.grim.id, {
+      title,
+      characters: [{ id: w.grim.id, name: 'Grimtusk' }, { id: w.judy.id, name: 'Judgement' }],
+      previous: { characterId: w.judy.id, player: { id: 'x', displayName: 'Alice' }, value: '75.0% need rolls' },
+    });
+    expect((await w.commission(taken)).status).toBe(202);
+    const { prompt, references } = w.calls[0];
+    expect(prompt).toContain('Grimtusk has just taken the tavern title “The Ninja” from Judgement, and is gloating over them');
+    expect(prompt).toContain('90.0% need rolls');
+    expect(prompt).not.toContain('Alice');
+    expect(references).toHaveLength(2);
+    const painting = (await w.feed())[0];
+    expect(painting.data.caption).toBe('Grimtusk takes The Ninja from Judgement');
+    expect(painting.data.characters.map((c: { name: string }) => c.name)).toEqual(['Grimtusk', 'Judgement']);
+
+    const altaholic = await insert(null, {
+      title: { key: 'altaholic', name: 'Altaholic', icon: '👥', value: '2 characters' },
+      characters: [],
+      previous: null,
+    });
+    expect((await w.commission(altaholic)).status).toBe(400);
+  });
+
   it('shows admins the prompt first, and paints the one they edited', async () => {
     const w = await world();
     const joined = await w.postOf('character_joined');
@@ -235,6 +269,36 @@ describe('buildScene', () => {
     expect(scene.references).toEqual([
       { url: 'https://render.example/thorn-inset.jpg', label: 'Thorn, Undead Rogue' },
     ]);
+  });
+
+  it('paints a title changing hands as the winner gloating over the loser', () => {
+    const grim = ch({ id: 'g', name: 'Grimtusk', render_url: 'https://r.example/g.png' });
+    const judy = ch({ id: 'j', name: 'Judgement', class: 'Paladin', race: 'Human', gender: 'Female', faction: 'Alliance' });
+    const post = (previous: unknown) => ({
+      id: '1',
+      kind: 'title_gained',
+      character: { id: 'g', name: 'Grimtusk' },
+      data: {
+        title: { key: 'head-chef', name: 'Head Chef', icon: '🍳', value: '225 Cooking' },
+        characters: previous ? [{ id: 'g' }, { id: 'j' }] : [{ id: 'g' }],
+        previous,
+      },
+    });
+    const taken = buildScene([post({ characterId: 'j', value: '200 Cooking' })], [judy, grim], 'The Prancing Pony');
+    expect(taken.characterIds).toEqual(['g', 'j']);
+    expect(taken.caption).toBe('Grimtusk takes Head Chef from Judgement');
+    expect(taken.prompt).toContain('“The Prancing Pony”');
+    expect(taken.prompt).toContain('Grimtusk has just taken the tavern title “Head Chef” from Judgement, and is gloating over them');
+    expect(taken.prompt).toContain('awarded for: highest cooking skill in the tavern.');
+    expect(taken.prompt).toContain('Grimtusk won it with 225 Cooking, beating Judgement’s 200 Cooking.');
+    expect(taken.prompt).toContain('steaming, mouth-watering dish');
+    expect(taken.prompt).toContain('2. Judgement, a female Human Paladin of the Alliance');
+    expect(taken.prompt).not.toContain('celebrating their latest deeds');
+
+    const crowned = buildScene([post(null)], [grim], 'The Prancing Pony');
+    expect(crowned.caption).toBe('Grimtusk is crowned Head Chef');
+    expect(crowned.prompt).toContain('crowned with the tavern title “Head Chef”');
+    expect(crowned.prompt).not.toContain('gloating');
   });
 
   it('skips non-https renders and caps the cast', () => {
