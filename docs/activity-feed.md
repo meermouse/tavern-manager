@@ -15,6 +15,7 @@ characters in it.
 | `character_joined` | A player adds a character to the Tavern. | Tavern | App |
 | `member_joined` | A player joins via an invite. | Tavern | App |
 | `tavern_founded` | The Tavern is created. | Tavern | App |
+| `title_gained` | A character (or, for player titles like Altaholic, a player) becomes the holder of a tavern title. If they overtook the previous holder, the post tags both characters ("Grim took The Ninja from Judy") and shows both scores. Titles are worked out whenever the tavern or a player's profile is loaded, so the post appears then; saving the new holder is conditional on the old one, so two requests at once can't both post. A holder who left the tavern isn't tagged. A tavern's first titles are handed out without posts (see baselines below). | Tavern | App (tavern titles) |
 | `generated_image` | A tavern admin presses **Commission painting** on a post: an AI picture of it, shown to everyone once finished. See [generated-images.md](generated-images.md). Removing it deletes the picture. | Tavern | App (OpenAI Images API) |
 
 **Character-scoped** posts appear in every Tavern the character is currently in, including posts from before it joined,
@@ -29,6 +30,11 @@ The first time we successfully read a character's equipment or achievements, we 
 posting**. Only things that appear *after* that baseline become posts. Likewise, no `level_up` post is made the first time
 a character's level is seen. So adding a level-60 character with a full set of epics creates a single "brought X to
 the tavern" post, not twenty loot posts.
+
+Titles work the same way per tavern: the first time anyone in a tavern holds a title, every title held then is saved
+silently (`taverns.titles_baseline_at`), so the first character in a new tavern doesn't post every title at once.
+From then on each new holder gets a `title_gained` post. Taverns that already had title holders before posts existed
+count as baselined.
 
 Each item or achievement is only ever posted once per character (unique on `character_id` + id), so swapping gear back
 and forth doesn't post again. The level-up check reads and updates the level in one statement, under a row lock, so two
@@ -86,7 +92,8 @@ feed_reactions           -- cheers
 ```
 
 `data` holds the kind-specific payload, such as `{from, to}` for a level-up, `{items: [{id, name, quality, slot, itemLevel}]}`
-for loot, `{achievements: [{id, name, completedAt}]}` for achievements, or `{tavernName}` for a founding. Character
+for loot, `{achievements: [{id, name, completedAt}]}` for achievements, `{tavernName}` for a founding, or `{title: {key, name, icon, value}, characters: [newHolder, previousHolder?],
+previous: {characterId, player: {id, displayName}, value} | null}` for a title gained. Character
 name, class and owner are joined in when the feed is read, so renames show up everywhere.
 
 ## API
@@ -134,7 +141,7 @@ adds or removes your cheer and returns the post's updated `cheers`. Both are ide
   added.
 - The empty state explains what will appear and that updates arrive when characters log out.
 - A filter bar above the feed: a search box, a character picker, **Just my characters**, and post-type toggles
-  (Level ups, Loot, Achievements, Dungeons, Paintings, Arrivals). Filters live in the URL (`?q=`, `?chars=`,
+  (Level ups, Loot, Achievements, Dungeons, Titles, Paintings, Arrivals). Filters live in the URL (`?q=`, `?chars=`,
   `?mine=1`, `?types=`), so a refresh or shared link keeps them, and they're applied by the API so older pages are
   filtered too. The faction picker still applies on top.
 

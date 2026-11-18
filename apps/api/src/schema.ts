@@ -147,6 +147,11 @@ create table if not exists tavern_title_holders (
   since timestamptz not null default now(),
   primary key (tavern_id, title_key)
 );
+-- When a tavern's first titles were handed out (silently: no feed posts for that first burst). Taverns that already
+-- had holders before this column existed count as baselined.
+alter table taverns add column if not exists titles_baseline_at timestamptz;
+update taverns t set titles_baseline_at = now()
+  where titles_baseline_at is null and exists (select 1 from tavern_title_holders h where h.tavern_id = t.id);
 
 -- Dungeon log: which dungeons the owner has marked as completed, as { "<dungeon name>": "<when logged>" }.
 alter table characters add column if not exists dungeons_completed jsonb not null default '{}';

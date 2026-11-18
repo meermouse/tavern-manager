@@ -55,6 +55,38 @@ describe('isMilestone', () => {
 });
 
 describe('FeedPost', () => {
+  it('shows a title gained, tagging whoever it was taken from', () => {
+    const grim = { id: 'c2', name: 'Grimble', surname: 'Thornwick', class: 'Warrior', level: 40 };
+    const title = { key: 'ninja', name: 'The Ninja', icon: '🎲', value: '90.0% need rolls' };
+    const taken = renderPost(
+      post({
+        kind: 'title_gained',
+        character: { ...grim, race: 'Orc' },
+        data: {
+          title,
+          characters: [grim, character],
+          previous: { characterId: 'c1', player: { id: 'u1', displayName: 'Alice' }, value: '75.0% need rolls' },
+        },
+      }),
+    );
+    expect(taken.textContent).toContain('Grimble took The Ninja from Judgement');
+    expect(taken.textContent).toContain('90.0% need rolls · Judgement: 75.0% need rolls');
+    const fresh = renderPost(post({ kind: 'title_gained', data: { title, characters: [character], previous: null } }));
+    expect(fresh.textContent).toContain('Judgement is now The Ninja');
+    const player = renderPost(
+      post({
+        kind: 'title_gained',
+        character: null,
+        data: {
+          title: { key: 'altaholic', name: 'Altaholic', icon: '👥', value: '3 characters' },
+          characters: [],
+          previous: { characterId: null, player: { id: 'u2', displayName: 'Bob' }, value: '2 characters' },
+        },
+      }),
+    );
+    expect(player.textContent).toContain('Alice took Altaholic from Bob');
+  });
+
   it('shows nothing for a kind it does not know', () => {
     const { container } = render(<ul><FeedPost event={post({ kind: 'secret_admin_thing' as FeedEvent['kind'] })} now={NOW} /></ul>);
     expect(container.querySelector('li')).toBeNull();

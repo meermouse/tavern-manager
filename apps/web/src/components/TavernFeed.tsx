@@ -162,6 +162,28 @@ function headline(event: FeedEvent): Headline | null {
           </>
         ),
       };
+    case 'title_gained': {
+      const title = d.title;
+      if (!title) return null;
+      const [holder, taken] = d.characters ?? [];
+      const prev = d.previous;
+      // Character titles tag both characters; player titles (Altaholic) name the players.
+      const who = holder ? <PartyNames characters={[holder]} /> : user;
+      const from = prev
+        ? taken && prev.characterId === taken.id
+          ? <PartyNames characters={[taken]} />
+          : <strong>{prev.player.displayName}</strong>
+        : null;
+      return {
+        icon: title.icon,
+        className: 'title-gained',
+        text: from ? (
+          <>{who} took <strong>{title.name}</strong> from {from}</>
+        ) : (
+          <>{who} is now <strong>{title.name}</strong></>
+        ),
+      };
+    }
     default:
       return null;
   }
@@ -241,6 +263,16 @@ function GeneratedPicture({ event, actions }: { event: FeedEvent; actions?: Imag
 
 function Details({ event, imageActions }: { event: FeedEvent; imageActions?: ImageActions }) {
   if (event.kind === 'generated_image') return <GeneratedPicture event={event} actions={imageActions} />;
+  if (event.kind === 'title_gained' && event.data.title) {
+    const prev = event.data.previous;
+    const taken = event.data.characters?.find((c) => c.id === prev?.characterId);
+    return (
+      <p className="feed-title-score small-text">
+        {event.data.title.value}
+        {prev && <span className="muted"> · {taken?.name ?? prev.player.displayName}: {prev.value}</span>}
+      </p>
+    );
+  }
   if (event.kind === 'dungeon_run' && event.data.bosses?.length) {
     return <p className="feed-bosses small-text"><span className="muted">Bosses:</span> {event.data.bosses.join(' · ')}</p>;
   }
@@ -336,6 +368,9 @@ export const PAINTABLE_KINDS = new Set<FeedEvent['kind']>([
   'achievement',
   'character_joined',
 ]);
+
+/** Posts that belong to one tavern (deleting them deletes them outright), even when they're about a character. */
+const TAVERN_KINDS = new Set<FeedEvent['kind']>(['character_joined', 'generated_image', 'title_gained']);
 
 /** Admins only: the post's "Commission painting" button. */
 export interface Commission {
@@ -599,7 +634,7 @@ export function TavernFeed({
             <span aria-hidden="true">{headline(deleting)?.icon}</span> {headline(deleting)?.text}
           </p>
           <p className="small-text">
-            {deleting.character && deleting.kind !== 'character_joined' && deleting.kind !== 'generated_image'
+            {deleting.character && !TAVERN_KINDS.has(deleting.kind)
               ? 'It will be removed from this tavern’s feed for everyone. Other taverns this character is in will still see it. This can’t be undone.'
               : 'It will be removed for everyone, along with its cheers. This can’t be undone.'}
           </p>

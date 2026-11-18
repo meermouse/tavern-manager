@@ -1,5 +1,6 @@
 import type { CharacterProfession } from './blizzard/client.js';
 import type { Db } from './db.js';
+import { recordEvent } from './feed.js';
 import { GEAR_VALUE_SQL } from './prices.js';
 
 /**
@@ -388,16 +389,16 @@ export function rankTitles(characters: TitleCandidate[], incumbents: ReadonlyMap
   });
 }
 
-/** The subject id (character, or user for player titles) holding a title, if anyone. */
-const holderOf = (t: TitleStandings) => {
-  const h = t.standings.find((s) => s.holder);
-  return h ? (h.character?.id ?? h.player.userId) : null;
-};
+/** The standing (character, or player for player titles) holding a title, if anyone. */
+const holderOf = (t: TitleStandings) => t.standings.find((s) => s.holder) ?? null;
+const standingId = (s: TitleStanding) => s.character?.id ?? s.player.userId;
 
 /**
  * Rank a tavern's titles against its saved holders, and save any change of holder: a new holder starts their
  * reign now, and a title nobody holds any more (left the tavern, tie with no holder, dropped below the bar) is
- * cleared.
+ * cleared. Each new holder gets a `title_gained` post in the tavern's feed, naming whoever they took it from, except
+ * for the tavern's first titles: those are handed out silently (like gear and achievement baselines), so the first
+ * character in a new tavern doesn't post a burst of every title at once.
  */
 export async function tavernTitles(db: Db, tavernId: string, characters: TitleCandidate[]): Promise<TitleStandings[]> {
   const saved = await db.query<{ title_key: string; subject_id: string; since: Date | string }>(
@@ -406,21 +407,86 @@ export async function tavernTitles(db: Db, tavernId: string, characters: TitleCa
   );
   const incumbents = new Map(saved.map((r) => [r.title_key, { subjectId: r.subject_id, since: new Date(r.since) }]));
   const ranked = rankTitles(characters, incumbents);
+  const [tavern] = await db.query<{ titles_baseline_at: Date | null }>(
+    'select titles_baseline_at from taverns where id = $1',
+    [tavernId],
+  );
+  const announce = !!tavern?.titles_baseline_at;
+  if (!announce && ranked.some((t) => holderOf(t))) {
+    await db.query('update taverns set titles_baseline_at = now() where id = $1 and titles_baseline_at is null', [tavernId]);
+  }
   for (const t of ranked) {
     const holder = holderOf(t);
+    const holderId = holder && standingId(holder);
     const was = incumbents.get(t.key)?.subjectId ?? null;
-    if (holder === was) continue;
-    if (holder) {
-      await db.query(
-        `insert into tavern_title_holders (tavern_id, title_key, subject_id, since) values ($1, $2, $3, $4)
-         on conflict (tavern_id, title_key) do update set subject_id = excluded.subject_id, since = excluded.since`,
-        [tavernId, t.key, holder, t.holderSince],
-      );
+    if (holderId === was) continue;
+    if (holder && holderId) {
+      // Only take the title from the holder we saw (or claim it only if it's still free), so two requests racing
+      // each other can't both announce it.
+      const taken = was
+        ? await db.query(
+            `update tavern_title_holders set subject_id = $3, since = $4
+             where tavern_id = $1 and title_key = $2 and subject_id = $5 returning 1`,
+            [tavernId, t.key, holderId, t.holderSince, was],
+          )
+        : await db.query(
+            `insert into tavern_title_holders (tavern_id, title_key, subject_id, since) values ($1, $2, $3, $4)
+             on conflict (tavern_id, title_key) do nothing returning 1`,
+            [tavernId, t.key, holderId, t.holderSince],
+          );
+      if (!taken.length || !announce) continue;
+      // Overtaken, rather than left the tavern: they're still in the standings.
+      const previous = was ? (t.standings.find((s) => standingId(s) === was) ?? null) : null;
+      try {
+        await announceTitle(db, tavernId, t, holder, previous);
+      } catch (err) {
+        // A missed post shouldn't break the page that noticed the change.
+        console.warn('Title post failed:', err instanceof Error ? err.message : err);
+      }
     } else {
       await db.query('delete from tavern_title_holders where tavern_id = $1 and title_key = $2', [tavernId, t.key]);
     }
   }
   return ranked;
+}
+
+/** Post that `holder` gained a title, tagging the holder they took it from (`previous`), if any. */
+async function announceTitle(
+  db: Db,
+  tavernId: string,
+  t: TitleStandings,
+  holder: TitleStanding,
+  previous: TitleStanding | null,
+): Promise<void> {
+  const ids = [holder.character?.id, previous?.character?.id].filter((id): id is string => !!id);
+  // The tagged characters as the feed shows them (class colour, hover card), new holder first.
+  const found = ids.length
+    ? await db.query<{ id: string; name: string; surname: string; class: string | null; level: number | null; avatar_url: string | null }>(
+        'select id, name, surname, class, level, avatar_url from characters where id = any($1::uuid[])',
+        [ids],
+      )
+    : [];
+  const characters = ids
+    .map((id) => found.find((c) => c.id === id))
+    .filter((c) => !!c)
+    .map((c) => ({ id: c.id, name: c.name, surname: c.surname, class: c.class, level: c.level, avatarUrl: c.avatar_url }));
+  await recordEvent(db, {
+    kind: 'title_gained',
+    tavernId,
+    characterId: holder.character?.id ?? null,
+    userId: holder.player.userId,
+    data: {
+      title: { key: t.key, name: t.name, icon: t.icon, value: holder.value },
+      characters,
+      previous: previous
+        ? {
+            characterId: previous.character?.id ?? null,
+            player: { id: previous.player.userId, displayName: previous.player.displayName },
+            value: previous.value,
+          }
+        : null,
+    },
+  });
 }
 
 /** The badge for a title someone holds. */
