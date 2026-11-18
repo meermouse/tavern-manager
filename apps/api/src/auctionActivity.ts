@@ -203,9 +203,9 @@ export function salesBetween(
   /** A joke price: a "sale" at it is far more likely a troll giving up. */
   const troll = (item: number, unit: number) => {
     const going = prices.get(item);
-    if (going && going.listings >= 2) return unit > going.price * TROLL_RATIO;
+    if (going && going.listings >= 2) return unit > going.price * SALE_TROLL_RATIO;
     const c = cheapest.get(item);
-    return !!c && c.listings >= 2 && unit > c.unit * TROLL_RATIO;
+    return !!c && c.listings >= 2 && unit > c.unit * SALE_TROLL_RATIO;
   };
 
   const sales = new Map<number, ItemSales>();
@@ -251,8 +251,14 @@ export interface PriceyListing {
   house: string | null;
 }
 
-/** A listing this many times the item's going price is fishing for a misclick, not selling. */
+/** For the priciest listing: this many times the item's going price is fishing for a misclick, not selling. */
 const TROLL_RATIO = 3;
+
+/**
+ * For sales, a gentler cut-off: the going price is the cheapest listing, and plenty of honest listings sit a few
+ * times above it. On real EU data, 3× dropped a tenth of all listings; 10× still drops the joke prices.
+ */
+const SALE_TROLL_RATIO = 10;
 
 /**
  * The most expensive listings (per unit), one per item, highest first. Troll listings (a 9,999,999g Linen Cloth,
