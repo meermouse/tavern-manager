@@ -281,7 +281,7 @@ textarea.commission-prompt { display: block; box-sizing: border-box; width: 100%
 /* Generated pictures (admin "Commission painting"). */
 .feed-picture-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
 .feed-post.generated-image { border-left: 3px solid var(--accent); }
-.feed-picture { margin: 0.55rem 0 0; }
+.feed-picture { margin: 0.55rem 0 0; max-width: 480px; } /* about the width of a picture in a social media feed; phones are narrower anyway */
 .feed-picture img { display: block; width: 100%; height: auto; aspect-ratio: 3 / 2; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-input); }
 .feed-picture figcaption { display: flex; justify-content: flex-end; margin-top: 0.3rem; }
 .feed-picture.failed { padding: 0.5rem 0.7rem; background: var(--bg-input); border-radius: 8px; }
