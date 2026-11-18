@@ -27,6 +27,11 @@ export interface Config {
   openai: OpenAiImageConfig | null;
   /** Draw placeholder images instead of calling the image API (local development). */
   imageMock: boolean;
+  /**
+   * Where the hourly auction fetch keeps the previous listings, to estimate what sold: `netlify` (Netlify Blobs),
+   * a directory, or `off`.
+   */
+  auctionListingsStore: string | null;
 }
 
 export interface OpenAiImageConfig {
@@ -80,5 +85,6 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
         }
       : null,
     imageMock: bool(env.IMAGE_MOCK, !production && !env.OPENAI_API_KEY),
+    auctionListingsStore: env.AUCTION_LISTINGS_STORE || '.data/auction-listings',
   };
 }

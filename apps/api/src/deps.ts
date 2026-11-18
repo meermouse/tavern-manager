@@ -1,3 +1,4 @@
+import { createListingStore } from './auctionActivity.js';
 import { createBattleNetOAuth } from './auth/oauth.js';
 import { createBlizzardClient, type BlizzardClient } from './blizzard/client.js';
 import { createMockBlizzardClient } from './blizzard/mock.js';
@@ -30,6 +31,7 @@ export async function createDeps(config: Config = loadConfig()): Promise<AppDeps
     blizzard: createBlizzard(config),
     oauth: config.bnet ? createBattleNetOAuth(config.bnet) : null,
     images: createImageGenerator(config),
+    auctionListings: createListingStore(config.auctionListingsStore),
   };
 }
 

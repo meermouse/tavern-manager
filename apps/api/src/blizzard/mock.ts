@@ -207,6 +207,10 @@ export function createMockBlizzardClient(): BlizzardClient {
       );
       return { houses: 3, prices };
     },
+    async getItem(_region, id) {
+      const gear = MOCK_GEAR.find((g) => g.id === id);
+      return gear ? { id, name: gear.name, quality: gear.quality } : { id, name: `Mock Item ${id}`, quality: 'UNCOMMON' };
+    },
     async getProfessions(region, name, surname) {
       const profile = await client.getCharacter(region, name, surname);
       if (!profile?.level) return null;

@@ -213,6 +213,11 @@ td.actions { text-align: right; display: flex; gap: 0.4rem; justify-content: fle
 .feed-post.dungeon-cleared { border-left: 3px solid var(--role-healer); }
 .feed-post.title-gained { border-left: 3px solid var(--accent); }
 .feed-title-score { margin: 0.25rem 0 0; }
+.auction-avatar { font-size: 1.3rem; }
+.auction-daily-details .feed-items li { gap: 0.15rem 0.6rem; }
+.auction-label { color: var(--muted, inherit); font-size: 0.85em; min-width: 9.5rem; }
+.auction-ranked { display: inline; }
+.auction-footnote { margin: 0.35rem 0 0; }
 .feed-post.loot-rare { border-left: 3px solid var(--q-rare); }
 .feed-actions { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; margin-top: 0.55rem; }
 button.cheer { display: inline-flex; align-items: center; gap: 0.35rem; border-radius: 999px; padding: 0.15rem 0.7rem; }

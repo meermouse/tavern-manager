@@ -1,11 +1,15 @@
 import type { Region } from '../config.js';
 import {
+  addListings,
   cheapestByItem,
   combineHouses,
+  emptyHouse,
+  houseNames,
   idsIn,
   KNOWN_AUCTION_HOUSES,
   type AuctionSnapshot,
   type AuctionTraceStep,
+  type HouseListings,
 } from './auctions.js';
 
 export const RULESETS = ['Normal', 'PvP', 'Roleplay', 'Roleplay PvP'] as const;
@@ -132,6 +136,15 @@ export interface BlizzardClient {
     region: Region,
     opts?: { deadline?: number; trace?: (step: AuctionTraceStep) => void },
   ): Promise<AuctionSnapshot | null>;
+  /** An item's name and quality (static game data), for auction house posts. `null` if there's no such item. */
+  getItem?(region: Region, id: number): Promise<ItemInfo | null>;
+}
+
+export interface ItemInfo {
+  id: number;
+  name: string;
+  /** e.g. `EPIC`. */
+  quality: string;
 }
 
 /** Statistic name → value. */
@@ -514,7 +527,13 @@ export function createBlizzardClient(
   async function getData(
     region: Region,
     path: string,
-    opts: { deadline?: number; trace?: (step: AuctionTraceStep) => void; item?: boolean } = {},
+    opts: {
+      deadline?: number;
+      trace?: (step: AuctionTraceStep) => void;
+      item?: boolean;
+      /** Called with the response's `Last-Modified` header (ISO), when it has one. */
+      lastModified?: (iso: string) => void;
+    } = {},
   ): Promise<Json | null> {
     const url = `https://${region}.api.blizzard.com${path}?namespace=dynamic-forever-${region}&locale=en_US`;
     const started = Date.now();
@@ -530,6 +549,8 @@ export function createBlizzardClient(
         res = await fetchOnce();
       }
       step.status = res.status;
+      const modified = res.headers?.get?.('last-modified');
+      if (modified && !Number.isNaN(Date.parse(modified))) opts.lastModified?.(new Date(modified).toISOString());
       const body = await res.text();
       step.bytes = body.length;
       if (res.status === 404) return null;
@@ -591,14 +612,18 @@ export function createBlizzardClient(
     },
 
     async getAuctionPrices(region, opts = {}) {
-      const data = (path: string, item = false) => getData(region, path, { ...opts, item });
+      const data = (path: string, item = false, lastModified?: (iso: string) => void) =>
+        getData(region, path, { ...opts, item, lastModified });
       // The index calls are just for discovery: fall back to known ids if they fail.
       const rulesets = idsIn(await data('/data/wow/ruleset/index').catch(() => null));
       const ruleset = rulesets.sort((a, b) => a - b)[0] ?? 1;
       const base = `/data/wow/ruleset/${ruleset}/auctions`;
-      const listed = idsIn(await data(`${base}/index`).catch(() => null));
+      const index = await data(`${base}/index`).catch(() => null);
+      const listed = idsIn(index);
       const houses = listed.length ? listed : KNOWN_AUCTION_HOUSES;
+      const names = houseNames(index);
       const results: ReturnType<typeof cheapestByItem>[] = [];
+      const listings: HouseListings[] = [];
       const failures: string[] = [];
       // A few houses at a time: gentle on rate limits, quick enough for a scheduled function.
       let next = 0;
@@ -609,21 +634,48 @@ export function createBlizzardClient(
             failures.push(err instanceof Error ? err.message : String(err));
             return null;
           };
-          const listings = await data(`${base}/${house}`, true).catch(fail);
-          const commodities = await data(`${base}/${house}/commodities`, true).catch(fail);
-          if (!listings && !commodities) continue;
-          const merged = cheapestByItem(listings);
+          const all = emptyHouse(house, names.get(house) ?? null);
+          // The house's data is as old as its older half.
+          const modified = (iso: string) => {
+            if (!all.lastModified || iso < all.lastModified) all.lastModified = iso;
+          };
+          const auctions = await data(`${base}/${house}`, true, modified).catch(fail);
+          const commodities = await data(`${base}/${house}/commodities`, true, modified).catch(fail);
+          if (!auctions && !commodities) continue;
+          const merged = cheapestByItem(auctions);
           for (const [id, c] of cheapestByItem(commodities)) {
             const seen = merged.get(id);
             merged.set(id, { price: Math.min(seen?.price ?? Infinity, c.price), listings: (seen?.listings ?? 0) + c.listings });
           }
           results.push(merged);
+          // Only a complete house can be compared with the next fetch: half of one would look like a sell-out.
+          if (auctions && commodities) {
+            addListings(all, auctions);
+            addListings(all, commodities);
+            listings.push(all);
+          }
         }
       };
       await Promise.all([worker(), worker(), worker()]);
       // Nothing answered: say why, rather than "nothing came back".
       if (!results.length && failures.length) throw new BlizzardError(failures[0]);
-      return results.length ? { houses: results.length, prices: combineHouses(results) } : null;
+      return results.length ? { houses: results.length, prices: combineHouses(results), listings } : null;
+    },
+
+    async getItem(region, id) {
+      const url = `https://${region}.api.blizzard.com/data/wow/item/${id}?namespace=static-forever-${region}&locale=en_US`;
+      let res = await get(url, await getAppToken());
+      if (res.status === 401) {
+        appToken = null;
+        res = await get(url, await getAppToken());
+      }
+      if (res.status === 404) return null;
+      if (!res.ok) throw new BlizzardError(`Blizzard item API error (${res.status})`, res.status);
+      const json = (await res.json()) as Json;
+      const quality = (json.quality as Json | undefined)?.type;
+      return typeof json.name === 'string'
+        ? { id, name: json.name, quality: typeof quality === 'string' ? quality : 'COMMON' }
+        : null;
     },
 
     async getAccountCharacters(region, userAccessToken) {

@@ -14,7 +14,8 @@ export type FeedKind =
   | 'member_joined'
   | 'tavern_founded'
   | 'generated_image'
-  | 'title_gained';
+  | 'title_gained'
+  | 'auction_daily';
 
 /**
  * Bump when `parseEquipment` starts keeping more detail, so gear saved by an older version is re-fetched once
@@ -208,6 +209,7 @@ export const FEED_KINDS: readonly FeedKind[] = [
   'tavern_founded',
   'generated_image',
   'title_gained',
+  'auction_daily',
 ];
 
 /** Ids of the characters a post is about: its own character, plus a group run's party or a painting's cast. */
@@ -232,6 +234,9 @@ const SEARCHABLE_PATHS = [
   'lax $.tavernName',
   'lax $.title.name',
   'lax $.previous.player.displayName',
+  'lax $.hottest[*].name',
+  'lax $.bigSpender.name',
+  'lax $.priciest.name',
 ];
 
 /** An `ilike` pattern matching `text` anywhere, with `%`, `_` and `\` taken literally. */
@@ -245,7 +250,10 @@ export function likePattern(text: string): string {
  */
 const VISIBLE_IN_TAVERN = `(
   e.tavern_id = $1
-  or (e.tavern_id is null and e.character_id in (select character_id from tavern_characters where tavern_id = $1)
+  or (e.tavern_id is null
+      and (e.character_id in (select character_id from tavern_characters where tavern_id = $1)
+        or (e.kind = 'auction_daily' and e.character_id is null and e.data->>'region' in (
+          select ch.region from tavern_characters tc join characters ch on ch.id = tc.character_id where tc.tavern_id = $1)))
       and not exists (select 1 from feed_hidden_events h where h.tavern_id = $1 and h.event_id = e.id))
 )`;
 
@@ -289,9 +297,14 @@ export function tavernFeed(
   return feedEvents(db, { param: tavernId, visible: VISIBLE_IN_TAVERN, cheerTaverns: 'select $1::uuid' }, viewerId, opts);
 }
 
-/** Posts a player can see outside any one tavern: those in taverns they belong to, plus tavern-less ones. */
+/**
+ * Posts a player can see outside any one tavern: those in taverns they belong to, plus tavern-less ones (auction
+ * house posts only for regions they have characters in).
+ */
 const VISIBLE_TO_USER = `(
-  e.tavern_id is null or e.tavern_id in (select tavern_id from tavern_members where user_id = $1)
+  (e.tavern_id is null and (e.kind <> 'auction_daily'
+    or e.data->>'region' in (select region from characters where user_id = $1)))
+  or e.tavern_id in (select tavern_id from tavern_members where user_id = $1)
 )`;
 
 /** Feed posts across all the viewer's taverns, with cheers from any of them (as on the global leaderboard). */

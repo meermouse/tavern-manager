@@ -4,6 +4,7 @@ import type { OAuthProvider } from './auth/oauth.js';
 import type { BlizzardClient } from './blizzard/client.js';
 import type { Config } from './config.js';
 import type { Db } from './db.js';
+import type { ListingStore } from './auctionActivity.js';
 import type { ImageGenerator } from './images/generator.js';
 
 export interface UserRow {
@@ -32,6 +33,8 @@ export interface AppDeps {
    * Netlify hands it to a background function instead, since a picture takes longer than a normal function may run.
    */
   dispatchImageJob?: (imageId: string, origin: string) => Promise<void>;
+  /** Where the hourly auction fetch keeps the last listings, to estimate sales; `null`/absent turns that off. */
+  auctionListings?: ListingStore | null;
 }
 
 export type AppEnv = {

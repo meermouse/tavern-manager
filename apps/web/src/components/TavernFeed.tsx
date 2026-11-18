@@ -14,6 +14,8 @@ import { ConfirmDialog } from './ConfirmDialog';
 import { CharacterAvatar } from './CharacterAvatar';
 import { CharacterLink } from './CharacterLink';
 import { ItemLink } from './ItemLink';
+import { Coins } from './Coins';
+import type { AuctionItem } from '../api/client';
 import { timeAgo } from '../time';
 import { ClassName, classKey } from './ClassName';
 
@@ -35,6 +37,13 @@ function qualityLabel(q: string) {
 }
 
 function Avatar({ event }: { event: FeedEvent }) {
+  if (event.kind === 'auction_daily') {
+    return (
+      <div className="feed-avatar auction-avatar" aria-hidden="true">
+        💰
+      </div>
+    );
+  }
   if (event.character) {
     return (
       <CharacterLink character={event.character} focusable={false}>
@@ -184,9 +193,91 @@ function headline(event: FeedEvent): Headline | null {
         ),
       };
     }
+    case 'auction_daily':
+      if (!d.day) return null;
+      return {
+        icon: '⚖️',
+        className: 'auction-daily',
+        text: (
+          <>
+            <strong>{auctionDayLabel(d.day)}</strong> on the auction house
+          </>
+        ),
+      };
     default:
       return null;
   }
+}
+
+/** "Tuesday 17 November", for a UTC day like 2026-11-17. */
+export function auctionDayLabel(day: string): string {
+  const date = new Date(`${day}T12:00:00Z`);
+  if (Number.isNaN(date.getTime())) return day;
+  return date.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' });
+}
+
+function AuctionItemLink({ item }: { item: AuctionItem }) {
+  return <ItemLink item={{ ...item, slot: null, itemLevel: null }} />;
+}
+
+/** Estimated sales, best sellers and the priciest believable listing. */
+function AuctionDetails({ event }: { event: FeedEvent }) {
+  const d = event.data;
+  const hottest = d.hottest ?? [];
+  return (
+    <div className="auction-daily-details">
+      <ul className="feed-items">
+        {hottest.length > 0 && (
+          <li>
+            <span className="auction-label">🔥 Most in demand</span>
+            <span className="auction-ranked">
+              {hottest.map((item, i) => (
+                <span key={item.id}>
+                  {i > 0 && <span className="muted"> · </span>}
+                  <AuctionItemLink item={item} />{' '}
+                  <span className="muted small-text">
+                    ~{plural(item.purchases, 'sale')}
+                    {item.units !== item.purchases && `, ${item.units.toLocaleString()} units`}
+                  </span>
+                </span>
+              ))}
+            </span>
+          </li>
+        )}
+        {d.bigSpender && d.bigSpender.copper > 0 && (
+          <li>
+            <span className="auction-label">💸 Most gold spent on</span>
+            <span>
+              <AuctionItemLink item={d.bigSpender} />{' '}
+              <span className="muted small-text">
+                ~<Coins copper={d.bigSpender.copper} /> over {plural(d.bigSpender.purchases, 'sale')}
+              </span>
+            </span>
+          </li>
+        )}
+        {d.priciest && (
+          <li>
+            <span className="auction-label">👑 Priciest listing</span>
+            <span>
+              <AuctionItemLink item={d.priciest} /> <Coins copper={d.priciest.unit} />
+              {d.priciest.quantity > 1 && <span className="muted small-text"> each</span>}
+              <span className="muted small-text">
+                {' '}(going rate <Coins copper={d.priciest.going} />
+                {d.priciest.house ? `, ${d.priciest.house}` : ''})
+              </span>
+            </span>
+          </li>
+        )}
+      </ul>
+      {d.totals && d.totals.purchases > 0 && (
+        <p className="small-text muted auction-footnote">
+          Roughly {d.totals.purchases.toLocaleString()} sales worth <Coins copper={d.totals.copper} /> across{' '}
+          {plural(d.houses ?? 0, 'auction house')}, estimated by comparing hourly snapshots: a listing that vanished
+          early probably sold, though some were just cancelled.
+        </p>
+      )}
+    </div>
+  );
 }
 
 /** "Judy", "Judy and Grim", "Judy, Grim and Thorn", each linked to its hover card. */
@@ -263,6 +354,7 @@ function GeneratedPicture({ event, actions }: { event: FeedEvent; actions?: Imag
 
 function Details({ event, imageActions }: { event: FeedEvent; imageActions?: ImageActions }) {
   if (event.kind === 'generated_image') return <GeneratedPicture event={event} actions={imageActions} />;
+  if (event.kind === 'auction_daily') return <AuctionDetails event={event} />;
   if (event.kind === 'title_gained' && event.data.title) {
     const prev = event.data.previous;
     const taken = event.data.characters?.find((c) => c.id === prev?.characterId);

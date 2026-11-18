@@ -61,6 +61,40 @@ describe('Blizzard auction client', () => {
     expect(trace.find((s) => s.path === '/data/wow/ruleset/1/auctions/113/commodities')).toMatchObject({ status: 404 });
   });
 
+  it('keeps every listing of a complete house, with its name and when Blizzard last updated it', async () => {
+    const json = (body: unknown, modified?: string) =>
+      new Response(JSON.stringify(body), { headers: modified ? { 'Last-Modified': modified } : {} });
+    const fetchImpl = (async (url: string) => {
+      if (url.includes('oauth.battle.net')) return json({ access_token: 't', expires_in: 3600 });
+      const path = new URL(url).pathname;
+      if (path === '/data/wow/ruleset/index') return json({ rulesets: [{ id: 1 }] });
+      if (path === '/data/wow/ruleset/1/auctions/index')
+        return json({ auctions: [{ id: 110, name: 'Alliance Auction House' }, { id: 113, name: 'Horde Auction House' }] });
+      if (path === '/data/wow/ruleset/1/auctions/110')
+        return json({ auctions: [{ id: 5, item: { id: 7 }, quantity: 2, buyout: 900, time_left: 'LONG' }] }, 'Wed, 18 Nov 2026 14:22:58 GMT');
+      if (path === '/data/wow/ruleset/1/auctions/110/commodities')
+        return json({ auctions: [{ id: 6, item: { id: 8 }, quantity: 3, unit_price: 50, time_left: 'VERY_LONG' }] }, 'Wed, 18 Nov 2026 14:22:41 GMT');
+      // Half a house can't be compared with the next fetch.
+      if (path === '/data/wow/ruleset/1/auctions/113') return json({ auctions: [{ id: 9, item: { id: 7 }, quantity: 1, buyout: 1 }] });
+      return new Response('{}', { status: 404 });
+    }) as typeof fetch;
+    const client = createBlizzardClient({ clientId: 'id', clientSecret: 'secret' }, fetchImpl);
+    const snapshot = await client.getAuctionPrices!('eu');
+    expect(snapshot?.houses).toBe(2);
+    expect(snapshot?.listings).toEqual([
+      {
+        house: 110,
+        name: 'Alliance Auction House',
+        lastModified: '2026-11-18T14:22:41.000Z',
+        ids: [5, 6],
+        items: [7, 8],
+        quantities: [2, 3],
+        units: [450, 50],
+        timeLeft: [2, 3],
+      },
+    ]);
+  });
+
   it('reports why, when no auction house answers', async () => {
     const fetchImpl = (async (url: string) =>
       url.includes('oauth.battle.net')

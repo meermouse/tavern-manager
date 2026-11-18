@@ -1,3 +1,4 @@
+import { postAuctionReports, recordAuctionActivity, type ListingStore } from './auctionActivity.js';
 import type { AuctionTraceStep } from './blizzard/auctions.js';
 import type { BlizzardClient } from './blizzard/client.js';
 import type { Db } from './db.js';
@@ -50,7 +51,13 @@ export async function refreshAuctionPrices(
   db: Db,
   blizzard: BlizzardClient,
   region: string,
-  opts: { maxAgeMinutes?: number; deadline?: number; force?: boolean } = {},
+  opts: {
+    maxAgeMinutes?: number;
+    deadline?: number;
+    force?: boolean;
+    /** Where the last fetch's listings are kept, for estimating sales ("Yesterday on the auction house"). */
+    listings?: ListingStore | null;
+  } = {},
 ): Promise<number> {
   if (!blizzard.getAuctionPrices) return 0;
   const maxAge = opts.maxAgeMinutes ?? PRICES_MAX_AGE_MINUTES;
@@ -93,6 +100,15 @@ export async function refreshAuctionPrices(
       `update auction_snapshots set fetched_at = now(), houses = $2, items = $3, error = null, trace = $4 where region = $1`,
       [region, snapshot.houses, entries.length, JSON.stringify(trace)],
     );
+    if (opts.listings) {
+      // Best-effort: the prices are saved either way.
+      try {
+        await recordAuctionActivity(db, opts.listings, region, snapshot);
+        await postAuctionReports(db, blizzard, region);
+      } catch (err) {
+        console.error('Auction activity failed', err);
+      }
+    }
     return entries.length;
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -110,7 +126,7 @@ export async function refreshAuctionPrices(
 export async function refreshAllAuctionPrices(
   db: Db,
   blizzard: BlizzardClient,
-  opts: { maxAgeMinutes?: number; deadline?: number } = {},
+  opts: { maxAgeMinutes?: number; deadline?: number; listings?: ListingStore | null } = {},
 ): Promise<number> {
   const regions = await db.query<{ region: string }>('select distinct region from characters');
   let total = 0;

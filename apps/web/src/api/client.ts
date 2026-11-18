@@ -220,7 +220,37 @@ export type FeedKind =
   | 'member_joined'
   | 'tavern_founded'
   | 'generated_image'
-  | 'title_gained';
+  | 'title_gained'
+  | 'auction_daily';
+
+/** An item in an auction house post. */
+export interface AuctionItem {
+  id: number;
+  name: string;
+  quality: string;
+}
+
+/** Estimated auction house sales of an item (or all items) over a day. */
+export interface AuctionSales {
+  /** Listings bought (partial buys from a commodity listing count once each). */
+  purchases: number;
+  units: number;
+  /** Copper spent. */
+  copper: number;
+}
+
+/** auction_daily: "Yesterday on the auction house", estimated from hourly snapshots (see apps/api/src/auctionActivity.ts). */
+export interface AuctionDaily {
+  region: string;
+  /** YYYY-MM-DD (UTC). */
+  day: string;
+  hours: number;
+  houses: number;
+  totals: AuctionSales;
+  hottest: (AuctionItem & AuctionSales)[];
+  bigSpender: (AuctionItem & AuctionSales) | null;
+  priciest: (AuctionItem & { unit: number; quantity: number; going: number; house: string | null }) | null;
+}
 
 /** An AI painting an admin commissioned of a post, and how painting it is going. */
 export interface GeneratedImage {
@@ -288,7 +318,7 @@ export interface FeedEvent {
     title?: { key: string; name: string; icon: string; value: string };
     /** title_gained: whoever held the title before, if it was taken from them (`null` if it was free). */
     previous?: { characterId: string | null; player: { id: string; displayName: string }; value: string } | null;
-  };
+  } & Partial<AuctionDaily>;
   cheers: Cheers;
 }
 

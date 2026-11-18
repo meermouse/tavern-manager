@@ -12,6 +12,7 @@ export const POST_TYPES = [
   { key: 'dungeons', label: 'Dungeons', icon: '🗝️', kinds: ['dungeon_run', 'dungeon_cleared'] },
   { key: 'titles', label: 'Titles', icon: '👑', kinds: ['title_gained'] },
   { key: 'paintings', label: 'Paintings', icon: '🎨', kinds: ['generated_image'] },
+  { key: 'auction', label: 'Auction house', icon: '⚖️', kinds: ['auction_daily'] },
   { key: 'arrivals', label: 'Arrivals', icon: '🍺', kinds: ['character_joined', 'member_joined', 'tavern_founded'] },
 ] as const satisfies readonly { key: string; label: string; icon: string; kinds: readonly FeedKind[] }[];
 

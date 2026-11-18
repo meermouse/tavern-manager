@@ -4,7 +4,8 @@
 #   /api/*       → netlify/functions/api.ts  (path set in the function's config)
 #   /auth/*      → netlify/functions/api.ts
 #   (scheduled)  → netlify/functions/refresh.ts every 30 minutes
-#   (scheduled)  → netlify/functions/refresh-prices.ts hourly: auction house prices for gear net worth
+#   (scheduled)  → netlify/functions/refresh-prices.ts hourly: auction house prices for gear net worth, and the
+#                  daily "Yesterday on the auction house" post (last hour's listings kept in Netlify Blobs)
 #   (background) → netlify/functions/generate-image-background.ts paints admin "Commission painting" pictures
 
 [build]
@@ -19,7 +20,8 @@
   node_bundler = "esbuild"
   # pg is CommonJS, so ship it as-is rather than bundling it into the ESM function.
   # PGlite is only used for local dev / tests; production uses Postgres via DATABASE_URL.
-  external_node_modules = ["pg", "@electric-sql/pglite"]
+  # @netlify/blobs pulls in native modules (a keyring) that esbuild can't bundle, so it ships as-is too.
+  external_node_modules = ["pg", "@electric-sql/pglite", "@netlify/blobs"]
 
 # SPA fallback. Function paths (/api/*, /auth/*) take precedence over redirects.
 [[redirects]]
