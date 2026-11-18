@@ -1,9 +1,10 @@
+import { TITLES } from '../titles.js';
 import { dungeonScene } from './dungeonScenes.js';
 
 /**
  * Turning feed posts into an image prompt. Only what can be painted is kept: who was there (race, class, gender,
  * faction and their render as a reference image), where (the dungeon), what they fought (bosses) and what they
- * showed off (new gear, level milestones). Numbers, IRL names, dates and cheers are left out.
+ * showed off (new gear, titles). Numbers, IRL names, dates and cheers are left out.
  */
 
 /** A feed post as `tavernFeed` returns it (only the fields used here). */
@@ -49,15 +50,48 @@ export interface Scene {
   dungeon: string | null;
 }
 
-/** Posts worth a painting: the ones with characters in them. */
+/** Posts worth a painting: the ones with characters in them (level-ups aren't, they're too routine). */
 export const PAINTABLE_KINDS = new Set([
   'dungeon_run',
   'dungeon_cleared',
   'loot',
-  'level_up',
   'achievement',
   'character_joined',
+  // Character titles only: a player title (Altaholic) has nobody to paint.
+  'title_gained',
 ]);
+
+/** A prop or flourish for each tavern title, so the picture shows what it was won for. */
+const TITLE_PROPS: Record<string, string> = {
+  ninja: 'clutching an armful of loot they rolled Need on, a pair of dice tumbling nearby',
+  'head-chef': 'in a chef’s apron, holding up a steaming, mouth-watering dish',
+  'old-man-sea': 'holding up an enormous freshly caught fish, a fishing rod over one shoulder',
+  'field-medic': 'with rolls of bandages and a first-aid satchel',
+  'corpse-runner': 'pale and ghostly at the edges, a spirit healer’s glow behind them',
+  'gravity-tester': 'with a crumpled parachute cloak and a few bruises',
+  regular: 'raising an overflowing tankard, empty mugs piled up beside them',
+  'bunny-slayer': 'with a sack of very small, very unlucky critters',
+  unimpressed: 'mid-facepalm, utterly unimpressed',
+  'happy-camper': 'beside a little campfire and bedroll',
+  'punching-bag': 'with a black eye and a sheepish grin',
+  juiced: 'with a bandolier of glowing, bubbling elixir vials',
+  'hello-there': 'waving cheerfully at everyone',
+  'errand-runner': 'with an overflowing stack of quest scrolls',
+  homebody: 'holding a glowing hearthstone',
+  'class-clown': 'doubled over with laughter',
+  'tiny-violinist': 'playing a comically tiny violin',
+  'the-butcher': 'with a blood-stained weapon and a trail of defeated foes',
+  'not-useless': 'standing tall over a pile of vanquished enemies, barely a scratch on them',
+  'best-dressed': 'in their finest, gleaming gear, striking a fashion pose',
+  moneybags: 'dripping in costly gear, a bulging coin purse on their belt',
+  'town-crier': 'ringing a hand bell and holding a scroll of news',
+  'gone-fishin': 'looking dusty and cobwebbed, as if they’ve been away for ages',
+};
+
+type TitlePostData = {
+  title?: { key?: unknown; name?: unknown; value?: unknown };
+  previous?: { characterId?: unknown; value?: unknown } | null;
+};
 
 /** More characters than this crowds the picture (and the image API's reference limit). */
 export const MAX_SCENE_CHARACTERS = 8;
@@ -131,11 +165,13 @@ const isDungeonPost = (p: ScenePost) =>
 /**
  * Build the prompt for one picture of these posts (newest first, as the feed lists them). The newest dungeon post,
  * if there is one, sets the scene: an action shot of its party in that dungeon. Otherwise it's a group scene of
- * everyone in the posts. The other posts add details: new gear to show off, milestones to celebrate.
+ * everyone in the posts. The other posts add details: new gear to show off, achievements.
  */
 export function buildScene(posts: ScenePost[], characters: SceneCharacter[], tavernName: string): Scene {
   const byId = new Map(characters.map((c) => [c.id, c]));
   const focus = posts.find(isDungeonPost) ?? null;
+  // Without a dungeon, a title changing hands sets the scene: the winner gloating over whoever they took it from.
+  const titlePost = focus ? null : (posts.find((p) => p.kind === 'title_gained' && p.character) ?? null);
 
   // Who's in it: the focus party first, then everyone else in the posts, newest first.
   const order: string[] = [];
@@ -156,6 +192,7 @@ export function buildScene(posts: ScenePost[], characters: SceneCharacter[], tav
   }
 
   const dungeon = focus ? (focus.data.dungeon as string) : null;
+  const titleScene = titlePost ? titleAction(titlePost, byId, cast) : null;
   const lines: string[] = [];
   lines.push(`A single epic illustration in the ${ART_STYLE}`);
   lines.push('');
@@ -184,7 +221,8 @@ export function buildScene(posts: ScenePost[], characters: SceneCharacter[], tav
       `Setting: the cosy, lantern-lit common room of ${tavernName ? `“${tavernName}”, ` : ''}a fantasy tavern ` +
         'in Azeroth, with a roaring hearth, wooden beams and tankards of ale.',
     );
-    lines.push('Action: the adventurers gathered together, celebrating their latest deeds in a heroic group pose.');
+    if (titleScene) lines.push(...titleScene.lines);
+    else lines.push('Action: the adventurers gathered together, celebrating their latest deeds in a heroic group pose.');
   }
   lines.push('');
 
@@ -212,12 +250,6 @@ export function buildScene(posts: ScenePost[], characters: SceneCharacter[], tav
     if (p.kind === 'loot' && who) {
       const loot = items(p.data.items).filter((i) => typeof i.name === 'string').map((i) => String(i.name));
       if (loot.length) details.push(`${who} proudly shows off newly won ${quoted(loot.slice(0, 3))}, faintly glowing.`);
-    } else if (p.kind === 'level_up' && who) {
-      const to = Number(p.data.to);
-      if (to >= MAX_LEVEL) details.push(`${who} has just reached max level: a golden, triumphant aura surrounds them.`);
-      else if (Math.floor(Number(p.data.from) / 10) < Math.floor(to / 10)) {
-        details.push(`${who} has just grown stronger: a subtle golden glow of power.`);
-      }
     } else if (p.kind === 'achievement' && who) {
       const names = Array.isArray(p.data.achievements)
         ? (p.data.achievements as { name?: unknown }[]).map((a) => a.name).filter((n): n is string => !!n)
@@ -244,9 +276,53 @@ export function buildScene(posts: ScenePost[], characters: SceneCharacter[], tav
   const names = cast.map((c) => c.name);
   const caption = dungeon
     ? `${dungeon}${names.length ? ` with ${list(names)}` : ''}`
-    : names.length
-      ? `${list(names)} at the tavern`
-      : 'A night at the tavern';
+    : titleScene
+      ? titleScene.caption
+      : names.length
+        ? `${list(names)} at the tavern`
+        : 'A night at the tavern';
 
   return { prompt: lines.join('\n'), references, caption, characterIds: cast.map((c) => c.id), dungeon };
+}
+
+/**
+ * The action for a title changing hands: the new holder gloating over the character they took it from (or simply
+ * crowned, when the title was free or its last holder left), with what the title is for and the scores.
+ */
+function titleAction(post: ScenePost, byId: Map<string, SceneCharacter>, cast: SceneCharacter[]) {
+  const data = post.data as TitlePostData;
+  const key = typeof data.title?.key === 'string' ? data.title.key : '';
+  const def = TITLES.find((t) => t.key === key);
+  const name = typeof data.title?.name === 'string' ? data.title.name : (def?.name ?? 'a tavern title');
+  const winner = byId.get(post.character!.id);
+  const loserId = typeof data.previous?.characterId === 'string' ? data.previous.characterId : null;
+  const loser = loserId && cast.some((c) => c.id === loserId) ? byId.get(loserId) : undefined;
+  const winnerName = winner?.name ?? post.character!.name ?? 'The winner';
+  const prop = TITLE_PROPS[key];
+  const lines: string[] = [];
+  if (loser) {
+    lines.push(
+      `Action: ${winnerName} has just taken the tavern title “${name}” from ${loser.name}, and is gloating over them: ` +
+        `${winnerName} stands tall in the centre, smug and triumphant, with a boastful pose and a cocky grin, ` +
+        `lording it over ${loser.name}, who slumps nearby, sulking, indignant and outdone. ` +
+        'Other tavern patrons look on, laughing and cheering.',
+    );
+  } else {
+    lines.push(
+      `Action: ${winnerName} has just been crowned with the tavern title “${name}” and is basking in the glory, ` +
+        'triumphant and proud, while tavern patrons cheer and raise their tankards.',
+    );
+  }
+  const details = [`The title “${name}” is awarded for: ${(def?.description ?? '').replace(/\.$/, '').toLowerCase() || 'being the best in the tavern'}.`];
+  if (typeof data.title?.value === 'string') {
+    details.push(
+      `${winnerName} won it with ${data.title.value}` +
+        (loser && typeof data.previous?.value === 'string' ? `, beating ${loser.name}’s ${data.previous.value}.` : '.'),
+    );
+  }
+  if (prop) details.push(`Show ${winnerName} ${prop}, to make clear what the title is for.`);
+  details.push(`${winnerName} wears a gaudy, makeshift tavern sash or medal for the title (no lettering on it).`);
+  lines.push(...details.map((d) => `Title: ${d}`));
+  const caption = loser ? `${winnerName} takes ${name} from ${loser.name}` : `${winnerName} is crowned ${name}`;
+  return { lines, caption };
 }

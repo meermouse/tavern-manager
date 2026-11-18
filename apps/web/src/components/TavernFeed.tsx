@@ -359,14 +359,14 @@ function useCheer(tavernId: string, viewerName: string | undefined, filters: Fee
   });
 }
 
-/** Posts worth a painting: the ones with characters in them (matches the API's PAINTABLE_KINDS). */
+/** Posts worth a painting: the ones with characters in them, bar level-ups (matches the API's PAINTABLE_KINDS). */
 export const PAINTABLE_KINDS = new Set<FeedEvent['kind']>([
   'dungeon_run',
   'dungeon_cleared',
   'loot',
-  'level_up',
   'achievement',
   'character_joined',
+  'title_gained',
 ]);
 
 /** Posts that belong to one tavern (deleting them deletes them outright), even when they're about a character. */
@@ -551,6 +551,8 @@ export function TavernFeed({
   const painting = all.some((e) => e.data.image?.status === 'pending' || e.data.image?.status === 'generating');
   const commissionFor = (e: FeedEvent): Commission | undefined => {
     if (!isAdmin || !PAINTABLE_KINDS.has(e.kind) || painted.has(e.id)) return undefined;
+    // Player titles (Altaholic) have no character to paint.
+    if (e.kind === 'title_gained' && !e.character) return undefined;
     return {
       onClick: () => {
         images.generate.reset();
