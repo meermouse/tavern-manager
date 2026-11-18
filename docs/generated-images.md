@@ -9,8 +9,8 @@ inside that dungeon, each character drawn from their Blizzard render.
 ## Using it
 
 1. On a tavern's **Feed** tab, admins see a **🎨 Commission painting** button next to **Cheers** on every post with
-   characters in it: dungeon runs and clears, loot, level-ups, achievements, characters joining and titles changing
-   hands. (Not on members joining, the tavern's founding, player titles like Altaholic, or paintings themselves.)
+   characters in it: dungeon runs and clears, loot, achievements, characters joining and titles changing hands. (Not
+   on level-ups, members joining, the tavern's founding, player titles like Altaholic, or paintings themselves.)
 2. Pressing it opens a dialog showing the **prompt** the picture will be painted from, in a box you can edit (add
    weather, change the mood, cut a line you don't like; **Reset** puts the suggested prompt back). The characters'
    renders are still sent as reference images, so keep the "Match reference image N" lines if you want their looks
@@ -40,7 +40,6 @@ Admins can also remove a finished picture. A job that hasn't finished after 20 m
 | A `dungeon_run` or `dungeon_cleared` post | The setting: an action shot inside that dungeon, with a short description of what it looks like (`dungeonScenes.ts`) |
 | That run's bosses | The final boss killed is the fight in the picture; earlier ones can appear in the background |
 | `loot` posts | The character shows off the new item, faintly glowing |
-| `level_up` posts at a milestone (every 10th level, max level) | A golden glow of power |
 | `achievement` posts | A story detail, if it can be shown |
 | `character_joined` posts | The character arriving at the tavern and being welcomed |
 | `title_gained` posts | Set in the tavern: the new holder gloating over the character they took the title from (who sulks nearby), or simply crowned if nobody held it. The prompt names the title, what it's awarded for, both characters' scores ("120 drinks, beating Judy's 118 drinks"), a prop that fits the title (a steaming dish for Head Chef, a tiny violin for Tiny Violinist, ...) and a sash or medal. Caption: "Grim takes Regular from Judy". |

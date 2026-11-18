@@ -51,6 +51,13 @@ describe('generated images', () => {
     expect((await w.alice.post(`/api/taverns/${w.tavern.id}/images`, {})).status).toBe(400);
     expect((await w.commission('999999')).status).toBe(404);
     expect((await w.commission(await w.postOf('tavern_founded'))).status).toBe(400);
+    // Level-ups are too routine to paint.
+    const [levelUp] = await w.db.query<{ id: string }>(
+      `insert into feed_events (kind, character_id, data) values ('level_up', $1, '{"from": 10, "to": 11}')
+       returning id::text as id`,
+      [w.judy.id],
+    );
+    expect((await w.commission(levelUp.id)).status).toBe(400);
     expect(w.calls).toHaveLength(0);
   });
 
@@ -240,7 +247,7 @@ describe('buildScene', () => {
     render_url: null, inset_url: null, avatar_url: null, equipment: null, ...over,
   });
 
-  it('sets a non-dungeon scene in the tavern and weaves in loot and milestones', () => {
+  it('sets a non-dungeon scene in the tavern and weaves in loot', () => {
     const thorn = ch({
       id: 't', name: 'Thorn', class: 'Rogue', race: 'Undead', gender: 'Female', level: 60,
       inset_url: 'https://render.example/thorn-inset.jpg',
@@ -253,7 +260,6 @@ describe('buildScene', () => {
     const scene = buildScene(
       [
         { id: '3', kind: 'loot', character: { id: 't', name: 'Thorn' }, data: { items: [{ name: 'Perdition’s Blade' }] } },
-        { id: '2', kind: 'level_up', character: { id: 't', name: 'Thorn' }, data: { from: 59, to: 60 } },
         { id: '1', kind: 'member_joined', character: null, data: {} },
       ],
       [thorn],
@@ -265,7 +271,7 @@ describe('buildScene', () => {
     expect(scene.prompt).toContain('Thorn, a max-level female Undead Rogue of the Horde');
     expect(scene.prompt).toContain('Carries “Perdition’s Blade” (main hand).');
     expect(scene.prompt).not.toContain('Worn Ring');
-    expect(scene.prompt).toContain('reached max level');
+    expect(scene.prompt).toContain('proudly shows off newly won “Perdition’s Blade”');
     expect(scene.references).toEqual([
       { url: 'https://render.example/thorn-inset.jpg', label: 'Thorn, Undead Rogue' },
     ]);

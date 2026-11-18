@@ -359,12 +359,11 @@ function useCheer(tavernId: string, viewerName: string | undefined, filters: Fee
   });
 }
 
-/** Posts worth a painting: the ones with characters in them (matches the API's PAINTABLE_KINDS). */
+/** Posts worth a painting: the ones with characters in them, bar level-ups (matches the API's PAINTABLE_KINDS). */
 export const PAINTABLE_KINDS = new Set<FeedEvent['kind']>([
   'dungeon_run',
   'dungeon_cleared',
   'loot',
-  'level_up',
   'achievement',
   'character_joined',
   'title_gained',

@@ -4,7 +4,7 @@ import { dungeonScene } from './dungeonScenes.js';
 /**
  * Turning feed posts into an image prompt. Only what can be painted is kept: who was there (race, class, gender,
  * faction and their render as a reference image), where (the dungeon), what they fought (bosses) and what they
- * showed off (new gear, level milestones). Numbers, IRL names, dates and cheers are left out.
+ * showed off (new gear, titles). Numbers, IRL names, dates and cheers are left out.
  */
 
 /** A feed post as `tavernFeed` returns it (only the fields used here). */
@@ -50,12 +50,11 @@ export interface Scene {
   dungeon: string | null;
 }
 
-/** Posts worth a painting: the ones with characters in them. */
+/** Posts worth a painting: the ones with characters in them (level-ups aren't, they're too routine). */
 export const PAINTABLE_KINDS = new Set([
   'dungeon_run',
   'dungeon_cleared',
   'loot',
-  'level_up',
   'achievement',
   'character_joined',
   // Character titles only: a player title (Altaholic) has nobody to paint.
@@ -166,7 +165,7 @@ const isDungeonPost = (p: ScenePost) =>
 /**
  * Build the prompt for one picture of these posts (newest first, as the feed lists them). The newest dungeon post,
  * if there is one, sets the scene: an action shot of its party in that dungeon. Otherwise it's a group scene of
- * everyone in the posts. The other posts add details: new gear to show off, milestones to celebrate.
+ * everyone in the posts. The other posts add details: new gear to show off, achievements.
  */
 export function buildScene(posts: ScenePost[], characters: SceneCharacter[], tavernName: string): Scene {
   const byId = new Map(characters.map((c) => [c.id, c]));
@@ -251,12 +250,6 @@ export function buildScene(posts: ScenePost[], characters: SceneCharacter[], tav
     if (p.kind === 'loot' && who) {
       const loot = items(p.data.items).filter((i) => typeof i.name === 'string').map((i) => String(i.name));
       if (loot.length) details.push(`${who} proudly shows off newly won ${quoted(loot.slice(0, 3))}, faintly glowing.`);
-    } else if (p.kind === 'level_up' && who) {
-      const to = Number(p.data.to);
-      if (to >= MAX_LEVEL) details.push(`${who} has just reached max level: a golden, triumphant aura surrounds them.`);
-      else if (Math.floor(Number(p.data.from) / 10) < Math.floor(to / 10)) {
-        details.push(`${who} has just grown stronger: a subtle golden glow of power.`);
-      }
     } else if (p.kind === 'achievement' && who) {
       const names = Array.isArray(p.data.achievements)
         ? (p.data.achievements as { name?: unknown }[]).map((a) => a.name).filter((n): n is string => !!n)
