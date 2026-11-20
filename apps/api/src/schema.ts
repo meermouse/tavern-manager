@@ -272,6 +272,33 @@ create table if not exists item_names (
   quality text not null,
   fetched_at timestamptz not null default now()
 );
+-- Item level, level needed and class, for the tavern market posts (null until fetched with these details).
+alter table item_names add column if not exists item_level integer;
+alter table item_names add column if not exists required_level integer;
+alter table item_names add column if not exists item_class text;
+alter table item_names add column if not exists details_at timestamptz;
+
+-- The same estimated sales split by faction ('Alliance', 'Horde', 'Neutral' from the house's name), for each
+-- tavern's local market post (see tavernMarket.ts). Kept for a few days.
+create table if not exists auction_faction_sales (
+  region text not null,
+  day text not null,
+  faction text not null,
+  item_id integer not null,
+  purchases integer not null default 0,
+  units bigint not null default 0,
+  copper bigint not null default 0,
+  primary key (region, day, faction, item_id)
+);
+-- Which taverns have had their local market post for a day, and how many runs tried (item details can take a few).
+create table if not exists auction_market_posts (
+  tavern_id uuid not null references taverns(id) on delete cascade,
+  region text not null,
+  day text not null,
+  attempts integer not null default 0,
+  posted_at timestamptz,
+  primary key (tavern_id, region, day)
+);
 
 select pg_advisory_unlock(727274);
 `;

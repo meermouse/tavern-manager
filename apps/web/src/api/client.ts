@@ -221,7 +221,8 @@ export type FeedKind =
   | 'tavern_founded'
   | 'generated_image'
   | 'title_gained'
-  | 'auction_daily';
+  | 'auction_daily'
+  | 'auction_market';
 
 /** An item in an auction house post. */
 export interface AuctionItem {
@@ -237,6 +238,8 @@ export interface AuctionSales {
   units: number;
   /** Copper spent. */
   copper: number;
+  /** Average copper paid per unit. Optional: older posts. */
+  average?: number;
 }
 
 /** auction_daily: "Yesterday on the auction house", estimated from hourly snapshots (see apps/api/src/auctionActivity.ts). */
@@ -250,6 +253,24 @@ export interface AuctionDaily {
   hottest: (AuctionItem & AuctionSales)[];
   bigSpender: (AuctionItem & AuctionSales) | null;
   priciest: (AuctionItem & { unit: number; quantity: number; going: number; house: string | null }) | null;
+}
+
+/** One group of a tavern's characters levelling together, and what sold for their level on their side. */
+export interface AuctionMarketGroup {
+  faction: 'Alliance' | 'Horde';
+  minLevel: number;
+  maxLevel: number;
+  characters: Pick<Character, 'id' | 'name' | 'surname' | 'class' | 'level' | 'avatarUrl'>[];
+  /** Zones they're probably questing in. */
+  zones: string[];
+  items: (AuctionItem & AuctionSales & { level: number })[];
+}
+
+/** auction_market: a tavern's local market, from its latest-posting characters (see apps/api/src/tavernMarket.ts). */
+export interface AuctionMarket {
+  region: string;
+  day: string;
+  groups: AuctionMarketGroup[];
 }
 
 /** An AI painting an admin commissioned of a post, and how painting it is going. */
@@ -318,7 +339,8 @@ export interface FeedEvent {
     title?: { key: string; name: string; icon: string; value: string };
     /** title_gained: whoever held the title before, if it was taken from them (`null` if it was free). */
     previous?: { characterId: string | null; player: { id: string; displayName: string }; value: string } | null;
-  } & Partial<AuctionDaily>;
+  } & Partial<AuctionDaily> &
+    Partial<AuctionMarket>;
   cheers: Cheers;
 }
 

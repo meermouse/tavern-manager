@@ -145,6 +145,10 @@ export interface ItemInfo {
   name: string;
   /** e.g. `EPIC`. */
   quality: string;
+  /** Item level, level needed to use it (0 when none) and class (e.g. "Trade Goods"). Optional: older caches. */
+  itemLevel?: number | null;
+  requiredLevel?: number | null;
+  itemClass?: string | null;
 }
 
 /** Statistic name → value. */
@@ -673,8 +677,16 @@ export function createBlizzardClient(
       if (!res.ok) throw new BlizzardError(`Blizzard item API error (${res.status})`, res.status);
       const json = (await res.json()) as Json;
       const quality = (json.quality as Json | undefined)?.type;
+      const itemClass = (json.item_class as Json | undefined)?.name;
       return typeof json.name === 'string'
-        ? { id, name: json.name, quality: typeof quality === 'string' ? quality : 'COMMON' }
+        ? {
+            id,
+            name: json.name,
+            quality: typeof quality === 'string' ? quality : 'COMMON',
+            itemLevel: typeof json.level === 'number' ? json.level : null,
+            requiredLevel: typeof json.required_level === 'number' ? json.required_level : 0,
+            itemClass: typeof itemClass === 'string' ? itemClass : null,
+          }
         : null;
     },
 

@@ -1,5 +1,6 @@
 import { postAuctionReports, recordAuctionActivity, type ListingStore } from './auctionActivity.js';
 import type { AuctionTraceStep } from './blizzard/auctions.js';
+import { postTavernMarkets } from './tavernMarket.js';
 import type { BlizzardClient } from './blizzard/client.js';
 import type { Db } from './db.js';
 
@@ -105,6 +106,7 @@ export async function refreshAuctionPrices(
       try {
         await recordAuctionActivity(db, opts.listings, region, snapshot);
         await postAuctionReports(db, blizzard, region);
+        await postTavernMarkets(db, blizzard, region);
       } catch (err) {
         console.error('Auction activity failed', err);
       }

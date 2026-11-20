@@ -209,7 +209,9 @@ export function createMockBlizzardClient(): BlizzardClient {
     },
     async getItem(_region, id) {
       const gear = MOCK_GEAR.find((g) => g.id === id);
-      return gear ? { id, name: gear.name, quality: gear.quality } : { id, name: `Mock Item ${id}`, quality: 'UNCOMMON' };
+      return gear
+        ? { id, name: gear.name, quality: gear.quality, itemLevel: gear.minLevel + 5, requiredLevel: gear.minLevel, itemClass: 'Armor' }
+        : { id, name: `Mock Item ${id}`, quality: 'UNCOMMON', itemLevel: (id % 60) + 1, requiredLevel: 0, itemClass: 'Trade Goods' };
     },
     async getProfessions(region, name, surname) {
       const profile = await client.getCharacter(region, name, surname);
