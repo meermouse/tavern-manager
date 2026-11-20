@@ -165,6 +165,12 @@ describe('Yesterday on the auction house', () => {
     }
     const [daily] = await ctx.db.query<{ comparisons: number }>('select comparisons from auction_daily where region = $1', [region]);
     expect(daily.comparisons).toBe(MIN_COMPARISONS);
+    // Also split by faction, for the tavern market posts.
+    const split = await ctx.db.query<{ faction: string; purchases: number }>(
+      'select faction, purchases from auction_faction_sales where region = $1 and item_id = $2',
+      [region, POTION],
+    );
+    expect(split).toEqual([{ faction: 'Horde', purchases: 24 }]);
 
     // Not before the day is over.
     const blizzard = createMockBlizzardClient();
@@ -182,10 +188,10 @@ describe('Yesterday on the auction house', () => {
       hours: MIN_COMPARISONS,
       totals: { purchases: 24 + 4, units: 28 },
       hottest: [
-        { id: POTION, name: 'Frayed Tavern Apron', purchases: 24, units: 24, copper: 2400 },
-        { id: SWORD, purchases: 4 },
+        { id: POTION, name: 'Frayed Tavern Apron', purchases: 24, units: 24, copper: 2400, average: 100 },
+        { id: SWORD, purchases: 4, average: 900_000 },
       ],
-      bigSpender: { id: SWORD, purchases: 4, copper: 3_600_000 },
+      bigSpender: { id: SWORD, purchases: 4, copper: 3_600_000, average: 900_000 },
       priciest: { id: SWORD, unit: 1_200_000, going: 1_000_000, house: 'Horde Auction House' },
     });
     expect(post.cheers.count).toBe(0);

@@ -68,8 +68,8 @@ describe('FeedPost', () => {
           houses: 12,
           totals: { purchases: 15000, units: 90000, copper: 123_456_789 },
           hottest: [
-            { id: 2589, name: 'Linen Cloth', quality: 'COMMON', purchases: 812, units: 9300, copper: 50_000 },
-            { id: 858, name: 'Lesser Healing Potion', quality: 'COMMON', purchases: 400, units: 400, copper: 20_000 },
+            { id: 2589, name: 'Linen Cloth', quality: 'COMMON', purchases: 812, units: 9300, copper: 50_000, average: 5 },
+            { id: 858, name: 'Lesser Healing Potion', quality: 'COMMON', purchases: 400, units: 400, copper: 20_000, average: 50 },
           ],
           bigSpender: { id: 12360, name: 'Arcanite Bar', quality: 'UNCOMMON', purchases: 30, units: 60, copper: 9_000_000 },
           priciest: { id: 12640, name: 'Lionheart Helm', quality: 'EPIC', unit: 15_000_000, quantity: 1, going: 12_000_000, house: 'Horde Auction House' },
@@ -77,14 +77,49 @@ describe('FeedPost', () => {
       }),
     );
     expect(li.textContent).toContain('Wednesday 11 November on the auction house');
-    expect(li.textContent).toContain('[Linen Cloth] ~812 sales, 9,300 units');
-    expect(li.textContent).toContain('[Lesser Healing Potion] ~400 sales');
+    expect(li.textContent).toContain('[Linen Cloth] ~812 sales, 9,300 units, avg 5c each');
+    expect(li.textContent).toContain('[Lesser Healing Potion] ~400 sales, avg 50c each');
     expect(li.textContent).not.toContain('400 units');
     expect(li.textContent).toContain('[Arcanite Bar] ~900g 0s over 30 sales');
     expect(li.textContent).toContain('[Lionheart Helm] 1,500g 0s');
     expect(li.textContent).toContain('going rate 1,200g 0s, Horde Auction House');
     expect(li.textContent).toContain('Roughly 15,000 sales worth 12,345g 67s across 12 auction houses');
     expect(li.querySelector('.q-epic')).not.toBeNull();
+  });
+
+  it("shows a tavern's local market", () => {
+    const li = renderPost(
+      post({
+        kind: 'auction_market',
+        character: null,
+        user: null,
+        data: {
+          region: 'eu',
+          day: '2026-11-11',
+          groups: [
+            {
+              faction: 'Horde',
+              minLevel: 20,
+              maxLevel: 28,
+              characters: [
+                { id: 'c2', name: 'Grimble', surname: 'Thornwick', class: 'Warrior', level: 23 },
+                { id: 'c3', name: 'Moss', surname: 'Hoof', class: 'Druid', level: 25 },
+              ],
+              zones: ['Ashenvale', 'Stonetalon Mountains'],
+              items: [
+                { id: 4306, name: 'Silk Cloth', quality: 'COMMON', purchases: 300, units: 4000, copper: 2_400_000, average: 600, level: 25 },
+                { id: 6264, name: 'Greater Adept\'s Robe', quality: 'UNCOMMON', purchases: 3, units: 3, copper: 450_000, average: 150_000, level: 23 },
+              ],
+            },
+          ],
+        },
+      }),
+    );
+    expect(li.textContent).toContain('Your local market, Wednesday 11 November');
+    expect(li.textContent).toContain('Grimble and Moss (Horde, level 23–25) · probably out in Ashenvale or Stonetalon Mountains');
+    expect(li.textContent).toContain('[Silk Cloth] avg 6s 0c each · ~300 sales, 4,000 units · level 25');
+    expect(li.textContent).toContain("[Greater Adept's Robe] avg 15g 0s · ~3 sales · level 23");
+    expect(li.textContent).toContain('on the Horde and neutral auction houses');
   });
 
   it('shows a title gained, tagging whoever it was taken from', () => {

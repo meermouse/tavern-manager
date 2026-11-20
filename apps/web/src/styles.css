@@ -218,6 +218,8 @@ td.actions { text-align: right; display: flex; gap: 0.4rem; justify-content: fle
 .auction-label { color: var(--muted, inherit); font-size: 0.85em; min-width: 9.5rem; }
 .auction-ranked { display: inline; }
 .auction-footnote { margin: 0.35rem 0 0; }
+.auction-market-group + .auction-market-group { margin-top: 0.5rem; }
+.auction-market-who { margin: 0 0 0.2rem; }
 .feed-post.loot-rare { border-left: 3px solid var(--q-rare); }
 .feed-actions { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; margin-top: 0.55rem; }
 button.cheer { display: inline-flex; align-items: center; gap: 0.35rem; border-radius: 999px; padding: 0.15rem 0.7rem; }

@@ -15,7 +15,7 @@ import { CharacterAvatar } from './CharacterAvatar';
 import { CharacterLink } from './CharacterLink';
 import { ItemLink } from './ItemLink';
 import { Coins } from './Coins';
-import type { AuctionItem } from '../api/client';
+import type { AuctionItem, AuctionSales } from '../api/client';
 import { timeAgo } from '../time';
 import { ClassName, classKey } from './ClassName';
 
@@ -37,7 +37,7 @@ function qualityLabel(q: string) {
 }
 
 function Avatar({ event }: { event: FeedEvent }) {
-  if (event.kind === 'auction_daily') {
+  if (event.kind === 'auction_daily' || event.kind === 'auction_market') {
     return (
       <div className="feed-avatar auction-avatar" aria-hidden="true">
         💰
@@ -204,6 +204,17 @@ function headline(event: FeedEvent): Headline | null {
           </>
         ),
       };
+    case 'auction_market':
+      if (!d.day || !d.groups?.length) return null;
+      return {
+        icon: '🧭',
+        className: 'auction-market',
+        text: (
+          <>
+            Your local market, <strong>{auctionDayLabel(d.day)}</strong>
+          </>
+        ),
+      };
     default:
       return null;
   }
@@ -218,6 +229,77 @@ export function auctionDayLabel(day: string): string {
 
 function AuctionItemLink({ item }: { item: AuctionItem }) {
   return <ItemLink item={{ ...item, slot: null, itemLevel: null }} />;
+}
+
+/** ", avg 5s 20c each" (per unit), for sales that say. */
+function AveragePrice({ item }: { item: AuctionSales }) {
+  if (!item.average) return null;
+  return (
+    <>
+      , avg <Coins copper={item.average} />
+      {item.units > 1 && ' each'}
+    </>
+  );
+}
+
+/** A tavern's local market: where its active characters are probably levelling, and what sold for their level. */
+function MarketDetails({ event }: { event: FeedEvent }) {
+  const groups = event.data.groups ?? [];
+  return (
+    <div className="auction-daily-details auction-market-details">
+      {groups.map((g, i) => (
+        <div key={i} className="auction-market-group">
+          <p className="small-text auction-market-who">
+            <PartyNames characters={g.characters} />{' '}
+            <span className="muted">
+              ({g.faction}, level {levelSpan(g.characters)})
+            </span>
+            {g.zones.length > 0 && (
+              <>
+                {' '}· probably out in <strong>{listOf(g.zones)}</strong>
+              </>
+            )}
+          </p>
+          {g.items.length > 0 ? (
+            <ul className="feed-items">
+              {g.items.map((item) => (
+                <li key={item.id}>
+                  <AuctionItemLink item={item} />{' '}
+                  <span>
+                    avg <Coins copper={item.average ?? 0} />
+                    {item.units > item.purchases && <span className="muted small-text"> each</span>}
+                  </span>{' '}
+                  <span className="muted small-text">
+                    · ~{plural(item.purchases, 'sale')}
+                    {item.units !== item.purchases && `, ${item.units.toLocaleString()} units`} · level {item.level}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="small-text muted">Nothing for their level sold yesterday.</p>
+          )}
+        </div>
+      ))}
+      <p className="small-text muted auction-footnote">
+        Average prices paid on the {listOf([...new Set(groups.map((g) => g.faction))])} and neutral auction houses
+        yesterday, for items within a few levels of the characters with the latest posts.
+      </p>
+    </div>
+  );
+}
+
+/** "24" or "21–27", from the characters' levels. */
+function levelSpan(characters: { level: number | null }[]): string {
+  const levels = characters.map((c) => c.level ?? 0);
+  const lo = Math.min(...levels);
+  const hi = Math.max(...levels);
+  return lo === hi ? String(lo) : `${lo}–${hi}`;
+}
+
+/** "a", "a or b", "a, b or c". */
+function listOf(items: string[]): string {
+  return items.length > 1 ? `${items.slice(0, -1).join(', ')} or ${items[items.length - 1]}` : (items[0] ?? '');
 }
 
 /** Estimated sales, best sellers and the priciest believable listing. */
@@ -238,6 +320,7 @@ function AuctionDetails({ event }: { event: FeedEvent }) {
                   <span className="muted small-text">
                     ~{plural(item.purchases, 'sale')}
                     {item.units !== item.purchases && `, ${item.units.toLocaleString()} units`}
+                    <AveragePrice item={item} />
                   </span>
                 </span>
               ))}
@@ -251,6 +334,7 @@ function AuctionDetails({ event }: { event: FeedEvent }) {
               <AuctionItemLink item={d.bigSpender} />{' '}
               <span className="muted small-text">
                 ~<Coins copper={d.bigSpender.copper} /> over {plural(d.bigSpender.purchases, 'sale')}
+                <AveragePrice item={d.bigSpender} />
               </span>
             </span>
           </li>
@@ -355,6 +439,7 @@ function GeneratedPicture({ event, actions }: { event: FeedEvent; actions?: Imag
 function Details({ event, imageActions }: { event: FeedEvent; imageActions?: ImageActions }) {
   if (event.kind === 'generated_image') return <GeneratedPicture event={event} actions={imageActions} />;
   if (event.kind === 'auction_daily') return <AuctionDetails event={event} />;
+  if (event.kind === 'auction_market') return <MarketDetails event={event} />;
   if (event.kind === 'title_gained' && event.data.title) {
     const prev = event.data.previous;
     const taken = event.data.characters?.find((c) => c.id === prev?.characterId);

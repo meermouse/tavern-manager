@@ -159,6 +159,12 @@ export interface ItemSales {
   copper: number;
 }
 
+/** Sales of one item in a post, with the average price paid per unit. */
+export type PostedSales = AuctionPostItem & ItemSales & { average: number };
+
+/** Average copper paid per unit (0 when nothing sold). */
+export const averagePrice = (s: ItemSales) => (s.units > 0 ? Math.round(s.copper / s.units) : 0);
+
 /** The least time each `time_left` band can have left, in hours: SHORT < 30m, MEDIUM < 2h, LONG < 12h, VERY_LONG < 48h. */
 const MIN_HOURS_LEFT = [0, 0.5, 2, 12];
 
@@ -300,6 +306,8 @@ export async function recordAuctionActivity(
   const houses = snapshot.listings ?? [];
   if (!houses.length) return 0;
   const totals = new Map<string, Map<number, ItemSales>>();
+  /** The same, by `${day}|${faction}`. */
+  const byFaction = new Map<string, Map<number, ItemSales>>();
   let compared = 0;
   for (const cur of houses) {
     const key = `${region}-${cur.house}`;
@@ -309,15 +317,8 @@ export async function recordAuctionActivity(
     if (sales) {
       compared++;
       const day = dayOf(cur.lastModified, now);
-      const byItem = totals.get(day) ?? new Map<number, ItemSales>();
-      for (const [item, s] of sales) {
-        const t = byItem.get(item) ?? { purchases: 0, units: 0, copper: 0 };
-        t.purchases += s.purchases;
-        t.units += s.units;
-        t.copper += s.copper;
-        byItem.set(item, t);
-      }
-      totals.set(day, byItem);
+      addSales(totals, day, sales);
+      addSales(byFaction, `${day}|${houseFaction(cur.name)}`, sales);
     }
     // Same data as last time: keep the older copy, so the gap to the next real update is measured from it.
     if (!prev || prev.lastModified !== cur.lastModified) await store.set(key, encodeHouse(cur));
@@ -327,26 +328,7 @@ export async function recordAuctionActivity(
   const days = new Set([...totals.keys(), today]);
   for (const day of days) {
     const byItem = totals.get(day);
-    const entries = byItem ? [...byItem] : [];
-    for (let i = 0; i < entries.length; i += 2000) {
-      const chunk = entries.slice(i, i + 2000);
-      await db.query(
-        `insert into auction_sales (region, day, item_id, purchases, units, copper)
-         select $1::text, $2::text, u.* from unnest($3::int[], $4::int[], $5::bigint[], $6::bigint[]) as u
-         on conflict (region, day, item_id) do update set
-           purchases = auction_sales.purchases + excluded.purchases,
-           units = auction_sales.units + excluded.units,
-           copper = auction_sales.copper + excluded.copper`,
-        [
-          region,
-          day,
-          chunk.map(([id]) => id),
-          chunk.map(([, s]) => s.purchases),
-          chunk.map(([, s]) => s.units),
-          chunk.map(([, s]) => Math.round(s.copper)),
-        ],
-      );
-    }
+    await saveSales(db, 'auction_sales', [region, day], byItem);
     // Priciest listings are a "seen today" thing, so they go on the day of this fetch.
     const pricey = day === today ? priciestListings(houses, snapshot.prices) : [];
     const [row] = await db.query<{ priciest: unknown }>(
@@ -366,9 +348,64 @@ export async function recordAuctionActivity(
       await db.query('update auction_daily set priciest = $3 where region = $1 and day = $2', [region, day, JSON.stringify(top)]);
     }
   }
-  // Two weeks is plenty of history.
+  for (const [key, byItem] of byFaction) {
+    const [day, faction] = key.split('|');
+    await saveSales(db, 'auction_faction_sales', [region, day, faction], byItem);
+  }
+  // Two weeks is plenty of history; the faction split is only needed for yesterday's tavern posts.
   await db.query(`delete from auction_sales where region = $1 and day < $2`, [region, isoDay(now, -14)]);
+  await db.query(`delete from auction_faction_sales where region = $1 and day < $2`, [region, isoDay(now, -4)]);
   return compared;
+}
+
+/** Which side an auction house serves, from its name ("Horde Auction House"); Blackwater and the like are neutral. */
+export function houseFaction(name: string | null): 'Alliance' | 'Horde' | 'Neutral' {
+  if (name && /alliance/i.test(name)) return 'Alliance';
+  if (name && /horde/i.test(name)) return 'Horde';
+  return 'Neutral';
+}
+
+function addSales(totals: Map<string, Map<number, ItemSales>>, key: string, sales: Map<number, ItemSales>) {
+  const byItem = totals.get(key) ?? new Map<number, ItemSales>();
+  for (const [item, s] of sales) {
+    const t = byItem.get(item) ?? { purchases: 0, units: 0, copper: 0 };
+    t.purchases += s.purchases;
+    t.units += s.units;
+    t.copper += s.copper;
+    byItem.set(item, t);
+  }
+  totals.set(key, byItem);
+}
+
+/** Add sales to `auction_sales` (keyed by region, day) or `auction_faction_sales` (region, day, faction). */
+async function saveSales(
+  db: Db,
+  table: 'auction_sales' | 'auction_faction_sales',
+  keys: string[],
+  byItem: Map<number, ItemSales> | undefined,
+) {
+  const entries = byItem ? [...byItem] : [];
+  const keyColumns = table === 'auction_sales' ? 'region, day' : 'region, day, faction';
+  const keyValues = keys.map((_, i) => `$${i + 1}::text`).join(', ');
+  const n = keys.length;
+  for (let i = 0; i < entries.length; i += 2000) {
+    const chunk = entries.slice(i, i + 2000);
+    await db.query(
+      `insert into ${table} (${keyColumns}, item_id, purchases, units, copper)
+       select ${keyValues}, u.* from unnest($${n + 1}::int[], $${n + 2}::int[], $${n + 3}::bigint[], $${n + 4}::bigint[]) as u
+       on conflict (${keyColumns}, item_id) do update set
+         purchases = ${table}.purchases + excluded.purchases,
+         units = ${table}.units + excluded.units,
+         copper = ${table}.copper + excluded.copper`,
+      [
+        ...keys,
+        chunk.map(([id]) => id),
+        chunk.map(([, s]) => s.purchases),
+        chunk.map(([, s]) => s.units),
+        chunk.map(([, s]) => Math.round(s.copper)),
+      ],
+    );
+  }
 }
 
 function parseJson<T>(value: unknown): T | null {
@@ -408,38 +445,68 @@ export interface AuctionDailyData {
   houses: number;
   totals: ItemSales;
   /** Most bought items, by purchases. */
-  hottest: (AuctionPostItem & ItemSales)[];
+  hottest: PostedSales[];
   /** The item the most gold was spent on. */
-  bigSpender: (AuctionPostItem & ItemSales) | null;
+  bigSpender: PostedSales | null;
   /** The most expensive believable listing seen that day. */
   priciest: (AuctionPostItem & Omit<PriceyListing, 'id'>) | null;
 }
 
-/** Names for these items, from the cache or (for ones we haven't seen) the API. Unknown ones get a placeholder. */
-async function itemInfo(db: Db, blizzard: BlizzardClient, region: string, ids: number[]): Promise<Map<number, ItemInfo>> {
+/**
+ * Names for these items, from the cache or (for ones we haven't seen) the API. With `details`, items cached before
+ * levels were kept are looked up again too. At most `budget` lookups (each in parallel batches); items that weren't
+ * looked up are left out with `placeholders: false`, or get a placeholder name.
+ */
+export async function itemInfo(
+  db: Db,
+  blizzard: BlizzardClient,
+  region: string,
+  ids: number[],
+  opts: { details?: boolean; budget?: number; placeholders?: boolean } = {},
+): Promise<Map<number, ItemInfo>> {
   const out = new Map<number, ItemInfo>();
   if (!ids.length) return out;
-  const rows = await db.query<{ id: number; name: string; quality: string }>(
-    'select id, name, quality from item_names where id = any($1::int[])',
-    [ids],
-  );
-  for (const r of rows) out.set(r.id, r);
-  for (const id of ids) {
-    if (out.has(id) || !blizzard.getItem) continue;
-    try {
-      const item = await blizzard.getItem(region as Region, id);
-      if (!item) continue;
-      out.set(id, item);
-      await db.query(
-        `insert into item_names (id, name, quality) values ($1, $2, $3)
-         on conflict (id) do update set name = excluded.name, quality = excluded.quality, fetched_at = now()`,
-        [id, item.name, item.quality],
+  const rows = await db.query<{
+    id: number;
+    name: string;
+    quality: string;
+    item_level: number | null;
+    required_level: number | null;
+    item_class: string | null;
+    details_at: Date | string | null;
+  }>('select id, name, quality, item_level, required_level, item_class, details_at from item_names where id = any($1::int[])', [ids]);
+  const stale = new Set<number>();
+  for (const r of rows) {
+    out.set(r.id, { id: r.id, name: r.name, quality: r.quality, itemLevel: r.item_level, requiredLevel: r.required_level, itemClass: r.item_class });
+    if (opts.details && !r.details_at) stale.add(r.id);
+  }
+  const missing = ids.filter((id) => !out.has(id) || stale.has(id)).slice(0, opts.budget ?? Infinity);
+  if (blizzard.getItem) {
+    for (let i = 0; i < missing.length; i += 8) {
+      await Promise.all(
+        missing.slice(i, i + 8).map(async (id) => {
+          try {
+            const item = await blizzard.getItem!(region as Region, id);
+            if (!item) return;
+            out.set(id, item);
+            await db.query(
+              `insert into item_names (id, name, quality, item_level, required_level, item_class, details_at)
+               values ($1, $2, $3, $4, $5, $6, now())
+               on conflict (id) do update set name = excluded.name, quality = excluded.quality,
+                 item_level = excluded.item_level, required_level = excluded.required_level,
+                 item_class = excluded.item_class, details_at = now(), fetched_at = now()`,
+              [id, item.name, item.quality, item.itemLevel ?? null, item.requiredLevel ?? null, item.itemClass ?? null],
+            );
+          } catch (err) {
+            console.warn(`Item ${id} lookup failed:`, err instanceof Error ? err.message : err);
+          }
+        }),
       );
-    } catch (err) {
-      console.warn(`Item ${id} lookup failed:`, err instanceof Error ? err.message : err);
     }
   }
-  for (const id of ids) if (!out.has(id)) out.set(id, { id, name: `Item #${id}`, quality: 'COMMON' });
+  if (opts.placeholders !== false) {
+    for (const id of ids) if (!out.has(id)) out.set(id, { id, name: `Item #${id}`, quality: 'COMMON' });
+  }
   return out;
 }
 
@@ -496,14 +563,13 @@ async function buildReport(
   const info = await itemInfo(db, blizzard, region, [
     ...new Set([...hottest.map((r) => r.item_id), ...(spender ? [spender.item_id] : []), ...pricey.map((p) => p.id)]),
   ]);
-  const withSales = (r: Row) => ({
-    ...info.get(r.item_id)!,
-    purchases: Number(r.purchases),
-    units: Number(r.units),
-    copper: Number(r.copper),
-  });
+  const withSales = (r: Row): PostedSales => postedSales(info.get(r.item_id)!, r);
   // Grey items are vendor trash however they're priced.
   const top = pricey.find((p) => info.get(p.id)?.quality !== 'POOR');
+  const named = (id: number) => {
+    const { name, quality } = info.get(id)!;
+    return { id, name, quality };
+  };
   return {
     region,
     day,
@@ -512,6 +578,15 @@ async function buildReport(
     totals: { purchases: Number(totals?.purchases ?? 0), units: Number(totals?.units ?? 0), copper: Number(totals?.copper ?? 0) },
     hottest: hottest.map(withSales),
     bigSpender: spender ? withSales(spender) : null,
-    priciest: top ? { ...info.get(top.id)!, unit: top.unit, quantity: top.quantity, going: top.going, house: top.house } : null,
+    priciest: top ? { ...named(top.id), unit: top.unit, quantity: top.quantity, going: top.going, house: top.house } : null,
   };
+}
+
+/** An item's sales as posted: its name and quality, the totals and the average price per unit. */
+export function postedSales(
+  item: ItemInfo,
+  r: { purchases: string | number; units: string | number; copper: string | number },
+): PostedSales {
+  const sales = { purchases: Number(r.purchases), units: Number(r.units), copper: Number(r.copper) };
+  return { id: item.id, name: item.name, quality: item.quality, ...sales, average: averagePrice(sales) };
 }
