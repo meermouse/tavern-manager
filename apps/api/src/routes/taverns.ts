@@ -1,7 +1,7 @@
 import { randomInt } from 'node:crypto';
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
-import { GEAR_VALUE_SQL, itemPrices } from '../prices.js';
+import { TITLE_GEAR_VALUE_SQL, itemPrices } from '../prices.js';
 import { awardTitles, FEED_POSTS_SQL, tavernTitles } from '../titles.js';
 import { badRequest, jsonBody, requireUser, uuidParam, type AppDeps, type AppEnv } from '../context.js';
 import { deleteTavernPost, eventVisibleInTavern, FEED_KINDS, recordEvent, setCheer, tavernFeed, type FeedKind } from '../feed.js';
@@ -46,7 +46,7 @@ export function tavernRoutes({ db, blizzard }: AppDeps) {
     const isAdmin = (memberId: string) =>
       memberId === tavern.owner_id || members.some((m) => m.user_id === memberId && m.is_admin);
     const characters = await db.query<CharacterRow & { owner_name: string; irl_name: string | null; feed_posts: number; gear_value: number | null }>(
-      `select c.*, ${IRL_NAME_SQL} as owner_name, tc.irl_name, ${FEED_POSTS_SQL} as feed_posts, ${GEAR_VALUE_SQL} as gear_value from tavern_characters tc
+      `select c.*, ${IRL_NAME_SQL} as owner_name, tc.irl_name, ${FEED_POSTS_SQL} as feed_posts, ${TITLE_GEAR_VALUE_SQL} as gear_value from tavern_characters tc
        join characters c on c.id = tc.character_id
        join users u on u.id = c.user_id
        where tc.tavern_id = $1
