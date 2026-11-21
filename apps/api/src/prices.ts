@@ -31,6 +31,12 @@ const ITEM_VALUE = `case when ${AUCTION_PRICED} then p.price else nullif((eq->>'
  */
 export const GEAR_VALUE_SQL = `(select sum(${ITEM_VALUE})::float8 from ${EQUIPPED})`;
 
+/** Slots that are only for show: a pricey shirt or tabard doesn't make you Moneybags. */
+const COSMETIC_SLOTS = `upper(replace(coalesce(eq->>'slot', ''), ' ', '_')) in ('SHIRT', 'TABARD')`;
+
+/** {@link GEAR_VALUE_SQL} without the shirt and tabard slots, for the Moneybags title. */
+export const TITLE_GEAR_VALUE_SQL = `(select sum(${ITEM_VALUE}) filter (where not ${COSMETIC_SLOTS})::float8 from ${EQUIPPED})`;
+
 /** How many of character `c`'s equipped items have an auction price, as a select-list subquery. */
 export const GEAR_PRICED_SQL = `(select count(*) filter (where ${AUCTION_PRICED})::int from ${EQUIPPED})`;
 

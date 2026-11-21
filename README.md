@@ -82,7 +82,7 @@ Players sign in with their Battle.net account, add their characters, and join a 
   | 🗡️ **The Butcher** | Most kills (creatures killed, if there's no total) |
   | ⚔️ **Not completely useless** | Best kill/death ratio (kills ÷ total deaths, no deaths counting as one), at least 100 kills |
   | ✨ **Best Dressed** | Highest average (equipped) item level |
-  | 💰 **Moneybags** | Most valuable equipped gear at auction house prices (see Net worth) |
+  | 💰 **Moneybags** | Most valuable equipped gear at auction house prices, not counting the shirt and tabard slots (see Net worth) |
   | 📣 **Town Crier** | Most feed posts (level-ups, loot, achievements) |
   | 👻 **Gone Fishin’** | Longest since last logging in, at least a day |
 

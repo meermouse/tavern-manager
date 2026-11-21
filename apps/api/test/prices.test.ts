@@ -196,6 +196,29 @@ describe('gear net worth', () => {
     expect(details.gearValue).toBe(2003);
   });
 
+  it('leaves the shirt and tabard out of Moneybags, but not out of net worth', async () => {
+    const { db, login } = await setup();
+    const alice = await login('Alice#1234');
+    const judy = (await alice.post('/api/characters', { name: 'Judgement', surname: 'Judy' })).body;
+    const tavern = (await alice.post('/api/taverns', { name: 'The Prancing Pony' })).body;
+    await alice.put(`/api/taverns/${tavern.id}/characters/${judy.id}`);
+    await db.query('update characters set equipment = $2::jsonb where id = $1', [
+      judy.id,
+      JSON.stringify([
+        { id: 1, name: 'Tuxedo Shirt', quality: 'COMMON', slot: 'Shirt', sellPrice: 100 },
+        { id: 2, name: 'Guild Tabard', quality: 'COMMON', slot: 'TABARD', sellPrice: 200 },
+        { id: 3, name: 'Wolfskin Bracers', quality: 'UNCOMMON', slot: 'Wrist', sellPrice: 6 },
+      ]),
+    ]);
+    await db.query(`insert into auction_prices (region, item_id, price, listings) values ('eu', 1, 500000, 1), ('eu', 3, 2000, 4)`);
+
+    const entry = (await alice.get(`/api/taverns/${tavern.id}/leaderboard`)).body[0];
+    expect(entry.gearValue).toBe(500000 + 200 + 2000);
+    const detail = (await alice.get(`/api/taverns/${tavern.id}`)).body;
+    const moneybags = detail.titles.find((t: { key: string }) => t.key === 'moneybags');
+    expect(moneybags.standings[0]).toMatchObject({ holder: true, score: 2000 });
+  });
+
   it('records a failure and doesn’t retry straight away', async () => {
     const { db } = await setup();
     let calls = 0;

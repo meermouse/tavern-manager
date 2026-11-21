@@ -1,7 +1,7 @@
 import type { CharacterProfession } from './blizzard/client.js';
 import type { Db } from './db.js';
 import { recordEvent } from './feed.js';
-import { GEAR_VALUE_SQL } from './prices.js';
+import { TITLE_GEAR_VALUE_SQL } from './prices.js';
 
 /**
  * Tavern titles: held by whichever character (or player) in a tavern currently leads a stat. They're worked out
@@ -25,7 +25,7 @@ export interface TitleCandidate {
   last_login_at?: Date | string | null;
   /** Level-ups, loot and achievement posts in the feed. */
   feed_posts?: number | null;
-  /** Equipped gear at auction house prices, in copper (`null`: nothing priced). */
+  /** Equipped gear (not shirt or tabard) at auction house prices, in copper (`null`: nothing priced). */
   gear_value?: number | null;
 }
 
@@ -266,7 +266,7 @@ export const TITLES: TitleDef[] = [
     key: 'moneybags',
     name: 'Moneybags',
     icon: '💰',
-    description: 'Most valuable equipped gear in the tavern, at auction house prices.',
+    description: 'Most valuable equipped gear in the tavern (not counting shirts and tabards), at auction house prices.',
     subject: 'character',
     score: ({ gearValue }) => gearValue,
     format: (n) => `${formatGold(n)} of gear`,
@@ -517,7 +517,7 @@ export async function userTitles(db: Db, userId: string) {
   const rows = await db.query<TitleCandidate & { tavern_id: string; tavern_name: string; name: string; surname: string }>(
     `select tc.tavern_id, t.name as tavern_name, c.id, c.user_id, c.name, c.surname, c.statistics, c.professions,
        c.item_level, c.last_login_at, u.display_name as owner_name, ${FEED_POSTS_SQL} as feed_posts,
-       ${GEAR_VALUE_SQL} as gear_value
+       ${TITLE_GEAR_VALUE_SQL} as gear_value
      from tavern_members m
      join taverns t on t.id = m.tavern_id
      join tavern_characters tc on tc.tavern_id = m.tavern_id
