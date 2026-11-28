@@ -394,3 +394,27 @@ describe('deleting a post', () => {
     expect(screen.queryByRole('button', { name: 'Delete this post' })).toBeNull();
   });
 });
+
+describe('player posts', () => {
+  it('shows what a player wrote as themselves, with their pictures', () => {
+    const li = renderPost(
+      post({
+        kind: 'user_post',
+        character: null,
+        data: { text: 'Deadmines tonight?\nBring snacks', images: [{ id: 'i1', url: '/api/taverns/t1/posts/images/i1' }] },
+      }),
+    );
+    expect(li.querySelector('.feed-headline')!.textContent).toContain('Alice');
+    expect(li.querySelector('.feed-text')!.textContent).toBe('Deadmines tonight?\nBring snacks');
+    const img = li.querySelector('.feed-gallery img') as HTMLImageElement;
+    expect(img.getAttribute('src')).toBe('/api/taverns/t1/posts/images/i1');
+    expect(img.alt).toBe('Picture 1 posted by Alice');
+  });
+
+  it('names the character when posted as one, and the player beside it', () => {
+    const li = renderPost(post({ kind: 'user_post', data: { text: 'For the Light!' } }));
+    expect(li.querySelector('.feed-headline')!.textContent).toContain('Judgement Judy');
+    expect(li.querySelector('.feed-meta')!.textContent).toContain('Alice');
+    expect(li.querySelector('.feed-gallery')).toBeNull();
+  });
+});

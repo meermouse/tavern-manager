@@ -7,6 +7,7 @@ import { characterRoutes } from './routes/characters.js';
 import { imageRoutes } from './routes/images.js';
 import { leaderboardRoutes } from './routes/leaderboard.js';
 import { meRoutes } from './routes/me.js';
+import { postRoutes } from './routes/posts.js';
 import { priceRoutes } from './routes/prices.js';
 import { runRoutes } from './routes/runs.js';
 import { tavernRoutes } from './routes/taverns.js';
@@ -42,6 +43,7 @@ export function createApp(deps: AppDeps) {
   app.route('/api', leaderboardRoutes(deps));
   app.route('/api', runRoutes(deps));
   app.route('/api', imageRoutes(deps));
+  app.route('/api', postRoutes(deps));
   app.route('/api', priceRoutes(deps));
 
   app.notFound((c) => c.json({ error: 'Not found' }, 404));

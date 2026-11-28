@@ -11,6 +11,7 @@ import { DUNGEON_VIEWS, TavernDungeons, type DungeonView } from '../components/D
 import { AuctionPriceStatus } from '../components/AuctionPriceStatus';
 import { LeaderboardTable } from '../components/LeaderboardTable';
 import { FeedFilterBar, toFeedFilters, useFeedFilters } from '../components/FeedFilters';
+import { PostComposer } from '../components/PostComposer';
 import { TavernFeed } from '../components/TavernFeed';
 import { TitlesView } from '../components/TitlesView';
 import { RoleIcons } from '../components/RoleIcons';
@@ -263,11 +264,14 @@ const VIEWS: [View, string][] = [
 function FeedView({
   tavernId,
   characters,
+  postAs,
   viewer,
   include,
 }: {
   tavernId: string;
   characters: TavernCharacter[];
+  /** The viewer's characters in the tavern (whatever the faction filter), which they can post as. */
+  postAs: TavernCharacter[];
   viewer: Me | null | undefined;
   include?: (e: FeedEvent) => boolean;
 }) {
@@ -275,8 +279,15 @@ function FeedView({
   const apiFilters = useMemo(() => toFeedFilters(filters), [filters]);
   return (
     <div className="stack feed-view">
+      {viewer && <PostComposer tavernId={tavernId} viewer={viewer} characters={postAs} />}
       <FeedFilterBar value={filters} onChange={setFilters} characters={characters} viewerId={viewer?.id} />
-      <TavernFeed tavernId={tavernId} viewerName={viewer?.displayName} include={include} filters={apiFilters} />
+      <TavernFeed
+        tavernId={tavernId}
+        viewerId={viewer?.id}
+        viewerName={viewer?.displayName}
+        include={include}
+        filters={apiFilters}
+      />
     </div>
   );
 }
@@ -367,6 +378,7 @@ export function TavernDetailPage() {
             <FeedView
               tavernId={t.id}
               characters={visible}
+              postAs={t.characters.filter((c) => c.ownerId === me.data?.id)}
               viewer={me.data}
               include={faction === 'both' ? undefined : includePost}
             />

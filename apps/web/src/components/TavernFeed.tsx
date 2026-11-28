@@ -204,6 +204,8 @@ function headline(event: FeedEvent): Headline | null {
           </>
         ),
       };
+    case 'user_post':
+      return { icon: '💬', className: 'user-post', text: event.character ? <CharName event={event} /> : user };
     case 'auction_market':
       if (!d.day || !d.groups?.length) return null;
       return {
@@ -436,7 +438,28 @@ function GeneratedPicture({ event, actions }: { event: FeedEvent; actions?: Imag
   );
 }
 
+/** A player's own post: what they wrote and any pictures, each opening full size. */
+function UserPostBody({ event }: { event: FeedEvent }) {
+  const { text, images = [] } = event.data;
+  const author = event.character ? event.character.name : (event.user?.displayName ?? 'someone');
+  return (
+    <>
+      {text && <p className="feed-text">{text}</p>}
+      {images.length > 0 && (
+        <div className={`feed-gallery${images.length === 1 ? ' single' : ''}`}>
+          {images.map((img, i) => (
+            <a key={img.id} href={img.url} target="_blank" rel="noreferrer" title="Open full size">
+              <img src={img.url} alt={`Picture ${i + 1} posted by ${author}`} loading="lazy" />
+            </a>
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
+
 function Details({ event, imageActions }: { event: FeedEvent; imageActions?: ImageActions }) {
+  if (event.kind === 'user_post') return <UserPostBody event={event} />;
   if (event.kind === 'generated_image') return <GeneratedPicture event={event} actions={imageActions} />;
   if (event.kind === 'auction_daily') return <AuctionDetails event={event} />;
   if (event.kind === 'auction_market') return <MarketDetails event={event} />;
@@ -547,7 +570,7 @@ export const PAINTABLE_KINDS = new Set<FeedEvent['kind']>([
 ]);
 
 /** Posts that belong to one tavern (deleting them deletes them outright), even when they're about a character. */
-const TAVERN_KINDS = new Set<FeedEvent['kind']>(['character_joined', 'generated_image', 'title_gained']);
+const TAVERN_KINDS = new Set<FeedEvent['kind']>(['character_joined', 'generated_image', 'title_gained', 'user_post']);
 
 /** Admins only: the post's "Commission painting" button. */
 export interface Commission {
@@ -570,7 +593,7 @@ export function FeedPost({
   /** Admins only: retry or remove a generated picture. */
   imageActions?: ImageActions;
   commission?: Commission;
-  /** Admins only: ask to delete the post (the caller confirms first). */
+  /** Admins, or the author of a player's post: ask to delete the post (the caller confirms first). */
   onDelete?: () => void;
 }) {
   const head = headline(event);
@@ -684,11 +707,14 @@ const NO_FILTERS: FeedFilters = {};
 
 export function TavernFeed({
   tavernId,
+  viewerId,
   viewerName,
   include,
   filters = NO_FILTERS,
 }: {
   tavernId: string;
+  /** Lets you delete your own posts. */
+  viewerId?: string;
   viewerName?: string;
   /** Optional filter, e.g. the tavern's faction filter; posts it rejects are hidden. */
   include?: (event: FeedEvent) => boolean;
@@ -750,8 +776,8 @@ export function TavernFeed({
       <div className="card feed-empty">
         <p>Nothing has happened here yet.</p>
         <p className="muted small-text">
-          Level-ups, new rare and epic gear, and achievements will show up here as characters are refreshed. Blizzard
-          only updates a character when they log out.
+          Write the first post above. Level-ups, new rare and epic gear, and achievements will show up here as
+          characters are refreshed. Blizzard only updates a character when they log out.
         </p>
       </div>
     );
@@ -774,7 +800,7 @@ export function TavernFeed({
             imageActions={imageActions}
             commission={commissionFor(e)}
             onDelete={
-              isAdmin
+              isAdmin || (e.kind === 'user_post' && !!viewerId && e.user?.id === viewerId)
                 ? () => {
                     deletePost.reset();
                     setDeleting(e);

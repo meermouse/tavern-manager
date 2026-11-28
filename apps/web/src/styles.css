@@ -842,3 +842,30 @@ button.details-portrait.enlargeable:hover .enlarge-hint, button.details-portrait
 .auction-status { margin-top: 1rem; }
 .auction-status summary { cursor: pointer; font-weight: 600; }
 .auction-status code { word-break: break-all; }
+
+/* ---- Players' own posts ---- */
+.visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.post-composer { display: flex; flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: 0.6rem; padding: 0.85rem 1rem; }
+.post-composer-head { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.post-composer-head select { min-width: 0; max-width: 100%; flex: 0 1 auto; }
+.post-composer textarea {
+  display: block; box-sizing: border-box; width: 100%; min-height: 4.5rem; max-height: 50vh; resize: vertical;
+  font: inherit; color: var(--text); background: var(--bg-input); border: 1px solid var(--border); border-radius: 6px; padding: 0.5rem 0.6rem;
+}
+.post-composer textarea:focus { outline: none; border-color: var(--accent); }
+.post-composer-images { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.post-composer-images li { position: relative; }
+.post-composer-images img { display: block; width: 5.5rem; height: 5.5rem; object-fit: cover; border-radius: 6px; border: 1px solid var(--border); }
+.post-composer-remove {
+  position: absolute; top: 0.2rem; right: 0.2rem; width: 1.5rem; height: 1.5rem; padding: 0; border-radius: 50%;
+  display: grid; place-items: center; line-height: 1; font-size: 1rem; background: rgba(0, 0, 0, 0.65); color: #fff; border: none;
+}
+.post-composer-actions { display: flex; align-items: center; gap: 0.6rem; }
+.post-composer-count { margin-left: auto; }
+.post-composer .error { margin: 0; }
+.feed-text { margin: 0.35rem 0 0; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.45; }
+.feed-gallery { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.35rem; margin: 0.55rem 0 0; max-width: 480px; }
+.feed-gallery.single { grid-template-columns: minmax(0, 1fr); }
+.feed-gallery a { display: block; }
+.feed-gallery img { display: block; width: 100%; height: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-input); }
+.feed-gallery.single img { aspect-ratio: auto; max-height: 480px; object-fit: contain; }
