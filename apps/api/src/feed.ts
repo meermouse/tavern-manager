@@ -16,7 +16,8 @@ export type FeedKind =
   | 'generated_image'
   | 'title_gained'
   | 'auction_daily'
-  | 'auction_market';
+  | 'auction_market'
+  | 'user_post';
 
 /**
  * Bump when `parseEquipment` starts keeping more detail, so gear saved by an older version is re-fetched once
@@ -212,6 +213,7 @@ export const FEED_KINDS: readonly FeedKind[] = [
   'title_gained',
   'auction_daily',
   'auction_market',
+  'user_post',
 ];
 
 /** Ids of the characters a post is about: its own character, plus a group run's party or a painting's cast. */
@@ -241,6 +243,7 @@ const SEARCHABLE_PATHS = [
   'lax $.priciest.name',
   'lax $.groups[*].items[*].name',
   'lax $.groups[*].zones[*]',
+  'lax $.text',
 ];
 
 /** An `ilike` pattern matching `text` anywhere, with `%`, `_` and `\` taken literally. */
@@ -413,7 +416,7 @@ async function feedEvents(
           }
         : null,
       user: r.owner_id ? { id: r.owner_id, displayName: r.owner_name } : null,
-      data: withImage(r, withItemDetails(typeof r.data === 'string' ? JSON.parse(r.data) : r.data, r.equipment)),
+      data: withPostImages(r, withImage(r, withItemDetails(typeof r.data === 'string' ? JSON.parse(r.data) : r.data, r.equipment))),
       cheers: cheersOf(r),
     })),
     nextCursor: rows.length > opts.limit ? page[page.length - 1].id : null,
@@ -432,6 +435,18 @@ function withImage(r: FeedRow, data: Record<string, unknown>): Record<string, un
       // The attempt number makes a retried picture a new URL, so caches don't keep the old one.
       url: r.image_status === 'ready' ? `/api/taverns/${r.tavern_id}/images/${r.image_id}?v=${r.image_attempts ?? 1}` : null,
     },
+  };
+}
+
+/** Players' own posts: where to load each attached picture from. */
+function withPostImages(r: FeedRow, data: Record<string, unknown>): Record<string, unknown> {
+  if (r.kind !== 'user_post' || !r.tavern_id || !Array.isArray(data.images)) return data;
+  return {
+    ...data,
+    images: (data.images as { id: string }[]).map((img) => ({
+      ...img,
+      url: `/api/taverns/${r.tavern_id}/posts/images/${img.id}`,
+    })),
   };
 }
 

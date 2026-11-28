@@ -167,12 +167,23 @@ export function tavernRoutes({ db, blizzard }: AppDeps) {
     });
   }
 
-  /** Admin-only: delete a post from the tavern's feed (a character's post is only hidden from this tavern). */
+  /**
+   * Delete a post from the tavern's feed: admins can delete any (a character's post is only hidden from this tavern),
+   * and players their own posts.
+   */
   app.delete('/taverns/:id/feed/:eventId', async (c) => {
     const user = requireUser(c);
-    const tavern = await adminTavern(db, uuidParam(c, 'id'), user.id);
+    const tavern = await membership(uuidParam(c, 'id'), user.id);
     const eventId = c.req.param('eventId');
-    if (!/^\d{1,18}$/.test(eventId) || !(await deleteTavernPost(db, tavern.id, eventId, user.id))) {
+    if (!/^\d{1,18}$/.test(eventId)) throw new HTTPException(404, { message: 'Post not found' });
+    if (!tavern.is_admin) {
+      const [own] = await db.query(
+        `select 1 from feed_events where id = $1::bigint and tavern_id = $2 and kind = 'user_post' and user_id = $3`,
+        [eventId, tavern.id, user.id],
+      );
+      if (!own) throw new HTTPException(403, { message: 'Only tavern admins can delete other people’s posts' });
+    }
+    if (!(await deleteTavernPost(db, tavern.id, eventId, user.id))) {
       throw new HTTPException(404, { message: 'Post not found' });
     }
     return c.json({ ok: true });

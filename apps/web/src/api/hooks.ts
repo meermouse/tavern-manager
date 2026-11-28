@@ -1,5 +1,5 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
-import { api, ApiError, type Character, type FeedFilters, type NewDungeonRun, type Role } from './client';
+import { api, ApiError, type Character, type FeedFilters, type NewDungeonRun, type NewPost, type Role } from './client';
 
 export const keys = {
   me: ['me'] as const,
@@ -114,7 +114,16 @@ export function useTavernFeed(id: string, filters: FeedFilters = {}) {
   });
 }
 
-/** Admin only: delete a post from the tavern's feed. */
+/** Post to a tavern's feed. */
+export function useCreatePost(tavernId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (post: NewPost) => api.createPost(tavernId, post),
+    onSuccess: () => qc.invalidateQueries({ queryKey: keys.feed(tavernId) }),
+  });
+}
+
+/** Delete a post from the tavern's feed (admins: any post; players: their own). */
 export function useDeleteFeedPost(tavernId: string) {
   const qc = useQueryClient();
   return useMutation({

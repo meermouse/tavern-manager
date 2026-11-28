@@ -222,7 +222,8 @@ export type FeedKind =
   | 'generated_image'
   | 'title_gained'
   | 'auction_daily'
-  | 'auction_market';
+  | 'auction_market'
+  | 'user_post';
 
 /** An item in an auction house post. */
 export interface AuctionItem {
@@ -339,6 +340,10 @@ export interface FeedEvent {
     title?: { key: string; name: string; icon: string; value: string };
     /** title_gained: whoever held the title before, if it was taken from them (`null` if it was free). */
     previous?: { characterId: string | null; player: { id: string; displayName: string }; value: string } | null;
+    /** user_post: what the player wrote (may be empty when there are pictures). */
+    text?: string;
+    /** user_post: the pictures attached to it, in order. */
+    images?: { id: string; url: string }[];
   } & Partial<AuctionDaily> &
     Partial<AuctionMarket>;
   cheers: Cheers;
@@ -374,6 +379,13 @@ export interface NewDungeonRun {
   bosses: string[];
   cleared: boolean;
   notes?: string;
+}
+
+/** A player's own feed post. */
+export interface NewPost {
+  text: string;
+  images: string[];
+  characterId: string | null;
 }
 
 export interface Cheers {
@@ -483,7 +495,9 @@ export const api = {
     request<{ prompt: string }>('POST', `/api/taverns/${tavernId}/images/preview`, { eventId }),
   retryImage: (tavernId: string, imageId: string) =>
     request<{ ok: true }>('POST', `/api/taverns/${tavernId}/images/${imageId}/retry`),
-  /** Admin only: delete a post from the tavern's feed (a character's post is only hidden from this tavern). */
+  /** Post to a tavern's feed as yourself, or (`characterId`) as one of your characters there. `images` are data URLs. */
+  createPost: (tavernId: string, post: NewPost) => request<FeedEvent>('POST', `/api/taverns/${tavernId}/posts`, post),
+  /** Delete a post from the tavern's feed: admins any (a character's post is only hidden from this tavern), players their own. */
   deleteFeedPost: (tavernId: string, eventId: string) =>
     request<{ ok: true }>('DELETE', `/api/taverns/${tavernId}/feed/${eventId}`),
   deleteImage: (tavernId: string, imageId: string) =>

@@ -6,6 +6,7 @@ import { classKey } from './ClassName';
 
 /** The post types the filter offers, each covering one or more kinds of post. */
 export const POST_TYPES = [
+  { key: 'posts', label: 'Posts', icon: '💬', kinds: ['user_post'] },
   { key: 'levels', label: 'Level ups', icon: '⬆️', kinds: ['level_up'] },
   { key: 'loot', label: 'Loot', icon: '💎', kinds: ['loot'] },
   { key: 'achievements', label: 'Achievements', icon: '🏆', kinds: ['achievement'] },

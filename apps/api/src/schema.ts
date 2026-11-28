@@ -300,6 +300,18 @@ create table if not exists auction_market_posts (
   primary key (tavern_id, region, day)
 );
 
+-- Pictures players attach to their own feed posts ('user_post'; see routes/posts.ts). Deleting the post deletes them.
+create table if not exists post_images (
+  id uuid primary key default gen_random_uuid(),
+  tavern_id uuid not null references taverns(id) on delete cascade,
+  event_id bigint not null references feed_events(id) on delete cascade,
+  position integer not null default 0,
+  content_type text not null,
+  image bytea not null,
+  created_at timestamptz not null default now()
+);
+create index if not exists post_images_event_idx on post_images(event_id, position);
+
 select pg_advisory_unlock(727274);
 `;
 
